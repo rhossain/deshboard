@@ -96,4 +96,23 @@ test("HTML headline extraction keeps best text and page order", () => {
   );
 });
 
+test("HTML: hidden headings, timestamps and overlay links", () => {
+  const html = `<html><body>
+    <a href="/education/news/1"><h1 style="display:none">jagonews24</h1><h2> শিক্ষাপ্রতিষ্ঠান জাতীয়করণে নীতিমালা</h2></a>
+    <a href="/campus/news/2"><h3>রাজশাহী বিশ্ববিদ্যালয়ে হামলা, আহত ১০<time>২ ঘণ্টা আগে</time></h3></a>
+    <a href="/campus/news/3">দ্বিতীয় শিরোনাম, আহত ৫<span class="time-ago">২ ঘণ্টা আগে</span></a>
+    <div class="card"><a href="/national/801407"></a><img src="x.jpg"><h3>প্রতিটি সিটি করপোরেশনে মাস্টারপ্ল্যান</h3></div>
+  </body></html>`;
+  const items = extractHeadlines(html, "https://www.site.test/", "^/[a-z-]+/(news/)?\\d+$");
+  assert.deepEqual(
+    items.map((i) => i.title),
+    [
+      "শিক্ষাপ্রতিষ্ঠান জাতীয়করণে নীতিমালা",
+      "রাজশাহী বিশ্ববিদ্যালয়ে হামলা, আহত ১০",
+      "দ্বিতীয় শিরোনাম, আহত ৫",
+      "প্রতিটি সিটি করপোরেশনে মাস্টারপ্ল্যান",
+    ],
+  );
+});
+
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);
