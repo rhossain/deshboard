@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BD News Desk
 
-## Getting Started
+Headlines + links from Bangladeshi news portals, built with **Next.js 16** (App Router) and **Tailwind CSS v4**.
 
-First, run the development server:
+Sources were verified on 5 Oct 2026 (see `docs/bd-news-sources.xlsx`): 64 portals checked, **48 active**:
+
+| Method   | Portals | How it works                                                                 |
+| -------- | ------: | ---------------------------------------------------------------------------- |
+| RSS      |      16 | RSS 2.0 / Atom / RDF feed                                                    |
+| Sitemap  |      12 | Google News sitemap (`news:title` + `loc`), incl. one-file-per-day sitemaps  |
+| HTML     |      20 | Homepage links whose path matches a per-site `articlePattern` regex          |
+
+The other 16 (blocked, stale or JS-only) are kept in `src/lib/sources.ts` with method `unclear` / `unavailable` and are not fetched.
+
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm run check      # live health check of every active source (table output)
+npm test           # offline parser tests
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npm run check -- prothomalo jugantor` checks specific sources; add `--json` for JSON.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `GET /api/news` — `{ items, statuses, generatedAt }`
+  - `?lang=bn|en`, `?source=id1,id2`, `?refresh=1` (bypass cache)
+- `GET /api/sources` — all 64 portals with method, URL and notes
 
-## Learn More
+Each item: `{ title, link, publishedAt?, sourceId, sourceName, lang }`. HTML-scraped items have no `publishedAt`.
 
-To learn more about Next.js, take a look at the following resources:
+## How it fits together
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/lib/sources.ts         source list (edit here to add/fix a portal)
+src/lib/news.ts            fetch orchestration, in-memory cache (10 min, 1 min for failures), concurrency 8
+src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 detection
+src/lib/fetchers/rss.ts    RSS/Atom/RDF parser
+src/lib/fetchers/sitemap.ts Google News sitemap parser
+src/lib/fetchers/html.ts   homepage headline extractor (cheerio)
+src/components/NewsBoard.tsx  UI: by-source cards, latest timeline, filters, search
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Fixing an HTML source
 
-## Deploy on Vercel
+If `npm run check` reports `No headlines matched articlePattern`, open the site, copy a few article URLs and update
+that source's `articlePattern` (it is tested against the URL **pathname**, e.g. `^/article/\d+`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Config
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `NEWS_CACHE_SECONDS` (default `600`) — how long each source's result is reused.
+
+## Notes
+
+- Fetching happens server-side, so it needs normal internet access from wherever the app runs. Some portals block
+  datacenter IPs; results from a Bangladeshi server or your own machine may differ from a cloud host.
+- Showing headlines with links back to the source is the usual aggregator pattern; respect each site's terms and
+  `robots.txt`, keep the cache on and don't poll aggressively.

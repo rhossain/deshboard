@@ -1,0 +1,419 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Lang, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
+import { fullTime, timeAgo } from "./time";
+
+type View = "sources" | "latest";
+type LangFilter = "all" | Lang;
+
+interface NewsResponse {
+  items: NewsItem[];
+  statuses: SourceStatus[];
+  generatedAt: string;
+}
+
+const AUTO_REFRESH_MS = 10 * 60 * 1000;
+const PER_CARD = 8;
+
+const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", html: "HTML" };
+
+async function requestNews(force: boolean): Promise<NewsResponse> {
+  const res = await fetch(`/api/news${force ? "?refresh=1" : ""}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Server returned ${res.status}`);
+  return (await res.json()) as NewsResponse;
+}
+
+export function NewsBoard({ sources }: { sources: NewsSource[] }) {
+  const [data, setData] = useState<NewsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<View>("sources");
+  const [lang, setLang] = useState<LangFilter>("all");
+  const [query, setQuery] = useState("");
+  const [onlySource, setOnlySource] = useState<string>("");
+  const [showFailures, setShowFailures] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  const onResult = useCallback((d: NewsResponse) => {
+    setData(d);
+    setError(null);
+    setNow(Date.now());
+    setLoading(false);
+  }, []);
+
+  const onError = useCallback((err: unknown) => {
+    setError(err instanceof Error ? err.message : String(err));
+    setLoading(false);
+  }, []);
+
+  const load = useCallback(
+    (force = false) => {
+      setLoading(true);
+      requestNews(force).then(onResult, onError);
+    },
+    [onResult, onError],
+  );
+
+  useEffect(() => {
+    let active = true;
+    requestNews(false).then(
+      (d) => active && onResult(d),
+      (e) => active && onError(e),
+    );
+    const refresh = setInterval(() => load(), AUTO_REFRESH_MS);
+    const tick = setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      active = false;
+      clearInterval(refresh);
+      clearInterval(tick);
+    };
+  }, [load, onResult, onError]);
+
+  const sourceById = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources]);
+  const statusById = useMemo(() => new Map((data?.statuses ?? []).map((s) => [s.sourceId, s])), [data]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (data?.items ?? []).filter(
+      (it) =>
+        (lang === "all" || it.lang === lang) &&
+        (!onlySource || it.sourceId === onlySource) &&
+        (!q || it.title.toLowerCase().includes(q)),
+    );
+  }, [data, lang, onlySource, query]);
+
+  const visibleSources = useMemo(
+    () => sources.filter((s) => (lang === "all" || s.lang === lang) && (!onlySource || s.id === onlySource)),
+    [sources, lang, onlySource],
+  );
+
+  const statuses = data?.statuses ?? [];
+  const okCount = statuses.filter((s) => s.ok).length;
+  const failures = statuses.filter((s) => !s.ok);
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
+      {/* Header */}
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line py-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">BD News Desk</h1>
+          <p className="mt-1 text-sm text-muted">
+            Headlines from {sources.length} Bangladeshi news portals · RSS, news sitemaps and homepages
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {data && (
+            <span className="text-xs text-muted" title={fullTime(data.generatedAt)}>
+              Updated {timeAgo(data.generatedAt, now)}
+            </span>
+          )}
+          <button
+            onClick={() => load(true)}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60 dark:text-black"
+          >
+            <RefreshIcon spinning={loading} />
+            {loading ? "Fetching…" : "Refresh"}
+          </button>
+        </div>
+      </header>
+
+      {/* Status bar */}
+      {data && (
+        <div className="mt-4 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <Stat label="sources OK" value={`${okCount}/${statuses.length}`} />
+            <Stat label="headlines" value={data.items.length.toLocaleString()} />
+            {failures.length > 0 && (
+              <button
+                onClick={() => setShowFailures((v) => !v)}
+                className="text-danger underline-offset-2 hover:underline"
+              >
+                {failures.length} failed {showFailures ? "▲" : "▼"}
+              </button>
+            )}
+          </div>
+          {showFailures && failures.length > 0 && (
+            <ul className="mt-3 grid gap-1 border-t border-line pt-3 text-xs sm:grid-cols-2">
+              {failures.map((f) => (
+                <li key={f.sourceId} className="flex gap-2">
+                  <span className="font-medium">{f.sourceName}</span>
+                  <span className="text-muted">— {f.error}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="sticky top-0 z-10 -mx-4 mt-4 flex flex-wrap items-center gap-3 bg-background/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+        <Segmented
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "sources", label: "By source" },
+            { value: "latest", label: "Latest" },
+          ]}
+        />
+        <Segmented
+          value={lang}
+          onChange={setLang}
+          options={[
+            { value: "all", label: "All" },
+            { value: "bn", label: "বাংলা" },
+            { value: "en", label: "English" },
+          ]}
+        />
+        <select
+          value={onlySource}
+          onChange={(e) => setOnlySource(e.target.value)}
+          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm"
+          aria-label="Filter by source"
+        >
+          <option value="">All sources</option>
+          {sources
+            .filter((s) => lang === "all" || s.lang === lang)
+            .map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+        </select>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search headlines… / শিরোনাম খুঁজুন"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent sm:max-w-xs"
+        />
+      </div>
+
+      {error && (
+        <p className="mt-6 rounded-lg border border-danger/40 bg-surface p-4 text-sm text-danger">
+          Could not load news: {error}
+        </p>
+      )}
+
+      {!data && loading && <SkeletonGrid />}
+
+      {data && view === "latest" && <LatestList items={filtered} sourceById={sourceById} now={now} />}
+
+      {data && view === "sources" && (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {visibleSources.map((s) => (
+            <SourceCard
+              key={s.id}
+              source={s}
+              status={statusById.get(s.id)}
+              items={filtered.filter((i) => i.sourceId === s.id)}
+              filtering={!!query.trim()}
+              now={now}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LatestList({
+  items,
+  sourceById,
+  now,
+}: {
+  items: NewsItem[];
+  sourceById: Map<string, NewsSource>;
+  now: number;
+}) {
+  const dated = items
+    .filter((i) => i.publishedAt)
+    .sort((a, b) => b.publishedAt!.localeCompare(a.publishedAt!))
+    .slice(0, 300);
+  const undated = items.length - items.filter((i) => i.publishedAt).length;
+
+  return (
+    <section className="mt-4">
+      {undated > 0 && (
+        <p className="mb-3 text-xs text-muted">
+          Showing dated headlines only. {undated.toLocaleString()} headlines from homepage-scraped sources have no
+          timestamp; see them in “By source”.
+        </p>
+      )}
+      <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+        {dated.map((it) => (
+          <li key={it.link} className="flex gap-4 px-4 py-3 hover:bg-accent-soft/50">
+            <time
+              dateTime={it.publishedAt}
+              title={fullTime(it.publishedAt)}
+              className="w-24 shrink-0 pt-0.5 text-xs tabular-nums text-muted"
+            >
+              {timeAgo(it.publishedAt, now)}
+            </time>
+            <div className="min-w-0">
+              <a
+                href={it.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium leading-snug hover:text-accent hover:underline"
+              >
+                {it.title}
+              </a>
+              <div className="mt-0.5 text-xs text-muted">{sourceById.get(it.sourceId)?.name ?? it.sourceName}</div>
+            </div>
+          </li>
+        ))}
+        {dated.length === 0 && <li className="px-4 py-8 text-center text-sm text-muted">No headlines match.</li>}
+      </ol>
+    </section>
+  );
+}
+
+function SourceCard({
+  source,
+  status,
+  items,
+  filtering,
+  now,
+}: {
+  source: NewsSource;
+  status?: SourceStatus;
+  items: NewsItem[];
+  filtering: boolean;
+  now: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  if (filtering && items.length === 0) return null;
+  const shown = expanded ? items : items.slice(0, PER_CARD);
+
+  return (
+    <article className="flex flex-col rounded-xl border border-line bg-surface">
+      <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+        <div className="min-w-0">
+          <a
+            href={source.homepage}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block truncate font-semibold hover:text-accent"
+          >
+            {source.name}
+          </a>
+          <p className="text-xs text-muted">
+            {source.kind} · {source.lang === "bn" ? "বাংলা" : "English"}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+            {METHOD_LABEL[source.method] ?? source.method}
+          </span>
+          <span
+            className={`h-2 w-2 rounded-full ${!status ? "bg-line" : status.ok ? "bg-accent" : "bg-danger"}`}
+            title={status ? (status.ok ? `${status.count} items` : status.error) : "Loading"}
+          />
+        </div>
+      </header>
+
+      {status && !status.ok ? (
+        <p className="px-4 py-4 text-sm text-danger">{status.error}</p>
+      ) : (
+        <ul className="flex-1 divide-y divide-line">
+          {shown.map((it) => (
+            <li key={it.link} className="px-4 py-2.5">
+              <a
+                href={it.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[15px] leading-snug hover:text-accent hover:underline"
+              >
+                {it.title}
+              </a>
+              {it.publishedAt && (
+                <time
+                  dateTime={it.publishedAt}
+                  title={fullTime(it.publishedAt)}
+                  className="mt-0.5 block text-xs text-muted"
+                >
+                  {timeAgo(it.publishedAt, now)}
+                </time>
+              )}
+            </li>
+          ))}
+          {status?.ok && items.length === 0 && <li className="px-4 py-4 text-sm text-muted">No headlines.</li>}
+        </ul>
+      )}
+
+      {items.length > PER_CARD && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="border-t border-line px-4 py-2 text-left text-xs font-medium text-accent hover:underline"
+        >
+          {expanded ? "Show less" : `Show all ${items.length}`}
+        </button>
+      )}
+    </article>
+  );
+}
+
+function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-line bg-surface p-0.5" role="group">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
+          className={`rounded-md px-3 py-1.5 text-sm transition ${
+            value === o.value ? "bg-accent text-white dark:text-black" : "text-muted hover:text-foreground"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <span>
+      <span className="font-semibold tabular-nums">{value}</span> <span className="text-muted">{label}</span>
+    </span>
+  );
+}
+
+function RefreshIcon({ spinning }: { spinning: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      className={`h-4 w-4 ${spinning ? "animate-spin" : ""}`}
+      aria-hidden
+    >
+      <path d="M16.5 10a6.5 6.5 0 1 1-1.9-4.6M16.5 3.5v3.9h-3.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SkeletonGrid() {
+  return (
+    <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy>
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className="h-72 animate-pulse rounded-xl border border-line bg-surface" />
+      ))}
+      <p className="col-span-full text-center text-sm text-muted">
+        Fetching headlines from all sources… the first load can take 10–20 seconds.
+      </p>
+    </div>
+  );
+}
