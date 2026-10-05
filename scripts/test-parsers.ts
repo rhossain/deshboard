@@ -7,12 +7,17 @@ import { categorize } from "../src/lib/categories";
 import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
-import { parseDate, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
+import { fullTime, timeAgo } from "../src/components/time";
+import { articleUrl } from "../src/lib/article";
+import { cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
 import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filters";
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
+import { newsQueryFrom } from "../src/lib/news";
+import { sourceProblem } from "../src/lib/problems";
+import { SHARE_TARGETS, sharePath } from "../src/lib/share";
 import { findStories, keywords } from "../src/lib/stories";
-import type { NewsItem } from "../src/lib/types";
+import type { NewsItem, NewsSource, SourceStatus } from "../src/lib/types";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -264,6 +269,113 @@ test("filters: URL round trip, unknown values ignored", () => {
     DEFAULT_FILTERS,
   );
   assert.equal(filtersToSearch(DEFAULT_FILTERS), "");
+});
+
+test("share: path round trip, most specific outlet wins", () => {
+  const segs = (link: string) => sharePath(link).slice("/s/".length).split("/");
+  assert.equal(sharePath("https://www.prothomalo.com/bangladesh/abc"), "/s/www.prothomalo.com/bangladesh/abc");
+
+  const pa = articleUrl(segs("https://www.prothomalo.com/bangladesh/abc"));
+  assert.equal(pa?.source.id, "prothomalo");
+  assert.equal(pa?.url.href, "https://www.prothomalo.com/bangladesh/abc");
+  assert.equal(articleUrl(segs("https://prothomalo.com/x"))?.source.id, "prothomalo");
+  assert.equal(articleUrl(segs("https://bangla.thedailystar.net/news-123456"))?.source.id, "dailystar-bn");
+  assert.equal(articleUrl(segs("https://www.tbsnews.net/bangla/x-123456"))?.source.id, "tbs-bn");
+  assert.equal(articleUrl(segs("https://www.tbsnews.net/economy/x-123456"))?.source.id, "tbs");
+  assert.equal(articleUrl(segs("https://www.tbsnews.net/banglax/1"))?.source.id, "tbs");
+});
+
+test("share: links to other sites are refused", () => {
+  for (const path of [
+    "evil.test/x",
+    "prothomalo.com.evil.test/x",
+    "evilprothomalo.com/x",
+    "www.prothomalo.com@evil.test/x",
+    "evil.test/www.prothomalo.com/x",
+    "",
+  ]) {
+    assert.equal(articleUrl(path ? path.split("/") : []), null, path);
+  }
+});
+
+test("share targets put the link and title in the URL", () => {
+  const url = "https://deshboard.test/s/www.prothomalo.com/a?b=1&c";
+  for (const t of SHARE_TARGETS) {
+    const href = t.href(url, "শিরোনাম & title");
+    assert.ok(href.startsWith("https://"), t.id);
+    assert.ok(href.includes(encodeURIComponent(url)), t.id);
+  }
+  const wa = SHARE_TARGETS.find((t) => t.id === "whatsapp")!;
+  assert.equal(new URL(wa.href(url, "Title")).searchParams.get("text"), `Title\n${url}`);
+});
+
+test("news query from the request URL", () => {
+  assert.deepEqual(newsQueryFrom("http://x.test/api/news"), { lang: undefined, sourceIds: undefined, force: false });
+  assert.deepEqual(newsQueryFrom("http://x.test/api/news?lang=bn&source=a,%20b,,&refresh=1"), {
+    lang: "bn",
+    sourceIds: ["a", "b"],
+    force: true,
+  });
+  assert.equal(newsQueryFrom("http://x.test/?lang=fr").lang, undefined);
+  assert.equal(newsQueryFrom("http://x.test/?refresh=true").force, false);
+});
+
+test("source problems explain the technical reason", () => {
+  const source = (over: Partial<NewsSource>): NewsSource => ({
+    id: "s",
+    name: "S",
+    lang: "en",
+    kind: "Online",
+    homepage: "https://s.test",
+    method: "rss",
+    url: "https://s.test/feed",
+    ...over,
+  });
+  const fine = source({});
+  assert.equal(sourceProblem(fine), undefined);
+  assert.equal(sourceProblem(fine, { sourceId: "s", ok: true } as SourceStatus), undefined);
+
+  const blocked = sourceProblem(source({ method: "unavailable", url: undefined, notes: "HTTP 402 on everything (bot blocking)" }));
+  assert.match(blocked!.message, /^Not available\. The site is blocking automated access/);
+  assert.equal(blocked!.detail, "HTTP 402 on everything (bot blocking)");
+
+  const failed = (error: string) => sourceProblem(fine, { sourceId: "s", ok: false, error } as SourceStatus)!.message;
+  assert.match(failed("getaddrinfo ENOTFOUND s.test"), /could not be reached; its address/);
+  assert.match(failed("HTTP 429"), /limiting requests/);
+  assert.match(failed("HTTP 503"), /having problems/);
+  assert.match(failed("Timed out after 15000ms"), /too long/);
+  assert.match(failed("something odd"), /^Couldn't load headlines\. The site returned an unexpected response\.$/);
+});
+
+test("timeAgo: past, future and missing times", () => {
+  const now = Date.parse("2026-10-05T12:00:00Z");
+  const ago = (s: number) => timeAgo(new Date(now - s * 1000).toISOString(), now);
+  assert.equal(timeAgo(undefined, now), "");
+  assert.equal(ago(30), "just now");
+  assert.equal(ago(-30), "just now");
+  assert.equal(ago(5 * 60), "5 minutes ago");
+  assert.equal(ago(3 * 3600), "3 hours ago");
+  assert.equal(ago(26 * 3600), "yesterday");
+  assert.equal(ago(-2 * 3600), "in 2 hours");
+  assert.equal(fullTime("2026-10-05T12:00:00Z"), "5 Oct 2026, 18:00");
+});
+
+test("utils: titles, URLs and dedupe", () => {
+  assert.equal(cleanTitle("<![CDATA[ <b>Rain</b>&nbsp;&amp; floods&#39; toll ]]>"), "Rain & floods' toll");
+  assert.equal(cleanTitle({ "#text": "  a\n b " }), "a b");
+  assert.equal(resolveUrl("/news/1#top", "https://site.test/home"), "https://site.test/news/1");
+  assert.equal(resolveUrl("javascript:alert(1)", "https://site.test"), undefined);
+  assert.equal(resolveUrl("mailto:a@b.test", "https://site.test"), undefined);
+
+  const deduped = dedupeByLink([
+    { link: "https://www.tbsnews.net/bangla/x-1", sourceId: "tbs" },
+    { link: "http://tbsnews.net/bangla/x-1/", sourceId: "tbs-bn" },
+    { link: "https://www.tbsnews.net/bangla/x-2", sourceId: "tbs-bn" },
+  ]);
+  assert.deepEqual(
+    deduped.map((d) => d.sourceId),
+    ["tbs", "tbs-bn"],
+  );
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);
