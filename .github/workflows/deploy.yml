@@ -1,9 +1,9 @@
 name: Deploy
 
 # Collects fresh headlines, builds the static site (the static-export branch) and commits it to the
-# `deploy` branch under public_html/. Hostinger's Git deployment (hPanel → Advanced → GIT, connected
-# with GitHub, branch `deploy`, root directory `public_html`, auto-deployment on) publishes each new
-# commit. Turned on by setting the SITE_URL repository variable.
+# `deploy` branch. Hostinger's Git deployment (hPanel → Advanced → GIT, connected with GitHub, branch
+# `deploy`, auto-deployment on) copies the branch into the site's web folder on each new commit, so
+# the site's files sit at the top of the branch. Turned on by setting the SITE_URL repository variable.
 #
 # GitHub runs scheduled workflows only from the default branch, so this same file also lives on main:
 # from either branch it builds static-export.
@@ -60,10 +60,7 @@ jobs:
             git init --quiet -b deploy site
             git -C site remote add origin "$REPO"
           fi
-          # Only public_html/ is published; nothing else belongs on the branch.
-          find site -mindepth 1 -maxdepth 1 ! -name .git ! -name public_html -exec rm -rf {} +
-          mkdir -p site/public_html
-          rsync -a --delete out/ site/public_html/
+          rsync -a --delete --exclude .git out/ site/
           cd site
           git add -A
           if git diff --cached --quiet; then
