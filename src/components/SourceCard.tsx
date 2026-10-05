@@ -12,7 +12,7 @@ const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", h
 
 /**
  * One source's headlines. With `collapsible` (phones), tapping the header folds the card down to
- * its lead headline; unavailable sources start folded. A search or category filter opens every card
+ * just its header; unavailable sources start folded. A search or category filter opens every card
  * so matches are never hidden.
  */
 export function SourceCard({
@@ -133,36 +133,34 @@ export function SourceCard({
           </ul>
         </Fold>
       ) : (
-        <>
+        <Fold open={!collapsed}>
           {lead && (
             <div className="border-t border-line">
               <Headline item={lead} now={now} lead />
             </div>
           )}
-          <Fold open={!collapsed}>
-            {rest.length > 0 && (
-              <ul className="border-t border-line">
-                {rest.map((it) => (
-                  <li key={it.link} className="border-b border-line last:border-b-0">
-                    <Headline item={it} now={now} />
-                  </li>
-                ))}
-              </ul>
-            )}
-            {status?.ok && items.length === 0 && <p className="px-4 pb-6 text-sm text-muted">No headlines.</p>}
-            {items.length > PER_CARD && (
-              <button
-                type="button"
-                onClick={() => setShowAll((v) => !v)}
-                aria-expanded={showAll}
-                className="flex min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2"
-              >
-                {showAll ? "Show less" : `Show all ${items.length}`}
-                <ChevronIcon className={`h-4 w-4 transition ${showAll ? "rotate-180" : ""}`} />
-              </button>
-            )}
-          </Fold>
-        </>
+          {rest.length > 0 && (
+            <ul className="border-t border-line">
+              {rest.map((it) => (
+                <li key={it.link} className="border-b border-line last:border-b-0">
+                  <Headline item={it} now={now} />
+                </li>
+              ))}
+            </ul>
+          )}
+          {status?.ok && items.length === 0 && <p className="px-4 pb-6 text-sm text-muted">No headlines.</p>}
+          {items.length > PER_CARD && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              aria-expanded={showAll}
+              className="flex min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2"
+            >
+              {showAll ? "Show less" : `Show all ${items.length}`}
+              <ChevronIcon className={`h-4 w-4 transition ${showAll ? "rotate-180" : ""}`} />
+            </button>
+          )}
+        </Fold>
       )}
     </article>
   );
