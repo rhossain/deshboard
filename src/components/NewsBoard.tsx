@@ -549,8 +549,6 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
           {hasData && (
             <>
               <span className="whitespace-nowrap">
-                <b className="font-semibold tabular-nums text-foreground">{allItems.length.toLocaleString()}</b>{" "}
-                headlines <span aria-hidden>·</span>{" "}
                 <b className="font-semibold tabular-nums text-foreground">
                   {okCount}/{fetchedCount}
                 </b>{" "}
