@@ -12,6 +12,11 @@ Sources were verified on 5 Oct 2026 (see `docs/bd-news-sources.xlsx`): 64 portal
 
 The other 16 (blocked, stale or JS-only) are kept in `src/lib/sources.ts` with method `unclear` / `unavailable` and are not fetched.
 
+Sources are fetched and shown in the order set by `PRIORITY` in `src/lib/sources.ts` (Prothom Alo, The Daily Star,
+Daily Sun, Jugantor, …), followed by the rest in list order. On the board, sources that are not fetched or whose fetch
+failed move to the end with a plain-language reason (`src/lib/problems.ts`); "Newest first" orders cards by their
+latest headline instead.
+
 ## Run
 
 ```bash
@@ -46,6 +51,7 @@ feeds have no tags (e.g. Manab Zamin, BSS, Daily Observer) always end up in `oth
 ```
 src/lib/sources.ts         source list (edit here to add/fix a portal)
 src/lib/categories.ts      section-name synonyms → main categories
+src/lib/problems.ts        reader-facing explanations for unavailable / failed sources
 src/lib/news.ts            fetch orchestration, in-memory cache (10 min, 1 min for failures), concurrency 8
 src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 detection
 src/lib/fetchers/rss.ts    RSS/Atom/RDF parser

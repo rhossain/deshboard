@@ -2,7 +2,7 @@
 // `{YYYY-MM-DD}` in a URL is replaced with the current date in Asia/Dhaka.
 import type { NewsSource } from "./types";
 
-export const SOURCES: NewsSource[] = [
+const LISTED: NewsSource[] = [
   {id: "prothomalo", name: "Prothom Alo", lang: "bn", kind: "Newspaper", homepage: "https://www.prothomalo.com", method: "rss", url: "https://www.prothomalo.com/feed/", notes: "Live RSS 2.0"},
   {id: "prothomalo-en", name: "Prothom Alo English", lang: "en", kind: "Newspaper", homepage: "https://en.prothomalo.com", method: "rss", url: "https://en.prothomalo.com/feed/", notes: "Live but only ~2 items; poll often"},
   {id: "dailystar", name: "The Daily Star", lang: "en", kind: "Newspaper", homepage: "https://www.thedailystar.net", method: "html", url: "https://www.thedailystar.net/", articlePattern: "/news/.+-\\d{5,}$", notes: "/rss.xml stale (newest 1 Jun 2026); /frontpage/rss.xml stale (2022)"},
@@ -69,7 +69,29 @@ export const SOURCES: NewsSource[] = [
   {id: "dhakatribune-bn", name: "Dhaka Tribune Bangla", lang: "bn", kind: "Newspaper", homepage: "https://bangla.dhakatribune.com", method: "sitemap", url: "https://bangla.dhakatribune.com/news-sitemap.xml", notes: "Google News sitemap"},
 ];
 
-export const ACTIVE_SOURCES = SOURCES.filter((s) => s.method === "rss" || s.method === "sitemap" || s.method === "html");
+/** Shown (and fetched) first, in this order. Everything else follows in list order. */
+const PRIORITY = [
+  "prothomalo", "prothomalo-en",
+  "dailystar-bn", "dailystar",
+  "dailysun", "jugantor", "kalerkantho", "observerbd", "mzamin", "ittefaq", "banglanews24", "kalbela",
+  "amadershomoy", "amardesh", "bd-pratidin", "nayadiganta", "bonikbarta", "bhorerkagoj", "inqilab",
+  "deshrupantor", "sarabangla", "somoynews",
+];
+
+function rank(id: string) {
+  const i = PRIORITY.indexOf(id);
+  return i === -1 ? PRIORITY.length : i;
+}
+
+// Array.prototype.sort is stable, so sources outside PRIORITY keep their list order.
+export const SOURCES: NewsSource[] = [...LISTED].sort((a, b) => rank(a.id) - rank(b.id));
+
+/** Sources with method `unclear` / `unavailable` are listed but never fetched. */
+export function isFetched(s: NewsSource): boolean {
+  return s.method === "rss" || s.method === "sitemap" || s.method === "html";
+}
+
+export const ACTIVE_SOURCES = SOURCES.filter(isFetched);
 
 export function getSource(id: string) {
   return SOURCES.find((s) => s.id === id);

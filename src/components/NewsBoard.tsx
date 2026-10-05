@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
+import { sourceProblem } from "@/lib/problems";
+import { isFetched } from "@/lib/sources";
 import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult, SourceStatus } from "@/lib/types";
 import { fullTime, timeAgo } from "./time";
 
 type View = "sources" | "latest";
 type LangFilter = "all" | Lang;
+type Order = "default" | "newest";
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const PER_CARD = 8;
@@ -45,6 +48,7 @@ async function streamNews(
   return generatedAt;
 }
 
+/** `sources` is every listed portal in display order; only the fetchable ones are requested. */
 export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   // Latest result per source; on refresh each one is replaced as its new result arrives.
   const [results, setResults] = useState<Map<string, SourceResult>>(() => new Map());
@@ -53,6 +57,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   const [received, setReceived] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("sources");
+  const [order, setOrder] = useState<Order>("default");
   const [lang, setLang] = useState<LangFilter>("all");
   const [query, setQuery] = useState("");
   const [onlySource, setOnlySource] = useState<string>("");
@@ -146,13 +151,17 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
     return map;
   }, [filtered]);
 
-  // Sources with the most recent headline come first; sources without dates go last.
+  const fetchedCount = useMemo(() => sources.filter(isFetched).length, [sources]);
+
+  // Default: the configured source order. "Newest": the source with the most recent headline first.
+  // Either way, sources that are not fetched or failed go last.
   const visibleSources = useMemo(() => {
     const latest = (id: string) => itemsBySource.get(id)?.[0]?.publishedAt ?? "";
+    const broken = (s: NewsSource) => (sourceProblem(s, statusById.get(s.id)) ? 1 : 0);
     return sources
       .filter((s) => (lang === "all" || s.lang === lang) && (!onlySource || s.id === onlySource))
-      .sort((a, b) => latest(b.id).localeCompare(latest(a.id)));
-  }, [sources, lang, onlySource, itemsBySource]);
+      .sort((a, b) => broken(a) - broken(b) || (order === "newest" ? latest(b.id).localeCompare(latest(a.id)) : 0));
+  }, [sources, lang, onlySource, itemsBySource, statusById, order]);
 
   const okCount = statuses.filter((s) => s.ok).length;
   const failures = statuses.filter((s) => !s.ok);
@@ -164,7 +173,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">BD News Desk</h1>
           <p className="mt-1 text-sm text-muted">
-            Headlines from {sources.length} Bangladeshi news portals · RSS, news sitemaps and homepages
+            Headlines from {fetchedCount} Bangladeshi news portals · RSS, news sitemaps and homepages
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -179,7 +188,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
             className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60 dark:text-black"
           >
             <RefreshIcon spinning={loading} />
-            {loading ? `Fetching… ${received}/${sources.length}` : "Refresh"}
+            {loading ? `Fetching… ${received}/${fetchedCount}` : "Refresh"}
           </button>
         </div>
       </header>
@@ -188,7 +197,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
       {hasData && (
         <div className="mt-4 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <Stat label="sources OK" value={`${okCount}/${sources.length}`} />
+            <Stat label="sources OK" value={`${okCount}/${fetchedCount}`} />
             <Stat label="headlines" value={allItems.length.toLocaleString()} />
             {failures.length > 0 && (
               <button
@@ -201,12 +210,18 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
           </div>
           {showFailures && failures.length > 0 && (
             <ul className="mt-3 grid gap-1 border-t border-line pt-3 text-xs sm:grid-cols-2">
-              {failures.map((f) => (
-                <li key={f.sourceId} className="flex gap-2">
-                  <span className="font-medium">{f.sourceName}</span>
-                  <span className="text-muted">— {f.error}</span>
-                </li>
-              ))}
+              {failures.map((f) => {
+                const source = sourceById.get(f.sourceId);
+                const problem = source && sourceProblem(source, f);
+                return (
+                  <li key={f.sourceId} className="flex gap-2">
+                    <span className="font-medium">{f.sourceName}</span>
+                    <span className="text-muted" title={f.error}>
+                      — {problem?.message ?? f.error}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -222,6 +237,16 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
             { value: "latest", label: "Latest" },
           ]}
         />
+        {view === "sources" && (
+          <Segmented
+            value={order}
+            onChange={setOrder}
+            options={[
+              { value: "default", label: "Default order" },
+              { value: "newest", label: "Newest first" },
+            ]}
+          />
+        )}
         <Segmented
           value={lang}
           onChange={setLang}
@@ -243,6 +268,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
             .map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
+                {isFetched(s) ? "" : " (unavailable)"}
               </option>
             ))}
         </select>
@@ -374,9 +400,11 @@ function SourceCard({
   const [expanded, setExpanded] = useState(false);
   if (filtering && items.length === 0) return null;
   const shown = expanded ? items : items.slice(0, PER_CARD);
+  const problem = sourceProblem(source, status);
+  const pending = !problem && !status;
 
   return (
-    <article className="flex flex-col rounded-xl border border-line bg-surface">
+    <article className={`flex flex-col rounded-xl border border-line bg-surface ${problem ? "opacity-80" : ""}`}>
       <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div className="min-w-0">
           <a
@@ -392,24 +420,37 @@ function SourceCard({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-            {METHOD_LABEL[source.method] ?? source.method}
-          </span>
+          {METHOD_LABEL[source.method] && (
+            <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+              {METHOD_LABEL[source.method]}
+            </span>
+          )}
           <span
-            className={`h-2 w-2 rounded-full ${!status ? "bg-line" : status.ok ? "bg-accent" : "bg-danger"}`}
-            title={status ? (status.ok ? `${status.count} items` : status.error) : "Loading"}
+            className={`h-2 w-2 rounded-full ${problem ? "bg-danger" : pending ? "bg-line" : "bg-accent"}`}
+            title={problem ? problem.message : pending ? "Loading" : `${status?.count} items`}
           />
         </div>
       </header>
 
-      {!status ? (
+      {problem ? (
+        <div className="flex-1 px-4 py-4 text-sm">
+          <p className="text-danger">{problem.message}</p>
+          {problem.detail && <p className="mt-1 text-xs text-muted">Details: {problem.detail}</p>}
+          <a
+            href={source.homepage}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+          >
+            Visit {new URL(source.homepage).host.replace(/^www\./, "")} →
+          </a>
+        </div>
+      ) : pending ? (
         <ul className="flex-1 space-y-3 px-4 py-4" aria-busy aria-label="Loading headlines">
           {Array.from({ length: 4 }, (_, i) => (
             <li key={i} className="h-4 animate-pulse rounded bg-line" style={{ width: `${90 - i * 12}%` }} />
           ))}
         </ul>
-      ) : !status.ok ? (
-        <p className="px-4 py-4 text-sm text-danger">{status.error}</p>
       ) : (
         <ul className="flex-1 divide-y divide-line">
           {shown.map((it) => (
