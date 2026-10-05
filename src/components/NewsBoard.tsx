@@ -1,18 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
-import type { Lang, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
+import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult, SourceStatus } from "@/lib/types";
 import { fullTime, timeAgo } from "./time";
 
 type View = "sources" | "latest";
 type LangFilter = "all" | Lang;
-
-interface NewsResponse {
-  items: NewsItem[];
-  statuses: SourceStatus[];
-  generatedAt: string;
-}
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const PER_CARD = 8;
@@ -21,15 +15,42 @@ const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 
 const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", html: "HTML" };
 
-async function requestNews(force: boolean): Promise<NewsResponse> {
-  const res = await fetch(`/api/news${force ? "?refresh=1" : ""}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Server returned ${res.status}`);
-  return (await res.json()) as NewsResponse;
+/** Read /api/news/stream, calling `onSource` for each source as it arrives. Resolves with `generatedAt`. */
+async function streamNews(
+  force: boolean,
+  signal: AbortSignal,
+  onSource: (result: SourceResult) => void,
+): Promise<string> {
+  const res = await fetch(`/api/news/stream${force ? "?refresh=1" : ""}`, { cache: "no-store", signal });
+  if (!res.ok || !res.body) throw new Error(`Server returned ${res.status}`);
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  let generatedAt = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += value;
+    let nl: number;
+    while ((nl = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+      const msg = JSON.parse(line) as NewsStreamMessage;
+      if (msg.type === "source") onSource(msg.result);
+      else generatedAt = msg.generatedAt;
+    }
+  }
+  if (!generatedAt) throw new Error("Connection closed before all sources were fetched");
+  return generatedAt;
 }
 
 export function NewsBoard({ sources }: { sources: NewsSource[] }) {
-  const [data, setData] = useState<NewsResponse | null>(null);
+  // Latest result per source; on refresh each one is replaced as its new result arrives.
+  const [results, setResults] = useState<Map<string, SourceResult>>(() => new Map());
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [received, setReceived] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("sources");
   const [lang, setLang] = useState<LangFilter>("all");
@@ -38,55 +59,69 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   const [category, setCategory] = useState<Category | "">("");
   const [showFailures, setShowFailures] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const controllerRef = useRef<AbortController | null>(null);
 
-  const onResult = useCallback((d: NewsResponse) => {
-    setData(d);
-    setError(null);
-    setNow(Date.now());
-    setLoading(false);
-  }, []);
+  /** Start streaming. State is only set from callbacks, so this is safe to call from an effect. */
+  const start = useCallback((force: boolean) => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
 
-  const onError = useCallback((err: unknown) => {
-    setError(err instanceof Error ? err.message : String(err));
-    setLoading(false);
+    streamNews(force, controller.signal, (result) => {
+      setResults((prev) => new Map(prev).set(result.sourceId, result));
+      setReceived((n) => n + 1);
+    }).then(
+      (at) => {
+        setGeneratedAt(at);
+        setError(null);
+        setNow(Date.now());
+        setLoading(false);
+      },
+      (err: unknown) => {
+        if (controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      },
+    );
   }, []);
 
   const load = useCallback(
     (force = false) => {
       setLoading(true);
-      requestNews(force).then(onResult, onError);
+      setReceived(0);
+      start(force);
     },
-    [onResult, onError],
+    [start],
   );
 
   useEffect(() => {
-    let active = true;
-    requestNews(false).then(
-      (d) => active && onResult(d),
-      (e) => active && onError(e),
-    );
+    start(false);
     const refresh = setInterval(() => load(), AUTO_REFRESH_MS);
     const tick = setInterval(() => setNow(Date.now()), 60_000);
     return () => {
-      active = false;
+      controllerRef.current?.abort();
       clearInterval(refresh);
       clearInterval(tick);
     };
-  }, [load, onResult, onError]);
+  }, [start, load]);
+
+  const allItems = useMemo(() => [...results.values()].flatMap((r) => r.items), [results]);
+  const statuses = useMemo(() => [...results.values()], [results]);
+  const hasData = results.size > 0;
 
   const sourceById = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources]);
-  const statusById = useMemo(() => new Map((data?.statuses ?? []).map((s) => [s.sourceId, s])), [data]);
+  const statusById = results;
 
   // Everything except the category filter, so the chips can show counts.
   const matching = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (data?.items ?? []).filter(
+    return allItems.filter(
       (it) =>
         (lang === "all" || it.lang === lang) &&
         (!onlySource || it.sourceId === onlySource) &&
         (!q || it.title.toLowerCase().includes(q)),
     );
-  }, [data, lang, onlySource, query]);
+  }, [allItems, lang, onlySource, query]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<Category, number>();
@@ -119,7 +154,6 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
       .sort((a, b) => latest(b.id).localeCompare(latest(a.id)));
   }, [sources, lang, onlySource, itemsBySource]);
 
-  const statuses = data?.statuses ?? [];
   const okCount = statuses.filter((s) => s.ok).length;
   const failures = statuses.filter((s) => !s.ok);
 
@@ -134,9 +168,9 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {data && (
-            <span className="text-xs text-muted" title={fullTime(data.generatedAt)}>
-              Updated {timeAgo(data.generatedAt, now)}
+          {generatedAt && !loading && (
+            <span className="text-xs text-muted" title={fullTime(generatedAt)}>
+              Updated {timeAgo(generatedAt, now)}
             </span>
           )}
           <button
@@ -145,17 +179,17 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
             className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60 dark:text-black"
           >
             <RefreshIcon spinning={loading} />
-            {loading ? "Fetching…" : "Refresh"}
+            {loading ? `Fetching… ${received}/${sources.length}` : "Refresh"}
           </button>
         </div>
       </header>
 
       {/* Status bar */}
-      {data && (
+      {hasData && (
         <div className="mt-4 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <Stat label="sources OK" value={`${okCount}/${statuses.length}`} />
-            <Stat label="headlines" value={data.items.length.toLocaleString()} />
+            <Stat label="sources OK" value={`${okCount}/${sources.length}`} />
+            <Stat label="headlines" value={allItems.length.toLocaleString()} />
             {failures.length > 0 && (
               <button
                 onClick={() => setShowFailures((v) => !v)}
@@ -219,7 +253,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
           placeholder="Search headlines… / শিরোনাম খুঁজুন"
           className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent sm:max-w-xs"
         />
-        {data && (
+        {hasData && (
           <div className="flex w-full flex-wrap gap-1.5" role="group" aria-label="Filter by category">
             <CategoryChip active={!category} onClick={() => setCategory("")} label="All" count={matching.length} />
             {CATEGORIES.map((c) => (
@@ -242,11 +276,11 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
         </p>
       )}
 
-      {!data && loading && <SkeletonGrid />}
+      {!hasData && loading && <SkeletonGrid />}
 
-      {data && view === "latest" && <LatestList items={filtered} sourceById={sourceById} now={now} />}
+      {hasData && view === "latest" && <LatestList items={filtered} sourceById={sourceById} now={now} />}
 
-      {data && view === "sources" && (
+      {hasData && view === "sources" && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleSources.map((s) => (
             <SourceCard
@@ -368,7 +402,13 @@ function SourceCard({
         </div>
       </header>
 
-      {status && !status.ok ? (
+      {!status ? (
+        <ul className="flex-1 space-y-3 px-4 py-4" aria-busy aria-label="Loading headlines">
+          {Array.from({ length: 4 }, (_, i) => (
+            <li key={i} className="h-4 animate-pulse rounded bg-line" style={{ width: `${90 - i * 12}%` }} />
+          ))}
+        </ul>
+      ) : !status.ok ? (
         <p className="px-4 py-4 text-sm text-danger">{status.error}</p>
       ) : (
         <ul className="flex-1 divide-y divide-line">

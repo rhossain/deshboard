@@ -126,19 +126,42 @@ export interface NewsQuery {
   force?: boolean;
 }
 
-/** Fetch every active source (or a subset) in parallel. */
-export async function getNews({ lang, sourceIds, force }: NewsQuery = {}) {
+/** Read `?lang=bn|en`, `?source=id1,id2` and `?refresh=1`. */
+export function newsQueryFrom(url: string): NewsQuery {
+  const { searchParams } = new URL(url);
+  const lang = searchParams.get("lang");
+  const source = searchParams.get("source");
+  return {
+    lang: lang === "bn" || lang === "en" ? lang : undefined,
+    sourceIds: source ? source.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+    force: searchParams.get("refresh") === "1",
+  };
+}
+
+function selectSources({ lang, sourceIds }: NewsQuery): NewsSource[] {
   let sources = ACTIVE_SOURCES;
   if (sourceIds?.length) {
     sources = sourceIds.map(getSource).filter((s): s is NewsSource => !!s && ACTIVE_SOURCES.includes(s));
   }
   if (lang) sources = sources.filter((s) => s.lang === lang);
+  return sources;
+}
 
-  const results = await mapLimit(sources, CONCURRENCY, (s) => getSourceNews(s, force));
+/** Fetch every active source (or a subset) in parallel. */
+export async function getNews(query: NewsQuery = {}) {
+  const results = await mapLimit(selectSources(query), CONCURRENCY, (s) => getSourceNews(s, query.force));
   const items = results.flatMap((r) => r.items);
   const statuses = results.map((r) => {
     const { items: _omit, ...status } = r; // eslint-disable-line @typescript-eslint/no-unused-vars
     return status;
   });
   return { items, statuses, generatedAt: new Date().toISOString() };
+}
+
+/** Like `getNews`, but hands over each source's result as soon as it is ready. */
+export async function eachSourceNews(query: NewsQuery, onResult: (result: SourceResult) => void): Promise<void> {
+  await mapLimit(selectSources(query), CONCURRENCY, async (s) => {
+    const result = await getSourceNews(s, query.force);
+    onResult(result);
+  });
 }

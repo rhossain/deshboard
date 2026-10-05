@@ -27,6 +27,9 @@ npm test           # offline parser tests
 
 - `GET /api/news` — `{ items, statuses, generatedAt }`
   - `?lang=bn|en`, `?source=id1,id2`, `?refresh=1` (bypass cache)
+- `GET /api/news/stream` — same params, but NDJSON: one `{ "type": "source", "result" }` line per source as soon as
+  it is fetched (`result` is a status plus its `items`), then `{ "type": "done", "generatedAt" }`. The UI uses this so
+  each source shows up the moment it arrives.
 - `GET /api/sources` — all 64 portals with method, URL and notes
 
 Each item: `{ title, link, publishedAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no `publishedAt`.

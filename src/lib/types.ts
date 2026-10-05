@@ -44,3 +44,6 @@ export interface SourceResult {
 }
 
 export type SourceStatus = Omit<SourceResult, "items">;
+
+/** One line of the NDJSON stream from /api/news/stream. */
+export type NewsStreamMessage = { type: "source"; result: SourceResult } | { type: "done"; generatedAt: string };
