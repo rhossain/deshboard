@@ -5,7 +5,7 @@ import type { Story } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { timeAgo } from "./time";
-import { ChevronIcon, NewDot } from "./ui";
+import { ChevronIcon, NewDot, SaveButton } from "./ui";
 
 /** Other outlets' headlines shown before "Show all". */
 const PREVIEW = 3;
@@ -17,12 +17,16 @@ export function TopStories({
   sourceById,
   now,
   isNew,
+  savedLinks,
+  onToggleSave,
   emptyHint,
 }: {
   stories: Story[];
   sourceById: Map<string, NewsSource>;
   now: number;
   isNew: (item: NewsItem) => boolean;
+  savedLinks: Set<string>;
+  onToggleSave: (item: NewsItem) => void;
   /** Shown instead of the list when there are no stories. */
   emptyHint: string;
 }) {
@@ -44,7 +48,16 @@ export function TopStories({
       </p>
       <ol className="grid items-start gap-4 sm:gap-5 lg:grid-cols-2">
         {stories.slice(0, limit).map((s, i) => (
-          <StoryCard key={s.id} story={s} rank={i + 1} sourceById={sourceById} now={now} isNew={isNew} />
+          <StoryCard
+            key={s.id}
+            story={s}
+            rank={i + 1}
+            sourceById={sourceById}
+            now={now}
+            isNew={isNew}
+            savedLinks={savedLinks}
+            onToggleSave={onToggleSave}
+          />
         ))}
       </ol>
       {stories.length > limit && (
@@ -67,12 +80,16 @@ function StoryCard({
   sourceById,
   now,
   isNew,
+  savedLinks,
+  onToggleSave,
 }: {
   story: Story;
   rank: number;
   sourceById: Map<string, NewsSource>;
   now: number;
   isNew: (item: NewsItem) => boolean;
+  savedLinks: Set<string>;
+  onToggleSave: (item: NewsItem) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [lead, ...others] = story.items;
@@ -81,36 +98,41 @@ function StoryCard({
 
   return (
     <li className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-      <a
-        href={lead.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="group block px-4 pb-3.5 pt-4 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:px-5"
-      >
-        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-          <span className="font-display text-sm font-semibold tabular-nums text-gold">{rank}</span>
-          <span className="rounded-full bg-accent-soft px-2.5 py-0.5 font-semibold text-accent">
-            {story.outlets} outlets
-          </span>
-          {story.latest && <span className="text-muted">updated {timeAgo(story.latest, now)}</span>}
-        </div>
-        <p className="text-[18px] font-semibold leading-[1.5] group-hover:text-accent">
-          {story.items.some(isNew) && <NewDot className="mr-2 -mt-0.5" />}
-          {lead.title}
-        </p>
-        <p className="mt-1 text-xs text-muted">
-          <span className="font-semibold text-accent">{name(lead)}</span>
-          {itemTimeLabel(lead, now)}
-        </p>
-      </a>
+      <div className="flex">
+        <a
+          data-headline
+          href={lead.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group block min-w-0 flex-1 pb-3.5 pl-4 pt-4 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5"
+        >
+          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <span className="font-display text-sm font-semibold tabular-nums text-gold">{rank}</span>
+            <span className="rounded-full bg-accent-soft px-2.5 py-0.5 font-semibold text-accent">
+              {story.outlets} outlets
+            </span>
+            {story.latest && <span className="text-muted">updated {timeAgo(story.latest, now)}</span>}
+          </div>
+          <p className="text-[18px] font-semibold leading-[1.5] group-hover:text-accent">
+            {story.items.some(isNew) && <NewDot className="mr-2 -mt-0.5" />}
+            {lead.title}
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            <span className="font-semibold text-accent">{name(lead)}</span>
+            {itemTimeLabel(lead, now)}
+          </p>
+        </a>
+        <SaveButton saved={savedLinks.has(lead.link)} onToggle={() => onToggleSave(lead)} className="pt-4" />
+      </div>
       <ul className="border-t border-line">
         {shown.map((it) => (
-          <li key={it.link} className="border-b border-line last:border-b-0">
+          <li key={it.link} className="flex border-b border-line last:border-b-0">
             <a
+              data-headline
               href={it.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex gap-3 px-4 py-2.5 text-[14px] leading-[1.5] transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:px-5"
+              className="group flex min-w-0 flex-1 gap-3 py-2.5 pl-4 text-[14px] leading-[1.5] transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5"
             >
               <span className="w-28 shrink-0 truncate pt-px text-xs font-semibold text-accent">{name(it)}</span>
               <span className="min-w-0 group-hover:text-accent">
@@ -118,6 +140,7 @@ function StoryCard({
                 {it.title}
               </span>
             </a>
+            <SaveButton saved={savedLinks.has(it.link)} onToggle={() => onToggleSave(it)} className="pt-2" />
           </li>
         ))}
       </ul>

@@ -4,7 +4,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { itemTime } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import { NewDot } from "./ui";
+import { NewDot, SaveButton } from "./ui";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 const MAX_ITEMS = 300;
@@ -30,11 +30,15 @@ export function LatestList({
   sourceById,
   now,
   isNew,
+  savedLinks,
+  onToggleSave,
 }: {
   items: NewsItem[];
   sourceById: Map<string, NewsSource>;
   now: number;
   isNew: (item: NewsItem) => boolean;
+  savedLinks: Set<string>;
+  onToggleSave: (item: NewsItem) => void;
 }) {
   const dated = items.filter(itemTime).sort(byNewest);
   const undated = items.length - dated.length;
@@ -57,12 +61,13 @@ export function LatestList({
           </h2>
           <ol className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
             {g.items.map((it) => (
-              <li key={it.link} className="border-b border-line last:border-b-0">
+              <li key={it.link} className="flex border-b border-line last:border-b-0">
                 <a
+                  data-headline
                   href={it.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex gap-4 px-4 py-3.5 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:px-5"
+                  className="group flex min-w-0 flex-1 gap-4 py-3.5 pl-4 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5"
                 >
                   <ItemTime
                     item={it}
@@ -87,6 +92,7 @@ export function LatestList({
                     </p>
                   </div>
                 </a>
+                <SaveButton saved={savedLinks.has(it.link)} onToggle={() => onToggleSave(it)} className="pt-4" />
               </li>
             ))}
           </ol>

@@ -81,6 +81,7 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 - `NEWS_CACHE_SECONDS` (default `600`) — how long each source's result is reused.
 - `NEWS_BACKGROUND_REFRESH` — set to `0` to fetch only when a reader asks. Otherwise the server refreshes stale
   sources at startup and every half TTL, so readers get headlines from a warm cache.
+- `SITE_URL` (default `http://localhost:3000`) — the public address, used for the absolute link to the share image.
 - `NEWS_DATA_DIR` (default `.data/`) — where the cache and first-seen times are saved; `NEWS_PERSIST=0` keeps them in
   memory only. On serverless hosts the filesystem is throwaway and timers don't run between requests, so both features
   quietly do nothing there; run on a long-lived Node server (VPS, container) to get them.
@@ -91,6 +92,17 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
   linked when two outlets share most of them; the stories covered by the most outlets rank first. Runs in the browser.
 - **New since your last visit** — headlines newer than the end of the reader's previous visit get a gold dot, with a
   "N new" filter. A visit ends after 30 minutes away (`src/components/last-visit.ts`); opened headlines turn muted.
+- **Shareable filters** — view, language, source, category, search and order live in the URL
+  (`/?view=latest&lang=bn&cat=sports`, see `src/lib/filters.ts`); the page reads them on the server, so shared links
+  open as they were.
+- **Saved** — the bookmark beside each headline keeps it on this device (whole item, so it outlives the feed).
+- **Quiet auto-refresh** — every 10 minutes the board refetches in the background; new headlines wait behind a
+  "N new headlines" button instead of moving the page (applied at once if nothing is new or the tab is hidden).
+- **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`4` views, `r` refresh, `?` help.
+- **Share image** — `src/app/opengraph-image.tsx`, rendered at build time with the site's fonts.
+- **Source health** — `/health` lists every source from the server cache (never triggers a fetch): failing ones first
+  with how long they have failed, then working ones with the section names whose headlines land in "Other" (add those
+  to `src/lib/categories.ts`).
 
 ## Notes
 

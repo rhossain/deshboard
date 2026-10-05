@@ -161,3 +161,35 @@ export function NewDot({ className = "" }: { className?: string }) {
     </span>
   );
 }
+
+export const BookmarkIcon = ({ filled, className }: { filled?: boolean; className?: string }) => (
+  <Icon className={className}>
+    <path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-4-6 4V5.5a1 1 0 0 1 1-1Z" fill={filled ? "currentColor" : "none"} />
+  </Icon>
+);
+
+/** Saves or un-saves a headline. Sits beside the headline's link, never inside it. */
+export function SaveButton({
+  saved,
+  onToggle,
+  className = "",
+}: {
+  saved: boolean;
+  onToggle: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={saved}
+      aria-label={saved ? "Remove from saved" : "Save for later"}
+      title={saved ? "Remove from saved" : "Save for later"}
+      className={`flex w-11 shrink-0 items-start justify-center pt-3 transition active:scale-90 ${
+        saved ? "text-gold" : "text-muted/60 hover:text-foreground"
+      } ${className}`}
+    >
+      <BookmarkIcon filled={saved} className="h-[18px] w-[18px]" />
+    </button>
+  );
+}

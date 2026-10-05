@@ -2,22 +2,26 @@
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
+import { type Filters, filtersToSearch, type LangFilter, type Order, type View } from "@/lib/filters";
 import { sourceProblem } from "@/lib/problems";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
-import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
+import type { NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
 import { useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLastVisit } from "./last-visit";
 import { byNewest, LatestList } from "./LatestList";
 import { Logo } from "./Logo";
+import { useSaved } from "./saved";
+import { SavedList } from "./SavedList";
 import { SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
 import { fullTime, timeAgo } from "./time";
 import {
   AutoThemeIcon,
+  BookmarkIcon,
   ChevronIcon,
   ClockIcon,
   CloseIcon,
@@ -31,10 +35,6 @@ import {
   SunIcon,
 } from "./ui";
 
-type View = "top" | "sources" | "latest";
-type LangFilter = "all" | Lang;
-type Order = "default" | "newest";
-
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 /** Top stories need this many outlets, unless no story has that many. */
 const TOP_MIN_OUTLETS = 3;
@@ -43,6 +43,19 @@ const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "top", label: "Top stories" },
   { value: "sources", label: "By source" },
   { value: "latest", label: "Latest" },
+  { value: "saved", label: "Saved" },
+];
+const VIEW_KEYS: Record<string, View> = { "1": "top", "2": "sources", "3": "latest", "4": "saved" };
+
+const SHORTCUTS: [string, string][] = [
+  ["/", "Search headlines"],
+  ["j / k", "Next / previous headline"],
+  ["Enter", "Open the headline"],
+  ["s", "Save or unsave the headline"],
+  ["1 – 4", "Top stories, By source, Latest, Saved"],
+  ["r", "Refresh"],
+  ["Esc", "Clear the search, close a panel"],
+  ["?", "Show these shortcuts"],
 ];
 const ORDER_OPTIONS: { value: Order; label: string }[] = [
   { value: "default", label: "Editor's order" },
@@ -97,23 +110,51 @@ async function streamNews(
   return generatedAt;
 }
 
-/** `sources` is every listed portal in display order; only the fetchable ones are requested. */
-export function NewsBoard({ sources }: { sources: NewsSource[] }) {
+/** A background refresh's results, with how many of its headlines the board doesn't show yet. */
+type Pending = { results: Map<string, SourceResult>; generatedAt: string; fresh: number };
+
+/** Every headline link in the page, in reading order, skipping folded cards. */
+function headlineLinks(): HTMLAnchorElement[] {
+  const links = document.querySelectorAll<HTMLAnchorElement>("main a[data-headline]");
+  return [...links].filter((a) => !a.closest("[inert]"));
+}
+
+/** Moves keyboard focus to the next (1) or previous (-1) headline. */
+function focusHeadline(step: 1 | -1) {
+  const links = headlineLinks();
+  const at = links.indexOf(document.activeElement as HTMLAnchorElement);
+  const toolbarBottom = document.querySelector("[data-toolbar]")?.getBoundingClientRect().bottom ?? 0;
+  const next = at >= 0 ? links[at + step] : links.find((a) => a.getBoundingClientRect().top > toolbarBottom);
+  next?.focus();
+  next?.scrollIntoView({ block: "center" });
+}
+
+/**
+ * `sources` is every listed portal in display order; only the fetchable ones are requested.
+ * `initial` is the view and filters from the URL.
+ */
+export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial: Filters }) {
   // Latest result per source; on refresh each one is replaced as its new result arrives.
   const [results, setResults] = useState<Map<string, SourceResult>>(() => new Map());
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [received, setReceived] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<View>("top");
-  const [order, setOrder] = useState<Order>("default");
-  const [lang, setLang] = useState<LangFilter>("all");
-  const [query, setQuery] = useState("");
-  const [onlySource, setOnlySource] = useState<string>("");
-  const [category, setCategory] = useState<Category | "">("");
+  const [view, setView] = useState<View>(initial.view);
+  const [order, setOrder] = useState<Order>(initial.order);
+  const [lang, setLang] = useState<LangFilter>(initial.lang);
+  const [query, setQuery] = useState(initial.query);
+  const [onlySource, setOnlySource] = useState<string>(initial.source);
+  const [category, setCategory] = useState<Category | "">(initial.category);
   const [onlyNew, setOnlyNew] = useState(false);
   const [showFailures, setShowFailures] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // An automatic refresh that brought new headlines, held back until the reader asks for it.
+  const [pending, setPending] = useState<Pending | null>(null);
+  const quietRef = useRef<AbortController | null>(null);
+  const resultsRef = useRef(results);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [now, setNow] = useState(() => Date.now());
   const controllerRef = useRef<AbortController | null>(null);
   const isPhone = useIsPhone();
@@ -145,6 +186,8 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
 
   const load = useCallback(
     (force = false) => {
+      quietRef.current?.abort();
+      setPending(null);
       setLoading(true);
       setReceived(0);
       start(force);
@@ -153,15 +196,61 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   );
 
   useEffect(() => {
+    resultsRef.current = results;
+  }, [results]);
+
+  /**
+   * The automatic refresh fetches in the background. Headlines don't move under the reader: if any
+   * are new, a button offers them; with nothing new, or while the page is hidden, they apply at once.
+   */
+  const refreshQuietly = useCallback(() => {
+    quietRef.current?.abort();
+    const controller = new AbortController();
+    quietRef.current = controller;
+    const next = new Map<string, SourceResult>();
+    streamNews(false, controller.signal, (result) => next.set(result.sourceId, result)).then(
+      (at) => {
+        const known = new Set([...resultsRef.current.values()].flatMap((r) => r.items.map((it) => it.link)));
+        const fresh = [...next.values()].reduce((n, r) => n + r.items.filter((it) => !known.has(it.link)).length, 0);
+        if (fresh && !document.hidden) {
+          setPending({ results: next, generatedAt: at, fresh });
+        } else {
+          setResults(next);
+          setGeneratedAt(at);
+          setPending(null);
+          setNow(Date.now());
+        }
+      },
+      () => {}, // A failed background refresh changes nothing; the next one tries again.
+    );
+  }, []);
+
+  const showPending = () => {
+    if (!pending) return;
+    setResults(pending.results);
+    setGeneratedAt(pending.generatedAt);
+    setPending(null);
+    setNow(Date.now());
+    window.scrollTo({ top: 0 });
+  };
+
+  useEffect(() => {
     start(false);
-    const refresh = setInterval(() => load(), AUTO_REFRESH_MS);
+    const refresh = setInterval(refreshQuietly, AUTO_REFRESH_MS);
     const tick = setInterval(() => setNow(Date.now()), 60_000);
     return () => {
       controllerRef.current?.abort();
+      quietRef.current?.abort();
       clearInterval(refresh);
       clearInterval(tick);
     };
-  }, [start, load]);
+  }, [start, refreshQuietly]);
+
+  // Mirror the view and filters in the URL, so the page can be bookmarked or shared as it is.
+  useEffect(() => {
+    const search = filtersToSearch({ view, lang, source: onlySource, category, query, order });
+    if (search !== window.location.search) window.history.replaceState(null, "", window.location.pathname + search);
+  }, [view, lang, onlySource, category, query, order]);
 
   const allItems = useMemo(() => [...results.values()].flatMap((r) => r.items), [results]);
   const statuses = useMemo(() => [...results.values()], [results]);
@@ -250,6 +339,19 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
     return big.length ? big : matches;
   }, [allStories, query, onlySource, category, onlyNew, isNew]);
 
+  // Saved headlines go through the same filters, except "new".
+  const { saved, savedLinks, toggleSaved } = useSaved();
+  const savedMatching = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return saved.filter(
+      ({ item: it }) =>
+        (lang === "all" || it.lang === lang) &&
+        (!onlySource || it.sourceId === onlySource) &&
+        (!category || it.category === category) &&
+        (!q || it.title.toLowerCase().includes(q)),
+    );
+  }, [saved, lang, onlySource, category, query]);
+
   const okCount = statuses.filter((s) => s.ok).length;
   const failures = statuses.filter((s) => !s.ok);
   const filtering = !!query.trim() || !!category || onlyNew;
@@ -306,10 +408,41 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
     if (window.scrollY > top) window.scrollTo({ top, behavior: "instant" });
   };
 
-  const changeView = (v: View) => {
+  const changeView = useCallback((v: View) => {
     setView(v);
     window.scrollTo({ top: 0 });
-  };
+  }, []);
+
+  // Keyboard shortcuts (see SHORTCUTS). Ignored while typing or while a panel is open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+      const typing = (e.target as HTMLElement).closest("input, textarea, select, [contenteditable]");
+      if (typing || document.querySelector("dialog[open]")) return;
+      // Shift+/ is "?" on most layouts, but some report it as "/" with Shift held.
+      const key = e.key === "/" && e.shiftKey ? "?" : e.key;
+      if (key === "/") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      } else if (key === "j" || key === "k") {
+        e.preventDefault();
+        focusHeadline(key === "j" ? 1 : -1);
+      } else if (key === "s") {
+        const focused = document.activeElement?.closest<HTMLAnchorElement>("a[data-headline]");
+        const link = focused?.href;
+        const item = link && (allItems.find((it) => it.link === link) ?? saved.find((e) => e.item.link === link)?.item);
+        if (item) toggleSaved(item);
+      } else if (key === "r") {
+        load(true);
+      } else if (key === "?") {
+        setShortcutsOpen(true);
+      } else if (VIEW_KEYS[key]) {
+        changeView(VIEW_KEYS[key]);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [allItems, saved, toggleSaved, load, changeView]);
 
   const sourceSelect = (
     <select
@@ -438,6 +571,11 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
                 </li>
               );
             })}
+            <li className="sm:col-span-2">
+              <a href="/health" className="font-semibold text-accent hover:underline">
+                Source health: every source&rsquo;s status and history →
+              </a>
+            </li>
           </ul>
         )}
       </header>
@@ -449,9 +587,15 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
             <span className="sr-only">Search headlines</span>
             <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
             <input
+              ref={searchRef}
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Escape") return;
+                setQuery("");
+                e.currentTarget.blur();
+              }}
               placeholder="Search headlines / শিরোনাম খুঁজুন"
               enterKeyHint="search"
               className="h-11 w-full rounded-xl border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
@@ -515,7 +659,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
 
         {!hasData && loading && <SkeletonGrid />}
 
-        {hasData && filtering && filtered.length === 0 && (
+        {hasData && view !== "saved" && filtering && filtered.length === 0 && (
           <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
             <p className="font-display text-xl">Nothing found</p>
             <p className="mt-1 text-sm text-muted">Try another word or category.</p>
@@ -528,6 +672,8 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
             sourceById={sourceById}
             now={now}
             isNew={isNew}
+            savedLinks={savedLinks}
+            onToggleSave={toggleSaved}
             emptyHint={
               onlySource
                 ? `Nothing from ${sourceById.get(onlySource)?.name ?? "this source"} is covered by other outlets right now.`
@@ -541,7 +687,24 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
         )}
 
         {hasData && view === "latest" && (
-          <LatestList items={filtered} sourceById={sourceById} now={now} isNew={isNew} />
+          <LatestList
+            items={filtered}
+            sourceById={sourceById}
+            now={now}
+            isNew={isNew}
+            savedLinks={savedLinks}
+            onToggleSave={toggleSaved}
+          />
+        )}
+
+        {view === "saved" && (
+          <SavedList
+            entries={savedMatching}
+            total={saved.length}
+            sourceById={sourceById}
+            now={now}
+            onToggleSave={toggleSaved}
+          />
         )}
 
         {hasData && view === "sources" && (
@@ -559,18 +722,47 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
                 seenLead={cardPrefs.seen[s.id]}
                 onToggle={(collapsed) => setCollapsed([s.id], collapsed)}
                 isNew={isNew}
+                savedLinks={savedLinks}
+                onToggleSave={toggleSaved}
               />
             ))}
           </div>
         )}
+
+        <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
+          <a href="/health" className="hover:text-foreground">
+            Source health
+          </a>
+          <button
+            type="button"
+            onClick={() => setShortcutsOpen(true)}
+            className="hidden hover:text-foreground md:inline"
+          >
+            Keyboard shortcuts <kbd className="ml-1 rounded border border-line px-1 font-sans">?</kbd>
+          </button>
+        </footer>
       </main>
+
+      {/* New headlines from the automatic refresh, held back so nothing moves while reading. */}
+      {pending && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
+          <button
+            type="button"
+            onClick={showPending}
+            className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink shadow-card transition active:scale-95"
+          >
+            <ChevronIcon className="h-4 w-4 rotate-180" />
+            {pending.fresh.toLocaleString()} new headline{pending.fresh === 1 ? "" : "s"}
+          </button>
+        </div>
+      )}
 
       {/* Bottom bar (phones) */}
       <nav
         className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
         aria-label="View"
       >
-        <div className="mx-auto grid h-16 max-w-md grid-cols-4">
+        <div className="mx-auto grid h-16 max-w-md grid-cols-5">
           <NavButton active={view === "top"} onClick={() => changeView("top")} label="Top">
             <StackIcon />
           </NavButton>
@@ -579,6 +771,9 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
           </NavButton>
           <NavButton active={view === "latest"} onClick={() => changeView("latest")} label="Latest">
             <ClockIcon />
+          </NavButton>
+          <NavButton active={view === "saved"} onClick={() => changeView("saved")} label="Saved">
+            <BookmarkIcon />
           </NavButton>
           <NavButton active={false} onClick={() => setFiltersOpen(true)} label="Filters" badge={activeFilters.length}>
             <SlidersIcon />
@@ -643,6 +838,21 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
             Show {filtered.length.toLocaleString()} headlines
           </button>
         </div>
+      </Sheet>
+
+      <Sheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard shortcuts">
+        <dl className="grid grid-cols-[auto_1fr] items-center gap-x-5 gap-y-3 text-sm">
+          {SHORTCUTS.map(([keys, what]) => (
+            <div key={keys} className="contents">
+              <dt className="text-right">
+                <kbd className="rounded-md border border-line bg-surface-2 px-2 py-0.5 font-sans text-xs font-semibold">
+                  {keys}
+                </kbd>
+              </dt>
+              <dd className="text-muted">{what}</dd>
+            </div>
+          ))}
+        </dl>
       </Sheet>
     </div>
   );

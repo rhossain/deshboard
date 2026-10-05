@@ -8,6 +8,7 @@ import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
 import { parseDate, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
+import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filters";
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
 import { findStories, keywords } from "../src/lib/stories";
@@ -239,6 +240,30 @@ test("first seen: none on a source's first fetch, then stamped once", () => {
   const third = [item("home", "Fresh headline")];
   stampFirstSeen("home", third, Date.parse("2026-10-05T10:20:00Z"));
   assert.equal(third[0].seenAt, "2026-10-05T10:10:00.000Z");
+});
+
+test("categorize: Bangla spelled with a precomposed য় still matches", () => {
+  assert.equal(categorize("https://www.ittefaq.com.bd/813243/slug", ["\u099c\u09be\u09a4\u09c0\u09df"]), "national");
+  assert.equal(categorize("https://www.ittefaq.com.bd/1/slug", ["জাতীয়", "আইন আদালত"]), "crime");
+});
+
+test("filters: URL round trip, unknown values ignored", () => {
+  const ids = new Set(["prothomalo"]);
+  const f = parseFilters({ view: "latest", lang: "bn", source: "prothomalo", cat: "sports", q: " হামলা " }, ids);
+  assert.deepEqual(f, {
+    view: "latest",
+    lang: "bn",
+    source: "prothomalo",
+    category: "sports",
+    query: "হামলা",
+    order: "default",
+  });
+  assert.deepEqual(parseFilters(Object.fromEntries(new URLSearchParams(filtersToSearch(f))), ids), f);
+  assert.deepEqual(
+    parseFilters({ view: "x", lang: "fr", source: "nope", cat: "x", order: "oldest" }, ids),
+    DEFAULT_FILTERS,
+  );
+  assert.equal(filtersToSearch(DEFAULT_FILTERS), "");
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

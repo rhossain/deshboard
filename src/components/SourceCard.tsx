@@ -4,7 +4,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { sourceProblem } from "@/lib/problems";
 import type { NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import { AlertIcon, ArrowUpRightIcon, ChevronIcon, NewDot } from "./ui";
+import { AlertIcon, ArrowUpRightIcon, ChevronIcon, NewDot, SaveButton } from "./ui";
 
 const PER_CARD = 8;
 
@@ -26,6 +26,8 @@ export function SourceCard({
   seenLead,
   onToggle,
   isNew,
+  savedLinks,
+  onToggleSave,
 }: {
   source: NewsSource;
   status?: SourceStatus;
@@ -40,6 +42,8 @@ export function SourceCard({
   onToggle?: (collapsed: boolean) => void;
   /** True for headlines since the reader's last visit. */
   isNew: (item: NewsItem) => boolean;
+  savedLinks: Set<string>;
+  onToggleSave: (item: NewsItem) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const ref = useRef<HTMLElement>(null);
@@ -139,14 +143,27 @@ export function SourceCard({
         <Fold open={!collapsed}>
           {lead && (
             <div className="border-t border-line">
-              <Headline item={lead} now={now} isNew={isNew(lead)} lead />
+              <Headline
+                item={lead}
+                now={now}
+                isNew={isNew(lead)}
+                saved={savedLinks.has(lead.link)}
+                onToggleSave={onToggleSave}
+                lead
+              />
             </div>
           )}
           {rest.length > 0 && (
             <ul className="border-t border-line">
               {rest.map((it) => (
                 <li key={it.link} className="border-b border-line last:border-b-0">
-                  <Headline item={it} now={now} isNew={isNew(it)} />
+                  <Headline
+                    item={it}
+                    now={now}
+                    isNew={isNew(it)}
+                    saved={savedLinks.has(it.link)}
+                    onToggleSave={onToggleSave}
+                  />
                 </li>
               ))}
             </ul>
@@ -181,23 +198,41 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }) {
   );
 }
 
-function Headline({ item, now, isNew, lead = false }: { item: NewsItem; now: number; isNew: boolean; lead?: boolean }) {
+function Headline({
+  item,
+  now,
+  isNew,
+  saved,
+  onToggleSave,
+  lead = false,
+}: {
+  item: NewsItem;
+  now: number;
+  isNew: boolean;
+  saved: boolean;
+  onToggleSave: (item: NewsItem) => void;
+  lead?: boolean;
+}) {
   // Opened headlines turn muted through the browser's own :visited state.
   return (
-    <a
-      href={item.link}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block px-4 py-3 text-foreground transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60"
-    >
-      <span
-        className={`block leading-[1.55] group-hover:text-accent ${lead ? "text-[17px] font-semibold" : "text-[15px]"}`}
+    <div className="flex">
+      <a
+        data-headline
+        href={item.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group block min-w-0 flex-1 py-3 pl-4 text-foreground transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60"
       >
-        {isNew && <NewDot className="mr-2 -mt-0.5" />}
-        {item.title}
-      </span>
-      <ItemTime item={item} now={now} className="mt-1 block text-xs text-muted" />
-    </a>
+        <span
+          className={`block leading-[1.55] group-hover:text-accent ${lead ? "text-[17px] font-semibold" : "text-[15px]"}`}
+        >
+          {isNew && <NewDot className="mr-2 -mt-0.5" />}
+          {item.title}
+        </span>
+        <ItemTime item={item} now={now} className="mt-1 block text-xs text-muted" />
+      </a>
+      <SaveButton saved={saved} onToggle={() => onToggleSave(item)} />
+    </div>
   );
 }
 

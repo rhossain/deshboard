@@ -7,9 +7,16 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const bengali = Noto_Sans_Bengali({ subsets: ["bengali"], variable: "--font-bengali", display: "swap" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
 
+const description =
+  "Latest headlines from Bangladeshi news portals, collected from RSS feeds, news sitemaps and homepages.";
+
 export const metadata: Metadata = {
+  // Absolute base for the share image URL; set SITE_URL to the public address when deploying.
+  metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
   title: "Deshboard",
-  description: "Latest headlines from Bangladeshi news portals, collected from RSS feeds, news sitemaps and homepages.",
+  description,
+  openGraph: { title: "Deshboard", description, siteName: "Deshboard", type: "website" },
+  twitter: { card: "summary_large_image", title: "Deshboard", description },
   appleWebApp: { capable: true, title: "Deshboard", statusBarStyle: "default" },
 };
 

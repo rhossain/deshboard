@@ -1,5 +1,6 @@
-import { categorize } from "./categories";
+import { categorize, unmappedSection } from "./categories";
 import { stampFirstSeen } from "./first-seen";
+import { recordHealth } from "./health";
 import { extractHeadlines } from "./fetchers/html";
 import { fetchText } from "./fetchers/http";
 import { parseFeed, type RawItem } from "./fetchers/rss";
@@ -76,18 +77,35 @@ async function load(source: NewsSource): Promise<SourceResult> {
   };
   try {
     const { items, url } = await fetchRaw(source);
-    const news: NewsItem[] = dedupeByLink(items).map(({ tags, ...it }) => ({
-      ...it,
-      publishedAt: source.dhakaTimeAsUtc ? shiftDhakaAsUtc(it.publishedAt) : it.publishedAt,
-      sourceId: source.id,
-      sourceName: source.name,
-      lang: source.lang,
-      category: categorize(it.link, tags),
-    }));
+    const unmapped = new Map<string, number>();
+    const news: NewsItem[] = dedupeByLink(items).map(({ tags, ...it }) => {
+      const category = categorize(it.link, tags);
+      if (category === "other") {
+        const section = unmappedSection(it.link, tags);
+        unmapped.set(section, (unmapped.get(section) ?? 0) + 1);
+      }
+      return {
+        ...it,
+        publishedAt: source.dhakaTimeAsUtc ? shiftDhakaAsUtc(it.publishedAt) : it.publishedAt,
+        sourceId: source.id,
+        sourceName: source.name,
+        lang: source.lang,
+        category,
+      };
+    });
     stampFirstSeen(source.id, news);
-    return { ...base, ok: true, count: news.length, fetchedUrl: url, durationMs: Date.now() - started, items: news };
+    const result = {
+      ...base,
+      ok: true,
+      count: news.length,
+      fetchedUrl: url,
+      durationMs: Date.now() - started,
+      items: news,
+    };
+    recordHealth(result, unmapped);
+    return result;
   } catch (err) {
-    return {
+    const result = {
       ...base,
       ok: false,
       count: 0,
@@ -95,7 +113,15 @@ async function load(source: NewsSource): Promise<SourceResult> {
       durationMs: Date.now() - started,
       items: [],
     };
+    recordHealth(result, new Map());
+    return result;
   }
+}
+
+/** The cached result for a source, without fetching (undefined if it was never fetched). */
+export function cachedResult(sourceId: string): (SourceResult & { cachedAt: number }) | undefined {
+  const hit = cache.get(sourceId);
+  return hit && { ...hit.result, cachedAt: hit.at };
 }
 
 /** Fetch one source, using the cache unless `force` is set. */
