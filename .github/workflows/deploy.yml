@@ -1,9 +1,9 @@
 name: Deploy
 
-# Collects fresh headlines, builds the static site (the static-export branch) and copies it to the
-# web host over SSH with rsync, sending only changed files. Turned on by setting the SITE_URL
-# repository variable; needs the SSH_PRIVATE_KEY secret, whose public half is added in hPanel →
-# Advanced → SSH Access → SSH keys.
+# Collects fresh headlines, builds the static site (the static-export branch) and commits it to the
+# `deploy` branch under public_html/. Hostinger's Git deployment (hPanel → Advanced → GIT, connected
+# with GitHub, branch `deploy`, root directory `public_html`, auto-deployment on) publishes each new
+# commit. Turned on by setting the SITE_URL repository variable.
 #
 # GitHub runs scheduled workflows only from the default branch, so this same file also lives on main:
 # from either branch it builds static-export.
@@ -21,18 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
-
-# Hostinger SSH details (hPanel → Advanced → SSH Access). Not secret: the key is.
-env:
-  SSH_HOST: 217.21.91.251
-  SSH_PORT: 65002
-  SSH_USER: u594404148
-  SITE_DIR: domains/deshboard.rshossain.me/public_html
-  # The server's own keys (ssh-keyscan), so the upload only ever goes to this server.
-  SSH_KNOWN_HOSTS: |
-    [217.21.91.251]:65002 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINCBLeboRykfSV33A0GzWvnPUPe8V5XDN+6ydXj9H4Om
-    [217.21.91.251]:65002 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBPK2T3/8s4nCvle9JPZVaVe7C4D0hNLz63N/doCdo+LRfhUCX8kCowIfgWPk4r7SaQzM3UaRTPDRsq4s8E3vi3o=
+  contents: write
 
 jobs:
   deploy:
@@ -60,24 +49,27 @@ jobs:
       - run: npm run build
         env:
           SITE_URL: ${{ vars.SITE_URL }}
-      - name: Upload to the web host
+      # One new commit on top of the last, so the host can always fast-forward.
+      - name: Commit the site to the deploy branch
         env:
-          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          REPO: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         run: |
-          if [ -z "$SSH_KEY" ]; then
-            echo "::error::Add the SSH_PRIVATE_KEY secret (see the README's Deploy section)."
-            exit 1
+          if git ls-remote --exit-code --heads origin deploy > /dev/null; then
+            git clone --quiet --depth 1 --branch deploy "$REPO" site
+          else
+            git init --quiet -b deploy site
+            git -C site remote add origin "$REPO"
           fi
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          printf '%s' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          SSH="ssh -p $SSH_PORT -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
-          # The site's folder (domains/<site>) must exist; its public_html is created if missing.
-          if ! $SSH "$SSH_USER@$SSH_HOST" "test -d \"$(dirname "$SITE_DIR")\" && mkdir -p \"$SITE_DIR\""; then
-            echo "::error::$(dirname "$SITE_DIR") doesn't exist on the server. Folders under domains/:"
-            $SSH "$SSH_USER@$SSH_HOST" ls domains || true
-            exit 1
+          # Only public_html/ is published; nothing else belongs on the branch.
+          find site -mindepth 1 -maxdepth 1 ! -name .git ! -name public_html -exec rm -rf {} +
+          mkdir -p site/public_html
+          rsync -a --delete out/ site/public_html/
+          cd site
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to deploy."
+            exit 0
           fi
-          # --delete removes files the new build no longer has; .well-known holds the host's SSL checks.
-          rsync -rlz --checksum --delete --exclude .well-known --exclude .git -e "$SSH" out/ "$SSH_USER@$SSH_HOST:$SITE_DIR/"
+          git -c user.name="github-actions[bot]" -c user.email="41898099+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "Deploy $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push --quiet origin deploy
