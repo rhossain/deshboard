@@ -40,40 +40,6 @@ export function Segmented<T extends string>({
   );
 }
 
-export function Chip({
-  active,
-  onClick,
-  label,
-  title,
-  count,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  title?: string;
-  count: number;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      title={title}
-      disabled={!active && count === 0}
-      className={`inline-flex h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition active:scale-95 disabled:opacity-40 ${
-        active
-          ? "border-foreground bg-foreground text-background"
-          : "border-line bg-surface text-foreground/80 hover:border-foreground/30"
-      }`}
-    >
-      {label}
-      <span className={`tabular-nums text-[11px] ${active ? "opacity-70" : "text-muted"}`}>
-        {count.toLocaleString()}
-      </span>
-    </button>
-  );
-}
-
 function Icon({ children, className = "h-5 w-5" }: { children: ReactNode; className?: string }) {
   return (
     <svg

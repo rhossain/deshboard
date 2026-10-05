@@ -7,6 +7,7 @@ import { isFetched } from "@/lib/sources";
 import type { Theme } from "@/lib/theme";
 import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
 import { useCardPrefs, useIsPhone } from "./card-prefs";
+import { CategoryTabs } from "./CategoryTabs";
 import { byNewest, LatestList } from "./LatestList";
 import { SourceCard } from "./SourceCard";
 import { setTheme, useTheme } from "./theme";
@@ -14,7 +15,6 @@ import { fullTime, timeAgo } from "./time";
 import {
   AutoThemeIcon,
   ChevronIcon,
-  Chip,
   ClockIcon,
   CloseIcon,
   GridIcon,
@@ -239,6 +239,28 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
       }
     });
 
+  // Labels follow the language filter: Bangla names when only Bangla sources are shown.
+  const bn = lang === "bn";
+  const categoryTabs = [
+    { id: "", label: bn ? "সব" : "All", count: matching.length },
+    ...CATEGORIES.map((c) => ({
+      id: c.id,
+      label: bn ? c.bn : c.label,
+      title: bn ? c.label : c.bn,
+      count: categoryCounts.get(c.id) ?? 0,
+    })),
+  ];
+
+  /** Selects a category; from deep in the page, jumps back to the top of the results. */
+  const pickCategory = (id: Category | "") => {
+    setCategory(id);
+    const main = document.querySelector("main");
+    const toolbar = document.querySelector("[data-toolbar]");
+    if (!main || !toolbar) return;
+    const top = main.getBoundingClientRect().top + window.scrollY - toolbar.getBoundingClientRect().height;
+    if (window.scrollY > top) window.scrollTo({ top, behavior: "instant" });
+  };
+
   const changeView = (v: View) => {
     setView(v);
     window.scrollTo({ top: 0 });
@@ -399,24 +421,8 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
         </div>
 
         {hasData ? (
-          <div className="mx-auto max-w-7xl">
-            <div
-              className="no-scrollbar fade-x flex snap-x gap-2 overflow-x-auto scroll-px-4 px-4 py-3 sm:px-6 lg:flex-wrap"
-              role="group"
-              aria-label="Filter by category"
-            >
-              <Chip active={!category} onClick={() => setCategory("")} label="All" count={matching.length} />
-              {CATEGORIES.map((c) => (
-                <Chip
-                  key={c.id}
-                  active={category === c.id}
-                  onClick={() => setCategory(category === c.id ? "" : c.id)}
-                  label={c.label}
-                  title={c.bn}
-                  count={categoryCounts.get(c.id) ?? 0}
-                />
-              ))}
-            </div>
+          <div className="relative mx-auto -mb-px mt-1.5 max-w-7xl">
+            <CategoryTabs tabs={categoryTabs} value={category} onChange={(id) => pickCategory(id as Category | "")} />
           </div>
         ) : (
           <div className="h-3" />
