@@ -1,13 +1,17 @@
 /**
  * Offline tests for the parsers (no network needed): npm test
  */
+import "./test-env";
 import assert from "node:assert/strict";
 import { categorize } from "../src/lib/categories";
 import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
 import { parseDate, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
+import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
+import { findStories, keywords } from "../src/lib/stories";
+import type { NewsItem } from "../src/lib/types";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -42,7 +46,9 @@ test("Atom feed", () => {
     <entry><title>Atom title here</title><link rel="alternate" href="/news/1"/><updated>2026-10-04T10:00:00Z</updated></entry>
   </feed>`;
   const items = parseFeed(xml, "https://site.test/feed");
-  assert.deepEqual(items, [{ title: "Atom title here", link: "https://site.test/news/1", publishedAt: "2026-10-04T10:00:00.000Z" }]);
+  assert.deepEqual(items, [
+    { title: "Atom title here", link: "https://site.test/news/1", publishedAt: "2026-10-04T10:00:00.000Z" },
+  ]);
 });
 
 test("HTML soft-404 is rejected as a feed", () => {
@@ -155,6 +161,84 @@ test("Logo candidates: header logo first, social icons and parking pages skipped
   assert.equal(urls[1], "https://www.site.test/ld-logo.png");
   assert.ok(!urls.some((u) => u.includes("facebook")));
   assert.ok(!urls.some((u) => u.includes("sedoparking")));
+});
+
+function item(sourceId: string, title: string, extra: Partial<NewsItem> = {}): NewsItem {
+  return {
+    title,
+    link: `https://${sourceId}.test/${encodeURIComponent(title)}`,
+    sourceId,
+    sourceName: sourceId,
+    lang: /[a-z]/i.test(title) ? "en" : "bn",
+    category: "other",
+    ...extra,
+  };
+}
+
+test("keywords: Bangla suffixes, digits and stopwords", () => {
+  assert.deepEqual(keywords("ঢাকার পুলিশের ২৪ কর্মকর্তাকে বদলি"), ["পুলিশ", "24", "কর্মকর্তা", "বদলি"]);
+  assert.deepEqual(keywords("PM's visit: Tarique meets envoys"), ["pm", "visit", "tarique", "meet", "envoy"]);
+});
+
+test("stories: groups the same event across outlets, keeps others apart", () => {
+  // Filler, so the event words are rare enough to carry weight.
+  const filler = Array.from({ length: 200 }, (_, i) => item(`f${i % 9}`, `filler story number ${i} about topic ${i}`));
+  const items = [
+    ...filler,
+    item("a", "পুলিশের ঊর্ধ্বতন ২৪ কর্মকর্তার রদবদল"),
+    item("b", "তিন ডিআইজিসহ পুলিশের ২৪ ঊর্ধ্বতন কর্মকর্তাকে বদলি"),
+    item("c", "পুলিশের ২৪ ঊর্ধ্বতন কর্মকর্তা বদলি"),
+    item("a", "বিশ্ব বসতি দিবসের অনুষ্ঠানে প্রধানমন্ত্রী"),
+    item("b", "বিশ্ব বসতি দিবসের আলোচনা সভায় প্রধানমন্ত্রী"),
+    item("c", "বিশ্ব শিক্ষক দিবস আজ"),
+    item("d", "আজ বিশ্ব শিক্ষক দিবস, সম্মাননা পাচ্ছেন শিক্ষকরা"),
+  ];
+  const stories = findStories(items);
+  const police = stories.find((s) => s.lead.title.includes("পুলিশ"));
+  assert.equal(police?.outlets, 3);
+  const habitat = stories.find((s) => s.items.some((it) => it.title.includes("বসতি")));
+  const teachers = stories.find((s) => s.items.some((it) => it.title.includes("শিক্ষক")));
+  assert.ok(habitat && teachers && habitat !== teachers, "two different days stay two stories");
+  assert.ok(!habitat.items.some((it) => it.title.includes("শিক্ষক")));
+});
+
+test("stories: one headline per outlet, old headlines left out", () => {
+  const now = Date.parse("2026-10-05T12:00:00Z");
+  const old = new Date(now - 3 * 86400_000).toISOString();
+  const filler = Array.from({ length: 100 }, (_, i) => item(`f${i % 9}`, `filler story number ${i} about topic ${i}`));
+  const stories = findStories(
+    [
+      ...filler,
+      item("a", "Messi trains with Argentina squad in Miami"),
+      item("a", "Messi trains with Argentina squad in Miami ahead of final"),
+      item("b", "Messi trains with Argentina squad in Miami"),
+      item("c", "Messi trains with Argentina squad in Miami", { publishedAt: old }),
+    ],
+    { now },
+  );
+  assert.equal(stories.length, 1);
+  assert.equal(stories[0].outlets, 2);
+  assert.equal(stories[0].items.length, 2);
+});
+
+test("first seen: none on a source's first fetch, then stamped once", () => {
+  const first = [item("home", "Old headline")];
+  stampFirstSeen("home", first, Date.parse("2026-10-05T10:00:00Z"));
+  assert.equal(first[0].seenAt, undefined);
+
+  const second = [
+    item("home", "Old headline"),
+    item("home", "Fresh headline"),
+    item("home", "Dated", { publishedAt: "2026-10-05T09:00:00Z" }),
+  ];
+  stampFirstSeen("home", second, Date.parse("2026-10-05T10:10:00Z"));
+  assert.equal(second[0].seenAt, undefined);
+  assert.equal(second[1].seenAt, "2026-10-05T10:10:00.000Z");
+  assert.equal(second[2].seenAt, undefined);
+
+  const third = [item("home", "Fresh headline")];
+  stampFirstSeen("home", third, Date.parse("2026-10-05T10:20:00Z"));
+  assert.equal(third[0].seenAt, "2026-10-05T10:10:00.000Z");
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

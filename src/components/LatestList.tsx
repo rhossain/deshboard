@@ -1,17 +1,19 @@
 "use client";
 
 import { CATEGORIES } from "@/lib/categories";
+import { itemTime } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
-import { fullTime, timeAgo } from "./time";
+import { ItemTime } from "./ItemTime";
+import { NewDot } from "./ui";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 const MAX_ITEMS = 300;
 
 const dhakaDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka" });
 
-/** ISO dates sort as strings; items without a date go last. */
+/** ISO dates sort as strings; items without a time (publish or first seen) go last. */
 export function byNewest(a: NewsItem, b: NewsItem): number {
-  return (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
+  return (itemTime(b) ?? "").localeCompare(itemTime(a) ?? "");
 }
 
 function groupLabel(iso: string, now: number): string {
@@ -27,17 +29,19 @@ export function LatestList({
   items,
   sourceById,
   now,
+  isNew,
 }: {
   items: NewsItem[];
   sourceById: Map<string, NewsSource>;
   now: number;
+  isNew: (item: NewsItem) => boolean;
 }) {
-  const dated = items.filter((i) => i.publishedAt).sort(byNewest);
+  const dated = items.filter(itemTime).sort(byNewest);
   const undated = items.length - dated.length;
 
   const groups: { label: string; items: NewsItem[] }[] = [];
   for (const it of dated.slice(0, MAX_ITEMS)) {
-    const label = groupLabel(it.publishedAt!, now);
+    const label = groupLabel(itemTime(it)!, now);
     const last = groups.at(-1);
     if (last?.label === label) last.items.push(it);
     else groups.push({ label, items: [it] });
@@ -58,15 +62,13 @@ export function LatestList({
                   href={it.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex gap-4 px-4 py-3.5 transition active:bg-surface-2 hover:bg-surface-2/60 sm:px-5"
+                  className="group flex gap-4 px-4 py-3.5 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:px-5"
                 >
-                  <time
-                    dateTime={it.publishedAt}
-                    title={fullTime(it.publishedAt)}
+                  <ItemTime
+                    item={it}
+                    now={now}
                     className="hidden w-24 shrink-0 pt-1 text-xs tabular-nums text-muted sm:block"
-                  >
-                    {timeAgo(it.publishedAt, now)}
-                  </time>
+                  />
                   <div className="min-w-0">
                     <div className="mb-1 flex flex-wrap items-center gap-x-2 text-xs">
                       <span className="font-semibold text-accent">
@@ -75,9 +77,14 @@ export function LatestList({
                       {it.category !== "other" && (
                         <span className="text-muted">· {CATEGORY_LABEL.get(it.category)}</span>
                       )}
-                      <span className="text-muted sm:hidden">· {timeAgo(it.publishedAt, now)}</span>
+                      <span className="text-muted sm:hidden">
+                        · <ItemTime item={it} now={now} />
+                      </span>
                     </div>
-                    <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent">{it.title}</p>
+                    <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent">
+                      {isNew(it) && <NewDot className="mr-2 -mt-0.5" />}
+                      {it.title}
+                    </p>
                   </div>
                 </a>
               </li>
@@ -92,8 +99,8 @@ export function LatestList({
       )}
       {undated > 0 && (
         <p className="px-1 text-center text-xs leading-relaxed text-muted">
-          {undated.toLocaleString()} headlines from homepage-scraped sources have no timestamp — find them in “By
-          source”.
+          {undated.toLocaleString()} headlines from homepage-scraped sources have no time yet — find them in “By
+          source”. New ones are timed from when they first appear on the homepage.
         </p>
       )}
     </section>

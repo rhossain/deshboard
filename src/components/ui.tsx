@@ -141,3 +141,23 @@ export const AutoThemeIcon = (p: { className?: string }) => (
     <path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" />
   </Icon>
 );
+
+/** Stacked pages: one story told by several outlets. */
+export const StackIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <rect x="4" y="9" width="16" height="11" rx="2" />
+    <path d="M6.5 6h11M9 3h6" />
+  </Icon>
+);
+
+/** The small dot that marks a headline published since the reader's last visit. */
+export function NewDot({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-block h-2 w-2 shrink-0 rounded-full bg-gold align-middle ${className}`}
+      title="New since your last visit"
+    >
+      <span className="sr-only">New: </span>
+    </span>
+  );
+}

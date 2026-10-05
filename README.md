@@ -40,7 +40,10 @@ npm test           # offline parser tests
   service. 404 when nothing is found, and the UI shows the name as text.
 - `GET /api/sources` — all 64 portals with method, URL and notes
 
-Each item: `{ title, link, publishedAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no `publishedAt`.
+Each item: `{ title, link, publishedAt?, seenAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no
+`publishedAt`; instead `seenAt` is when Deshboard first saw them on the homepage (`src/lib/first-seen.ts`). Headlines
+already there on a source's very first fetch get neither, since their age is unknown. The UI shows `seenAt` as `~12
+minutes ago`.
 
 `category` is one of `national, politics, international, business, sports, entertainment, tech, education, health,
 lifestyle, crime, opinion, other`. It comes from the article URL's section path (`/details/politics/…`,
@@ -56,12 +59,16 @@ src/lib/sources.ts         source list (edit here to add/fix a portal)
 src/lib/categories.ts      section-name synonyms → main categories
 src/lib/problems.ts        reader-facing explanations for unavailable / failed sources
 src/lib/logos.ts           logo discovery from homepages + in-memory image cache
-src/lib/news.ts            fetch orchestration, in-memory cache (10 min, 1 min for failures), concurrency 8
+src/lib/news.ts            fetch orchestration, cache (10 min, 1 min for failures), concurrency 8, background refresh
+src/lib/store.ts           JSON files in .data/ so the cache and first-seen times survive restarts
+src/lib/first-seen.ts      first-seen times for headlines without a publish date
+src/lib/stories.ts         groups headlines from different outlets about the same event ("Top stories")
+src/instrumentation.ts     starts the background refresh when the server starts
 src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 detection
 src/lib/fetchers/rss.ts    RSS/Atom/RDF parser
 src/lib/fetchers/sitemap.ts Google News sitemap parser
 src/lib/fetchers/html.ts   homepage headline extractor (cheerio)
-src/components/NewsBoard.tsx  UI: by-source cards, latest timeline, filters, search
+src/components/NewsBoard.tsx  UI: top stories, by-source cards, latest timeline, filters, search, "new" marks
 ```
 
 ### Fixing an HTML source
@@ -72,6 +79,18 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 ## Config
 
 - `NEWS_CACHE_SECONDS` (default `600`) — how long each source's result is reused.
+- `NEWS_BACKGROUND_REFRESH` — set to `0` to fetch only when a reader asks. Otherwise the server refreshes stale
+  sources at startup and every half TTL, so readers get headlines from a warm cache.
+- `NEWS_DATA_DIR` (default `.data/`) — where the cache and first-seen times are saved; `NEWS_PERSIST=0` keeps them in
+  memory only. On serverless hosts the filesystem is throwaway and timers don't run between requests, so both features
+  quietly do nothing there; run on a long-lived Node server (VPS, container) to get them.
+
+## Features
+
+- **Top stories** — headlines are reduced to weighted keywords (Bangla suffixes stripped, rare words count more) and
+  linked when two outlets share most of them; the stories covered by the most outlets rank first. Runs in the browser.
+- **New since your last visit** — headlines newer than the end of the reader's previous visit get a gold dot, with a
+  "N new" filter. A visit ends after 30 minutes away (`src/components/last-visit.ts`); opened headlines turn muted.
 
 ## Notes
 

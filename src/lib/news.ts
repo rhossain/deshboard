@@ -1,10 +1,12 @@
 import { categorize } from "./categories";
+import { stampFirstSeen } from "./first-seen";
 import { extractHeadlines } from "./fetchers/html";
 import { fetchText } from "./fetchers/http";
 import { parseFeed, type RawItem } from "./fetchers/rss";
 import { parseNewsSitemap } from "./fetchers/sitemap";
 import { dedupeByLink, dhakaDate, shiftDhakaAsUtc } from "./fetchers/utils";
 import { ACTIVE_SOURCES, getSource } from "./sources";
+import { readStore, writeStoreSoon } from "./store";
 import type { NewsItem, NewsSource, SourceResult } from "./types";
 
 /** How long a source's result is reused before it is fetched again. */
@@ -13,12 +15,17 @@ const TTL_MS = Number(process.env.NEWS_CACHE_SECONDS ?? 600) * 1000;
 const ERROR_TTL_MS = 60_000;
 const CONCURRENCY = 8;
 
-// Survives hot reloads in dev and is shared by all requests in one server process.
+type CacheEntry = { at: number; result: SourceResult };
+const CACHE_STORE = "news-cache";
+
+// Survives hot reloads in dev and is shared by all requests in one server process. Starts from the
+// copy on disk, so a restart serves the last headlines instead of fetching all sources again.
 const g = globalThis as unknown as {
-  __newsCache?: Map<string, { at: number; result: SourceResult }>;
+  __newsCache?: Map<string, CacheEntry>;
   __newsInflight?: Map<string, Promise<SourceResult>>;
+  __newsRefresher?: ReturnType<typeof setInterval>;
 };
-const cache = (g.__newsCache ??= new Map());
+const cache = (g.__newsCache ??= new Map(Object.entries(readStore<Record<string, CacheEntry>>(CACHE_STORE, {}))));
 const inflight = (g.__newsInflight ??= new Map());
 
 async function fetchRaw(source: NewsSource): Promise<{ items: RawItem[]; url: string }> {
@@ -77,6 +84,7 @@ async function load(source: NewsSource): Promise<SourceResult> {
       lang: source.lang,
       category: categorize(it.link, tags),
     }));
+    stampFirstSeen(source.id, news);
     return { ...base, ok: true, count: news.length, fetchedUrl: url, durationMs: Date.now() - started, items: news };
   } catch (err) {
     return {
@@ -90,7 +98,7 @@ async function load(source: NewsSource): Promise<SourceResult> {
   }
 }
 
-/** Fetch one source, using the in-memory cache unless `force` is set. */
+/** Fetch one source, using the cache unless `force` is set. */
 export async function getSourceNews(source: NewsSource, force = false): Promise<SourceResult> {
   const hit = cache.get(source.id);
   if (!force && hit && Date.now() - hit.at < (hit.result.ok ? TTL_MS : ERROR_TTL_MS)) return hit.result;
@@ -101,6 +109,7 @@ export async function getSourceNews(source: NewsSource, force = false): Promise<
   const p = load(source)
     .then((result) => {
       cache.set(source.id, { at: Date.now(), result });
+      writeStoreSoon(CACHE_STORE, () => Object.fromEntries(cache));
       return result;
     })
     .finally(() => inflight.delete(source.id));
@@ -165,4 +174,16 @@ export async function eachSourceNews(query: NewsQuery, onResult: (result: Source
     const result = await getSourceNews(s, query.force);
     onResult(result);
   });
+}
+
+/**
+ * Keeps the cache warm so readers never wait for a fetch: refreshes stale sources now, then every
+ * half TTL (so a source is at most 1.5 × TTL old). Started once per server from instrumentation.ts.
+ */
+export function startBackgroundRefresh(): void {
+  if (g.__newsRefresher) return;
+  const run = () => getNews().catch((err) => console.warn("[news] background refresh failed:", err));
+  g.__newsRefresher = setInterval(run, Math.max(60_000, TTL_MS / 2));
+  g.__newsRefresher.unref?.();
+  void run();
 }

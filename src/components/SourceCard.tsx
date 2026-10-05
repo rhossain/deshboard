@@ -3,8 +3,8 @@
 import { useRef, useState, type ReactNode } from "react";
 import { sourceProblem } from "@/lib/problems";
 import type { NewsItem, NewsSource, SourceStatus } from "@/lib/types";
-import { fullTime, timeAgo } from "./time";
-import { AlertIcon, ArrowUpRightIcon, ChevronIcon } from "./ui";
+import { ItemTime } from "./ItemTime";
+import { AlertIcon, ArrowUpRightIcon, ChevronIcon, NewDot } from "./ui";
 
 const PER_CARD = 8;
 
@@ -25,6 +25,7 @@ export function SourceCard({
   savedCollapsed,
   seenLead,
   onToggle,
+  isNew,
 }: {
   source: NewsSource;
   status?: SourceStatus;
@@ -37,6 +38,8 @@ export function SourceCard({
   /** The lead headline's link when the card was last toggled. */
   seenLead?: string;
   onToggle?: (collapsed: boolean) => void;
+  /** True for headlines since the reader's last visit. */
+  isNew: (item: NewsItem) => boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
   const ref = useRef<HTMLElement>(null);
@@ -136,14 +139,14 @@ export function SourceCard({
         <Fold open={!collapsed}>
           {lead && (
             <div className="border-t border-line">
-              <Headline item={lead} now={now} lead />
+              <Headline item={lead} now={now} isNew={isNew(lead)} lead />
             </div>
           )}
           {rest.length > 0 && (
             <ul className="border-t border-line">
               {rest.map((it) => (
                 <li key={it.link} className="border-b border-line last:border-b-0">
-                  <Headline item={it} now={now} />
+                  <Headline item={it} now={now} isNew={isNew(it)} />
                 </li>
               ))}
             </ul>
@@ -178,26 +181,22 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }) {
   );
 }
 
-function Headline({ item, now, lead = false }: { item: NewsItem; now: number; lead?: boolean }) {
+function Headline({ item, now, isNew, lead = false }: { item: NewsItem; now: number; isNew: boolean; lead?: boolean }) {
+  // Opened headlines turn muted through the browser's own :visited state.
   return (
     <a
       href={item.link}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block px-4 py-3 transition active:bg-surface-2 hover:bg-surface-2/60"
+      className="group block px-4 py-3 text-foreground transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60"
     >
       <span
-        className={`block leading-[1.55] text-foreground group-hover:text-accent ${
-          lead ? "text-[17px] font-semibold" : "text-[15px]"
-        }`}
+        className={`block leading-[1.55] group-hover:text-accent ${lead ? "text-[17px] font-semibold" : "text-[15px]"}`}
       >
+        {isNew && <NewDot className="mr-2 -mt-0.5" />}
         {item.title}
       </span>
-      {item.publishedAt && (
-        <time dateTime={item.publishedAt} title={fullTime(item.publishedAt)} className="mt-1 block text-xs text-muted">
-          {timeAgo(item.publishedAt, now)}
-        </time>
-      )}
+      <ItemTime item={item} now={now} className="mt-1 block text-xs text-muted" />
     </a>
   );
 }

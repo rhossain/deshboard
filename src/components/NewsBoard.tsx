@@ -1,16 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { sourceProblem } from "@/lib/problems";
 import { isFetched } from "@/lib/sources";
+import { findStories, itemTime } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
 import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
 import { useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
+import { useLastVisit } from "./last-visit";
 import { byNewest, LatestList } from "./LatestList";
 import { Logo } from "./Logo";
 import { SourceCard } from "./SourceCard";
+import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
 import { fullTime, timeAgo } from "./time";
 import {
@@ -24,16 +27,20 @@ import {
   SearchIcon,
   Segmented,
   SlidersIcon,
+  StackIcon,
   SunIcon,
 } from "./ui";
 
-type View = "sources" | "latest";
+type View = "top" | "sources" | "latest";
 type LangFilter = "all" | Lang;
 type Order = "default" | "newest";
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
+/** Top stories need this many outlets, unless no story has that many. */
+const TOP_MIN_OUTLETS = 3;
 
 const VIEW_OPTIONS: { value: View; label: string }[] = [
+  { value: "top", label: "Top stories" },
   { value: "sources", label: "By source" },
   { value: "latest", label: "Latest" },
 ];
@@ -104,6 +111,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   const [query, setQuery] = useState("");
   const [onlySource, setOnlySource] = useState<string>("");
   const [category, setCategory] = useState<Category | "">("");
+  const [onlyNew, setOnlyNew] = useState(false);
   const [showFailures, setShowFailures] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -162,6 +170,11 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   const sourceById = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources]);
   const statusById = results;
 
+  // Headlines since the reader's last visit (none on a first visit).
+  const lastVisit = useLastVisit();
+  const isNew = useCallback((it: NewsItem) => !!lastVisit && (itemTime(it) ?? "") > lastVisit, [lastVisit]);
+  const newCount = useMemo(() => allItems.filter(isNew).length, [allItems, isNew]);
+
   // Everything except the category filter, so the chips can show counts.
   const matching = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -169,9 +182,10 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
       (it) =>
         (lang === "all" || it.lang === lang) &&
         (!onlySource || it.sourceId === onlySource) &&
+        (!onlyNew || isNew(it)) &&
         (!q || it.title.toLowerCase().includes(q)),
     );
-  }, [allItems, lang, onlySource, query]);
+  }, [allItems, lang, onlySource, onlyNew, isNew, query]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<Category, number>();
@@ -201,19 +215,48 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   // Default: the configured source order. "Newest": the source with the most recent headline first.
   // Either way, sources that are not fetched or failed go last.
   const visibleSources = useMemo(() => {
-    const latest = (id: string) => itemsBySource.get(id)?.[0]?.publishedAt ?? "";
+    const latest = (id: string) => {
+      const first = itemsBySource.get(id)?.[0];
+      return (first && itemTime(first)) ?? "";
+    };
     const broken = (s: NewsSource) => (sourceProblem(s, statusById.get(s.id)) ? 1 : 0);
     return sources
       .filter((s) => (lang === "all" || s.lang === lang) && (!onlySource || s.id === onlySource))
       .sort((a, b) => broken(a) - broken(b) || (order === "newest" ? latest(b.id).localeCompare(latest(a.id)) : 0));
   }, [sources, lang, onlySource, itemsBySource, statusById, order]);
 
+  // Stories are grouped across all outlets in the chosen language (deferred: grouping takes a moment
+  // and sources stream in one by one); the other filters then pick stories with a matching headline.
+  const storyItems = useDeferredValue(allItems);
+  const allStories = useMemo(
+    () =>
+      view === "top"
+        ? findStories(lang === "all" ? storyItems : storyItems.filter((it) => it.lang === lang), { now })
+        : [],
+    [view, storyItems, lang, now],
+  );
+  const stories = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const matches = allStories.filter((st) =>
+      st.items.some(
+        (it) =>
+          (!onlySource || it.sourceId === onlySource) &&
+          (!category || it.category === category) &&
+          (!onlyNew || isNew(it)) &&
+          (!q || it.title.toLowerCase().includes(q)),
+      ),
+    );
+    const big = matches.filter((st) => st.outlets >= TOP_MIN_OUTLETS);
+    return big.length ? big : matches;
+  }, [allStories, query, onlySource, category, onlyNew, isNew]);
+
   const okCount = statuses.filter((s) => s.ok).length;
   const failures = statuses.filter((s) => !s.ok);
-  const filtering = !!query.trim() || !!category;
+  const filtering = !!query.trim() || !!category || onlyNew;
 
   // Filters that live in the sheet on phones; shown as removable pills so they are never hidden state.
   const activeFilters = [
+    onlyNew && { key: "new", label: "New only", clear: () => setOnlyNew(false) },
     lang !== "all" && { key: "lang", label: lang === "bn" ? "বাংলা" : "English", clear: () => setLang("all") },
     onlySource && {
       key: "source",
@@ -225,6 +268,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   ].filter((f): f is { key: string; label: string; clear: () => void } => !!f);
 
   const resetFilters = () => {
+    setOnlyNew(false);
     setLang("all");
     setOnlySource("");
     setOrder("default");
@@ -349,6 +393,21 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
                 </b>{" "}
                 sources
               </span>
+              {newCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setOnlyNew((v) => !v)}
+                  aria-pressed={onlyNew}
+                  title="Headlines since your last visit. Click to show only these."
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${
+                    onlyNew ? "bg-gold text-background" : "bg-gold/15 text-gold"
+                  }`}
+                >
+                  {!onlyNew && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />}
+                  {newCount.toLocaleString()} new
+                  {onlyNew && <CloseIcon className="h-3 w-3" />}
+                </button>
+              )}
               {failures.length > 0 && (
                 <button
                   type="button"
@@ -463,7 +522,27 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
           </div>
         )}
 
-        {hasData && view === "latest" && <LatestList items={filtered} sourceById={sourceById} now={now} />}
+        {hasData && view === "top" && !(filtering && filtered.length === 0) && (
+          <TopStories
+            stories={stories}
+            sourceById={sourceById}
+            now={now}
+            isNew={isNew}
+            emptyHint={
+              onlySource
+                ? `Nothing from ${sourceById.get(onlySource)?.name ?? "this source"} is covered by other outlets right now.`
+                : filtering
+                  ? "No story covered by several outlets matches."
+                  : loading
+                    ? "Grouping headlines into stories…"
+                    : "No story is covered by several outlets yet."
+            }
+          />
+        )}
+
+        {hasData && view === "latest" && (
+          <LatestList items={filtered} sourceById={sourceById} now={now} isNew={isNew} />
+        )}
 
         {hasData && view === "sources" && (
           <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
@@ -479,6 +558,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
                 savedCollapsed={cardPrefs.collapsed[s.id]}
                 seenLead={cardPrefs.seen[s.id]}
                 onToggle={(collapsed) => setCollapsed([s.id], collapsed)}
+                isNew={isNew}
               />
             ))}
           </div>
@@ -490,7 +570,10 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
         className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
         aria-label="View"
       >
-        <div className="mx-auto grid h-16 max-w-md grid-cols-3">
+        <div className="mx-auto grid h-16 max-w-md grid-cols-4">
+          <NavButton active={view === "top"} onClick={() => changeView("top")} label="Top">
+            <StackIcon />
+          </NavButton>
           <NavButton active={view === "sources"} onClick={() => changeView("sources")} label="Sources">
             <GridIcon />
           </NavButton>
