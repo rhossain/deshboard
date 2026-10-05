@@ -48,7 +48,7 @@ import {
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 /** How often new headlines are published (the schedule in .github/workflows/deploy.yml). */
-const UPDATE_EVERY_MS = 60 * 60 * 1000;
+const UPDATE_EVERY_MS = 30 * 60 * 1000;
 /** How long a Refresh result stays in the status line. */
 const NOTICE_MS = 6000;
 /** Top stories need this many outlets, unless no story has that many. */
@@ -96,7 +96,7 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 
 const dhakaClock = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", hour: "2-digit", minute: "2-digit" });
 
-/** When the next hourly update should land: "next around 19:07", or "due any minute" once it's late. */
+/** When the next update should land: "next around 19:07", or "due any minute" once it's late. */
 function nextUpdate(generatedAt: string, now: number): string {
   const due = Date.parse(generatedAt) + UPDATE_EVERY_MS;
   return due > now ? `next around ${dhakaClock.format(due)}` : "next due any minute";
@@ -556,7 +556,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
                 onClick={() => load()}
                 disabled={loading}
                 aria-label={loading ? "Loading headlines" : "Check for new headlines"}
-                title="Headlines are collected about once an hour"
+                title="Headlines are collected about every 30 minutes"
                 className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3.5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-70 sm:px-5"
               >
                 <RefreshIcon spinning={loading} className="h-[18px] w-[18px]" />

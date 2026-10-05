@@ -9,9 +9,9 @@ name: Deploy
 # from either branch it builds static-export.
 on:
   schedule:
-    # Hourly. Each run takes ~2 minutes: a private repo's free 2,000 minutes a month cover this;
-    # a public repo has no limit, so it could run every 15 minutes ("*/15 * * * *").
-    - cron: "7 * * * *"
+    # Every 30 minutes (free: the repo is public, so Actions minutes are unlimited). GitHub often
+    # starts scheduled runs some minutes late. Keep UPDATE_EVERY_MS in NewsBoard.tsx in step.
+    - cron: "7,37 * * * *"
   push:
     branches: [static-export]
   workflow_dispatch:
