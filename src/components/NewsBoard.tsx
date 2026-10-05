@@ -105,7 +105,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   const [loading, setLoading] = useState(true);
   const [received, setReceived] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<View>("sources");
+  const [view, setView] = useState<View>("top");
   const [order, setOrder] = useState<Order>("default");
   const [lang, setLang] = useState<LangFilter>("all");
   const [query, setQuery] = useState("");
