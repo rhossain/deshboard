@@ -2,9 +2,6 @@
 
 ErrorDocument 404 /404.html
 
-# Deployed with git (Hostinger's Git deployment): never serve the repository folder.
-RedirectMatch 404 /\.git
-
 # Next writes the share image and the home-screen icon without a file extension.
 <FilesMatch "^(apple-icon|opengraph-image)$">
   ForceType image/png
@@ -12,6 +9,8 @@ RedirectMatch 404 /\.git
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # Deployed with git (Hostinger's Git deployment): never serve the repository folder.
+  RewriteRule (^|/)\.git(/|$) - [R=404,L]
   # Shared headlines (/s/<article address>): one page that reads the headline from the address.
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^s/ /404.html [L]

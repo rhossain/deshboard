@@ -47,6 +47,10 @@ import {
 } from "./ui";
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
+/** How often new headlines are published (the schedule in .github/workflows/deploy.yml). */
+const UPDATE_EVERY_MS = 60 * 60 * 1000;
+/** How long a Refresh result stays in the status line. */
+const NOTICE_MS = 6000;
 /** Top stories need this many outlets, unless no story has that many. */
 const TOP_MIN_OUTLETS = 3;
 
@@ -89,6 +93,14 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ];
+
+const dhakaClock = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", hour: "2-digit", minute: "2-digit" });
+
+/** When the next hourly update should land: "next around 19:07", or "due any minute" once it's late. */
+function nextUpdate(generatedAt: string, now: number): string {
+  const due = Date.parse(generatedAt) + UPDATE_EVERY_MS;
+  return due > now ? `next around ${dhakaClock.format(due)}` : "next due any minute";
+}
 
 const dhakaDate = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Asia/Dhaka",
@@ -169,6 +181,10 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
   const [pending, setPending] = useState<Pending | null>(null);
   const quietRef = useRef<AbortController | null>(null);
   const resultsRef = useRef(results);
+  const generatedAtRef = useRef(generatedAt);
+  // What the last Refresh found, shown for a few seconds in the status line.
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const searchRef = useRef<HTMLInputElement>(null);
   const [now, setNow] = useState(() => Date.now());
   const controllerRef = useRef<AbortController | null>(null);
@@ -182,34 +198,48 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
     setNow(Date.now());
   }, []);
 
-  /** Load the feed. State is only set from callbacks, so this is safe to call from an effect. */
-  const start = useCallback(() => {
-    controllerRef.current?.abort();
-    const controller = new AbortController();
-    controllerRef.current = controller;
+  /**
+   * Load the feed. State is only set from callbacks, so this is safe to call from an effect.
+   * `manual` (the Refresh button): say whether there was anything newer, since often there isn't.
+   */
+  const start = useCallback(
+    (manual = false) => {
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
 
-    loadFeed(controller.signal).then(
-      (feed) => {
-        show(feed);
-        setError(null);
-        setLoading(false);
-      },
-      (err: unknown) => {
-        if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : String(err));
-        setLoading(false);
-      },
-    );
-  }, [show]);
+      loadFeed(controller.signal).then(
+        (feed) => {
+          const newer = feed.generatedAt !== generatedAtRef.current;
+          if (newer) show(feed);
+          if (manual) {
+            clearTimeout(noticeTimer.current);
+            setNotice(
+              newer ? "Showing the latest headlines" : `Already up to date · ${nextUpdate(feed.generatedAt, Date.now())}`,
+            );
+            noticeTimer.current = setTimeout(() => setNotice(null), NOTICE_MS);
+          }
+          setError(null);
+          setLoading(false);
+        },
+        (err: unknown) => {
+          if (controller.signal.aborted) return;
+          setError(err instanceof Error ? err.message : String(err));
+          setLoading(false);
+        },
+      );
+    },
+    [show],
+  );
 
+  /** The Refresh button and `r`. */
   const load = useCallback(() => {
     quietRef.current?.abort();
     setPending(null);
     setLoading(true);
-    start();
+    start(true);
   }, [start]);
 
-  const generatedAtRef = useRef(generatedAt);
   useEffect(() => {
     resultsRef.current = results;
     generatedAtRef.current = generatedAt;
@@ -255,6 +285,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
       quietRef.current?.abort();
       clearInterval(refresh);
       clearInterval(tick);
+      clearTimeout(noticeTimer.current);
     };
   }, [start, refreshQuietly]);
 
@@ -524,7 +555,8 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
                 type="button"
                 onClick={() => load()}
                 disabled={loading}
-                aria-label={loading ? "Loading headlines" : "Refresh headlines"}
+                aria-label={loading ? "Loading headlines" : "Check for new headlines"}
+                title="Headlines are collected about once an hour"
                 className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3.5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-70 sm:px-5"
               >
                 <RefreshIcon spinning={loading} className="h-[18px] w-[18px]" />
@@ -535,15 +567,19 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
 
           {/* Status */}
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted">
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5" aria-live="polite">
               <span className="relative flex h-2 w-2">
                 {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
                 <span className="relative h-2 w-2 rounded-full bg-accent" />
               </span>
               {loading ? (
                 <span>Loading headlines…</span>
+              ) : notice ? (
+                <span className="font-medium text-foreground">{notice}</span>
               ) : generatedAt ? (
-                <span title={fullTime(generatedAt)}>Updated {timeAgo(generatedAt, now)}</span>
+                <span title={fullTime(generatedAt)}>
+                  Updated {timeAgo(generatedAt, now)} · {nextUpdate(generatedAt, now)}
+                </span>
               ) : (
                 <span>Live</span>
               )}
