@@ -9,7 +9,9 @@
     "lint": "eslint",
     "check": "tsx scripts/check-sources.ts",
     "test": "tsx scripts/test-parsers.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fetch": "tsx scripts/fetch-news.ts",
+    "package": "bash scripts/package.sh"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

@@ -42,3 +42,10 @@ next-env.d.ts
 
 # cached headlines and first-seen times (src/lib/store.ts)
 /.data/
+
+# collected by `npm run fetch` for the static build
+/public/data/
+/public/logos/
+
+# upload zip (`npm run package`)
+/deshboard.zip

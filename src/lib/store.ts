@@ -11,8 +11,10 @@ const DIR = process.env.NEWS_DATA_DIR || path.join(process.cwd(), ".data");
 const ENABLED = process.env.NEWS_PERSIST !== "0";
 const WRITE_DELAY_MS = 2000;
 
-const g = globalThis as unknown as { __storeTimers?: Map<string, ReturnType<typeof setTimeout>> };
-const timers = (g.__storeTimers ??= new Map());
+const g = globalThis as unknown as {
+  __storeTimers?: Map<string, { timer: ReturnType<typeof setTimeout>; get: () => unknown }>;
+};
+const pending = (g.__storeTimers ??= new Map());
 
 export function readStore<T>(name: string, fallback: T): T {
   if (!ENABLED) return fallback;
@@ -23,21 +25,34 @@ export function readStore<T>(name: string, fallback: T): T {
   }
 }
 
+function save(name: string, get: () => unknown): void {
+  try {
+    mkdirSync(DIR, { recursive: true });
+    const file = path.join(DIR, `${name}.json`);
+    // Write then rename, so a crash mid-write never leaves a half-written file behind.
+    writeFileSync(`${file}.tmp`, JSON.stringify(get()));
+    renameSync(`${file}.tmp`, file);
+  } catch (err) {
+    console.warn(`[store] could not save ${name}:`, err instanceof Error ? err.message : err);
+  }
+}
+
 /** Writes `get()` to disk shortly, coalescing bursts of changes into one write. */
 export function writeStoreSoon(name: string, get: () => unknown): void {
-  if (!ENABLED || timers.has(name)) return;
+  if (!ENABLED || pending.has(name)) return;
   const timer = setTimeout(() => {
-    timers.delete(name);
-    try {
-      mkdirSync(DIR, { recursive: true });
-      const file = path.join(DIR, `${name}.json`);
-      // Write then rename, so a crash mid-write never leaves a half-written file behind.
-      writeFileSync(`${file}.tmp`, JSON.stringify(get()));
-      renameSync(`${file}.tmp`, file);
-    } catch (err) {
-      console.warn(`[store] could not save ${name}:`, err instanceof Error ? err.message : err);
-    }
+    pending.delete(name);
+    save(name, get);
   }, WRITE_DELAY_MS);
   timer.unref?.();
-  timers.set(name, timer);
+  pending.set(name, { timer, get });
+}
+
+/** Writes every pending store now (a script about to exit can't wait for the timers). */
+export function flushStores(): void {
+  for (const [name, { timer, get }] of pending) {
+    clearTimeout(timer);
+    pending.delete(name);
+    save(name, get);
+  }
 }

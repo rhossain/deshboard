@@ -19,8 +19,12 @@ latest headline instead.
 
 ## Run
 
+The site is static: `npm run fetch` collects the headlines into files, and `next build` exports the pages around
+them to `out/`. No Node.js is needed where it is hosted.
+
 ```bash
 npm install
+npm run fetch      # collect headlines and logos into public/ (re-run for fresher ones)
 npm run dev        # http://localhost:3000
 npm run check      # live health check of every active source (table output)
 npm test           # offline parser tests
@@ -28,17 +32,18 @@ npm test           # offline parser tests
 
 `npm run check -- prothomalo jugantor` checks specific sources; add `--json` for JSON.
 
-## API
+## Data
 
-- `GET /api/news` — `{ items, statuses, generatedAt }`
-  - `?lang=bn|en`, `?source=id1,id2`, `?refresh=1` (bypass cache)
-- `GET /api/news/stream` — same params, but NDJSON: one `{ "type": "source", "result" }` line per source as soon as
-  it is fetched (`result` is a status plus its `items`), then `{ "type": "done", "generatedAt" }`. The UI uses this so
-  each source shows up the moment it arrives.
-- `GET /api/logo/:sourceId` — the source's logo image (proxied, cached 24 h). Found on its homepage (header `<img>`
-  marked as the logo, JSON-LD `logo`, then touch icon / favicon); sites that block us fall back to Google's favicon
-  service. 404 when nothing is found, and the UI shows the name as text.
-- `GET /api/sources` — all 64 portals with method, URL and notes
+`npm run fetch` (`scripts/fetch-news.ts`) writes what the site serves:
+
+- `public/data/news.json` — `{ generatedAt, results, logos }`: each fetched source's result (a status plus its
+  `items`) and each source's logo path. The board loads it and checks it again every 10 minutes.
+- `public/logos/<id>.<ext>` — each source's logo, found on its homepage (header `<img>` marked as the logo, JSON-LD
+  `logo`, then touch icon / favicon); sites that block us fall back to Google's favicon service. Kept for a week.
+  Without a logo the UI shows the name as text.
+- `.data/` — first-seen times and source health, carried from run to run; `/health` is built from it.
+
+It exits with an error when no source worked, so an outage never replaces the board with an empty one.
 
 Each item: `{ title, link, publishedAt?, seenAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no
 `publishedAt`; instead `seenAt` is when Deshboard first saw them on the homepage (`src/lib/first-seen.ts`). Headlines
@@ -58,17 +63,20 @@ feeds have no tags (e.g. Manab Zamin, BSS, Daily Observer) always end up in `oth
 src/lib/sources.ts         source list (edit here to add/fix a portal)
 src/lib/categories.ts      section-name synonyms → main categories
 src/lib/problems.ts        reader-facing explanations for unavailable / failed sources
-src/lib/logos.ts           logo discovery from homepages + in-memory image cache
-src/lib/news.ts            fetch orchestration, cache (10 min, 1 min for failures), concurrency 8, background refresh
-src/lib/store.ts           JSON files in .data/ so the cache and first-seen times survive restarts
+src/lib/logos.ts           logo discovery from homepages
+src/lib/news.ts            fetch orchestration, cache (10 min, 1 min for failures), concurrency 8
+src/lib/store.ts           JSON files in .data/ so first-seen times and health carry over between runs
+src/lib/share.ts           share links (/s/<article address>) and the check that they point to an outlet
 src/lib/first-seen.ts      first-seen times for headlines without a publish date
 src/lib/stories.ts         groups headlines from different outlets about the same event ("Top stories")
-src/instrumentation.ts     starts the background refresh when the server starts
 src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 detection
 src/lib/fetchers/rss.ts    RSS/Atom/RDF parser
 src/lib/fetchers/sitemap.ts Google News sitemap parser
 src/lib/fetchers/html.ts   homepage headline extractor (cheerio)
 src/components/NewsBoard.tsx  UI: top stories, by-source cards, latest timeline, filters, search, "new" marks
+src/components/SharedHeadline.tsx  the page for shared headlines (and unknown addresses)
+scripts/fetch-news.ts      collects public/data/news.json and logos before a build
+public/.htaccess           Apache / LiteSpeed rules: share links, 404 page, headers
 ```
 
 ### Fixing an HTML source
@@ -78,13 +86,25 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 
 ## Config
 
-- `NEWS_CACHE_SECONDS` (default `600`) — how long each source's result is reused.
-- `NEWS_BACKGROUND_REFRESH` — set to `0` to fetch only when a reader asks. Otherwise the server refreshes stale
-  sources at startup and every half TTL, so readers get headlines from a warm cache.
-- `SITE_URL` (default `http://localhost:3000`) — the public address, used for the absolute link to the share image.
-- `NEWS_DATA_DIR` (default `.data/`) — where the cache and first-seen times are saved; `NEWS_PERSIST=0` keeps them in
-  memory only. On serverless hosts the filesystem is throwaway and timers don't run between requests, so both features
-  quietly do nothing there; run on a long-lived Node server (VPS, container) to get them.
+- `SITE_URL` (default `http://localhost:3000`) — the public address, read at build time for the absolute link to the
+  share image.
+- `NEWS_DATA_DIR` (default `.data/`) — where first-seen times and source health are saved; `NEWS_PERSIST=0` keeps
+  them in memory only.
+- `NEWS_CACHE_SECONDS` (default `600`) — how long `npm run check` and the fetch code reuse a source's result.
+
+## Deploy
+
+`.github/workflows/deploy.yml` runs hourly and on every push to the `static-export` branch: it fetches the
+headlines, builds the site and uploads `out/` over FTPS, sending only the files that changed. Scheduled runs start
+from the copy of the file on `main` (GitHub's rule), which builds `static-export` too. To turn it on, in the GitHub
+repo's **Settings → Secrets and variables → Actions**:
+
+- Secrets: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` (Hostinger: hPanel → Files → FTP Accounts).
+- Variables: `SITE_URL` (e.g. `https://example.com`; the workflow does nothing until it is set) and, optionally,
+  `FTP_DIR` (default `public_html/`).
+
+The headlines are as fresh as the last run. For a one-off manual upload instead, `npm run package` builds
+`deshboard.zip`; extract it into `public_html` (it includes `.htaccess`).
 
 ## Features
 
@@ -93,20 +113,22 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 - **New since your last visit** — headlines newer than the end of the reader's previous visit get a gold dot, with a
   "N new" filter. A visit ends after 30 minutes away (`src/components/last-visit.ts`); opened headlines turn muted.
 - **Shareable filters** — view, language, source, category, search and order live in the URL
-  (`/?view=latest&lang=bn&cat=sports`, see `src/lib/filters.ts`); the page reads them on the server, so shared links
-  open as they were.
+  (`/?view=latest&lang=bn&cat=sports`, see `src/lib/filters.ts`), so shared links open as they were.
 - **Saved** — the bookmark beside each headline keeps it on this device (whole item, so it outlives the feed).
-- **Quiet auto-refresh** — every 10 minutes the board refetches in the background; new headlines wait behind a
+- **Quiet auto-refresh** — every 10 minutes the board checks for a newer build; new headlines wait behind a
   "N new headlines" button instead of moving the page (applied at once if nothing is new or the tab is hidden).
 - **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`4` views, `r` refresh, `?` help.
 - **Share image** — `src/app/opengraph-image.tsx`, rendered at build time with the site's fonts.
-- **Source health** — `/health` lists every source from the server cache (never triggers a fetch): failing ones first
+- **Share links** — `/s/<article address>` shows the headline with a button to the article, looked up in the browser
+  (`src/components/SharedHeadline.tsx`); once it has left the board the link goes straight to the article. Links
+  to sites that aren't on the board go to the board. Previews on social sites show the Deshboard card.
+- **Source health** — `/health` lists every source as of the last fetch: failing ones first
   with how long they have failed, then working ones with the section names whose headlines land in "Other" (add those
   to `src/lib/categories.ts`).
 
 ## Notes
 
-- Fetching happens server-side, so it needs normal internet access from wherever the app runs. Some portals block
-  datacenter IPs; results from a Bangladeshi server or your own machine may differ from a cloud host.
+- Fetching happens wherever `npm run fetch` runs (GitHub Actions for deploys). Some portals block datacenter IPs;
+  results from your own machine may differ from GitHub's servers.
 - Showing headlines with links back to the source is the usual aggregator pattern; respect each site's terms and
   `robots.txt`, keep the cache on and don't poll aggressively.

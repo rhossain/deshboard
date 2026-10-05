@@ -52,5 +52,11 @@ export interface SourceResult {
 
 export type SourceStatus = Omit<SourceResult, "items">;
 
-/** One line of the NDJSON stream from /api/news/stream. */
-export type NewsStreamMessage = { type: "source"; result: SourceResult } | { type: "done"; generatedAt: string };
+/** `/data/news.json`: what the board reads, written by `npm run fetch` before each build. */
+export interface NewsFeed {
+  generatedAt: string;
+  /** Every fetched source's latest result, in display order. */
+  results: SourceResult[];
+  /** Source id → logo path under `/logos/`, for sources whose logo was found. */
+  logos: Record<string, string>;
+}

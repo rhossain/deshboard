@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useRef, useState, type ReactNode } from "react";
 import { sourceProblem } from "@/lib/problems";
 import type { NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
@@ -270,10 +270,13 @@ function isLightOnTransparent(img: HTMLImageElement): boolean {
   }
 }
 
+/** Source id → logo path, from the feed (see scripts/fetch-news.ts). */
+export const LogoUrls = createContext<Record<string, string>>({});
+
 /**
- * The source's logo from /api/logo, linking to its homepage. Wide images are
- * shown alone; square ones (favicons) sit next to the name; if there is no
- * image the name is shown as text.
+ * The source's logo, linking to its homepage. Wide images are shown alone;
+ * square ones (favicons) sit next to the name; if there is no image the name
+ * is shown as text.
  */
 export function SourceLogo({
   source,
@@ -285,6 +288,7 @@ export function SourceLogo({
   /** False when the logo sits inside a larger tap target (a collapsible card header). */
   link?: boolean;
 }) {
+  const src = useContext(LogoUrls)[source.id];
   const [kind, setKind] = useState<"loading" | "logo" | "icon" | "none">("loading");
   const [light, setLight] = useState(false);
 
@@ -299,10 +303,10 @@ export function SourceLogo({
       title={source.name}
       className={`flex min-w-0 items-center gap-2 font-semibold hover:text-accent ${sm ? "h-5 text-xs" : "h-9 text-[15px]"}`}
     >
-      {kind !== "none" && (
+      {src && kind !== "none" && (
         // eslint-disable-next-line @next/next/no-img-element -- proxied third-party logos of unknown size
         <img
-          src={`/api/logo/${source.id}`}
+          src={src}
           alt={kind === "logo" ? source.name : ""}
           onLoad={(e) => {
             const img = e.currentTarget;
@@ -322,7 +326,7 @@ export function SourceLogo({
           }
         />
       )}
-      {kind !== "logo" && <span className="truncate">{source.name}</span>}
+      {(!src || kind !== "logo") && <span className="truncate">{source.name}</span>}
     </Tag>
   );
 }

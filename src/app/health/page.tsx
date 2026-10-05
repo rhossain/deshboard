@@ -8,8 +8,6 @@ import { sourceProblem } from "@/lib/problems";
 import { isFetched, SOURCES } from "@/lib/sources";
 import type { NewsSource } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
-
 export const metadata: Metadata = {
   title: "Source health · Deshboard",
   description: "Which news portals Deshboard can read right now, which are failing, and since when.",
@@ -39,7 +37,7 @@ interface Row {
   health: ReturnType<typeof getHealth>;
 }
 
-/** Every source's state from the server's cache (this page never triggers a fetch), failing ones first. */
+/** Every source's state from the last fetch (`npm run fetch`, before the build), failing ones first. */
 function report(): { rows: Row[]; now: number } {
   const rows: Row[] = SOURCES.map((source) => {
     const result = cachedResult(source.id);
@@ -70,7 +68,7 @@ export default function HealthPage() {
         </Link>
         <h1 className="mt-6 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Source health</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-          Each source&rsquo;s latest fetch, from the server&rsquo;s cache. Failing sources come first, longest-failing
+          Each source&rsquo;s latest fetch, as of {fullTime(new Date(now).toISOString())}. Failing sources come first, longest-failing
           at the top. Working sources list the section names whose headlines land in &ldquo;Other&rdquo;; adding them to{" "}
           <code className="rounded bg-surface-2 px-1 text-xs">src/lib/categories.ts</code> files them properly.
         </p>

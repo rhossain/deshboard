@@ -24,7 +24,6 @@ const CACHE_STORE = "news-cache";
 const g = globalThis as unknown as {
   __newsCache?: Map<string, CacheEntry>;
   __newsInflight?: Map<string, Promise<SourceResult>>;
-  __newsRefresher?: ReturnType<typeof setInterval>;
 };
 const cache = (g.__newsCache ??= new Map(Object.entries(readStore<Record<string, CacheEntry>>(CACHE_STORE, {}))));
 const inflight = (g.__newsInflight ??= new Map());
@@ -162,18 +161,6 @@ export interface NewsQuery {
   force?: boolean;
 }
 
-/** Read `?lang=bn|en`, `?source=id1,id2` and `?refresh=1`. */
-export function newsQueryFrom(url: string): NewsQuery {
-  const { searchParams } = new URL(url);
-  const lang = searchParams.get("lang");
-  const source = searchParams.get("source");
-  return {
-    lang: lang === "bn" || lang === "en" ? lang : undefined,
-    sourceIds: source ? source.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-    force: searchParams.get("refresh") === "1",
-  };
-}
-
 function selectSources({ lang, sourceIds }: NewsQuery): NewsSource[] {
   let sources = ACTIVE_SOURCES;
   if (sourceIds?.length) {
@@ -192,24 +179,4 @@ export async function getNews(query: NewsQuery = {}) {
     return status;
   });
   return { items, statuses, generatedAt: new Date().toISOString() };
-}
-
-/** Like `getNews`, but hands over each source's result as soon as it is ready. */
-export async function eachSourceNews(query: NewsQuery, onResult: (result: SourceResult) => void): Promise<void> {
-  await mapLimit(selectSources(query), CONCURRENCY, async (s) => {
-    const result = await getSourceNews(s, query.force);
-    onResult(result);
-  });
-}
-
-/**
- * Keeps the cache warm so readers never wait for a fetch: refreshes stale sources now, then every
- * half TTL (so a source is at most 1.5 × TTL old). Started once per server from instrumentation.ts.
- */
-export function startBackgroundRefresh(): void {
-  if (g.__newsRefresher) return;
-  const run = () => getNews().catch((err) => console.warn("[news] background refresh failed:", err));
-  g.__newsRefresher = setInterval(run, Math.max(60_000, TTL_MS / 2));
-  g.__newsRefresher.unref?.();
-  void run();
 }

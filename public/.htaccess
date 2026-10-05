@@ -1,0 +1,31 @@
+# Settings for Apache / LiteSpeed hosts (e.g. Hostinger shared hosting) serving the static site.
+
+ErrorDocument 404 /404.html
+
+# Next writes the share image and the home-screen icon without a file extension.
+<FilesMatch "^(apple-icon|opengraph-image)$">
+  ForceType image/png
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Shared headlines (/s/<article address>): one page that reads the headline from the address.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^s/ /404.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  # Each visit checks for newer headlines.
+  <FilesMatch "\.json$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  # Outlets' logos are third-party files served from this site: an SVG opened directly must not run scripts.
+  <FilesMatch "\.svg$">
+    Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json image/svg+xml
+</IfModule>

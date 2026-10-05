@@ -1,11 +1,56 @@
+import { SOURCES } from "./sources";
+import type { NewsSource } from "./types";
+
 /**
  * Shared headlines go out as Deshboard links: `/s/www.prothomalo.com/bangladesh/abc123` opens a
- * page with the headline, its outlet and a button to the article, and gives social sites a preview
- * card. The article URL is the path minus the scheme, so the link stays readable and needs no
- * database.
+ * page with the headline, its outlet and a button to the article. The article URL is the path
+ * minus the scheme, so the link stays readable and needs no database.
  */
 export function sharePath(link: string): string {
   return `/s/${link.replace(/^https?:\/\//, "")}`;
+}
+
+const hostKey = (host: string) => host.replace(/^www\./, "").toLowerCase();
+
+/** Compare links regardless of scheme, `www.`, a trailing slash or percent-encoding. */
+export function linkKey(link: string): string {
+  try {
+    const u = new URL(link);
+    return hostKey(u.host) + u.pathname.replace(/\/$/, "");
+  } catch {
+    return link;
+  }
+}
+
+/** The source whose site (or a subdomain of it) serves `url`. */
+function sourceFor(url: URL): NewsSource | undefined {
+  const host = hostKey(url.host);
+  const matches = SOURCES.filter((s) => {
+    const home = new URL(s.homepage);
+    const site = hostKey(home.host);
+    const base = home.pathname.replace(/\/$/, "");
+    return (
+      (host === site || host.endsWith(`.${site}`)) && (url.pathname === base || url.pathname.startsWith(`${base}/`))
+    );
+  });
+  // The most specific homepage wins: bangla.thedailystar.net is "The Daily Star Bangla", and
+  // tbsnews.net/bangla/… is "TBS Bangla", not "The Business Standard".
+  return matches.sort((a, b) => b.homepage.length - a.homepage.length)[0];
+}
+
+/**
+ * The article URL in a share path (`/s/<host>/<path>`), or null. Only links to the outlets on the
+ * board are accepted, so a share link can't be used to send readers to an arbitrary site.
+ */
+export function articleUrl(segments: string[]): { url: URL; source: NewsSource } | null {
+  if (!segments.length) return null;
+  try {
+    const url = new URL(`https://${segments.join("/")}`);
+    const source = sourceFor(url);
+    return source ? { url, source } : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface ShareTarget {

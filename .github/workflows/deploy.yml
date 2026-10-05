@@ -1,0 +1,55 @@
+name: Deploy
+
+# Collects fresh headlines, builds the static site (the static-export branch) and uploads it to the
+# web host over FTP. Turned on by setting the SITE_URL repository variable; needs the FTP_* secrets.
+#
+# GitHub runs scheduled workflows only from the default branch, so this same file also lives on main:
+# from either branch it builds static-export.
+on:
+  schedule:
+    # Hourly. Each run takes ~2 minutes: a private repo's free 2,000 minutes a month cover this;
+    # a public repo has no limit, so it could run every 15 minutes ("*/15 * * * *").
+    - cron: "7 * * * *"
+  push:
+    branches: [static-export]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.SITE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: static-export
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # First-seen times, source health and logos carry over from run to run.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .data
+            public/logos
+          key: news-data-${{ github.run_id }}
+          restore-keys: news-data-
+      - run: npm run fetch
+      - run: npm run build
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+      # Uploads only files that changed since the last run (it keeps a sync-state file on the server).
+      - uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./out/
+          server-dir: ${{ vars.FTP_DIR || 'public_html/' }}

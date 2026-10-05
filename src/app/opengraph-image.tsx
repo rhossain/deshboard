@@ -5,6 +5,8 @@ import { ACTIVE_SOURCES } from "@/lib/sources";
 export const alt = "Deshboard: every Bangladeshi headline on one board";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+// Rendered once at build time (static export).
+export const dynamic = "force-static";
 
 const FONT_CDN = "https://cdn.jsdelivr.net/fontsource/fonts";
 

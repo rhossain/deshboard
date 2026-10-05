@@ -8,14 +8,12 @@ import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
 import { fullTime, timeAgo } from "../src/components/time";
-import { articleUrl } from "../src/lib/article";
 import { cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
 import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filters";
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
-import { newsQueryFrom } from "../src/lib/news";
 import { sourceProblem } from "../src/lib/problems";
-import { SHARE_TARGETS, sharePath } from "../src/lib/share";
+import { articleUrl, linkKey, SHARE_TARGETS, sharePath } from "../src/lib/share";
 import { findStories, keywords } from "../src/lib/stories";
 import type { NewsItem, NewsSource, SourceStatus } from "../src/lib/types";
 
@@ -285,6 +283,12 @@ test("share: path round trip, most specific outlet wins", () => {
   assert.equal(articleUrl(segs("https://www.tbsnews.net/banglax/1"))?.source.id, "tbs");
 });
 
+test("share: a shared link finds its headline despite scheme, www, slash or encoding", () => {
+  const key = linkKey("https://www.dhakatribune.com/bangladesh/421356/woman%E2%80%99s-body/");
+  assert.equal(linkKey("http://dhakatribune.com/bangladesh/421356/woman’s-body"), key);
+  assert.equal(linkKey(articleUrl("www.dhakatribune.com/bangladesh/421356/woman’s-body".split("/"))!.url.href), key);
+});
+
 test("share: links to other sites are refused", () => {
   for (const path of [
     "evil.test/x",
@@ -307,17 +311,6 @@ test("share targets put the link and title in the URL", () => {
   }
   const wa = SHARE_TARGETS.find((t) => t.id === "whatsapp")!;
   assert.equal(new URL(wa.href(url, "Title")).searchParams.get("text"), `Title\n${url}`);
-});
-
-test("news query from the request URL", () => {
-  assert.deepEqual(newsQueryFrom("http://x.test/api/news"), { lang: undefined, sourceIds: undefined, force: false });
-  assert.deepEqual(newsQueryFrom("http://x.test/api/news?lang=bn&source=a,%20b,,&refresh=1"), {
-    lang: "bn",
-    sourceIds: ["a", "b"],
-    force: true,
-  });
-  assert.equal(newsQueryFrom("http://x.test/?lang=fr").lang, undefined);
-  assert.equal(newsQueryFrom("http://x.test/?refresh=true").force, false);
 });
 
 test("source problems explain the technical reason", () => {
