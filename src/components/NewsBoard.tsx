@@ -4,19 +4,48 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { sourceProblem } from "@/lib/problems";
 import { isFetched } from "@/lib/sources";
-import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult, SourceStatus } from "@/lib/types";
+import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
+import { byNewest, LatestList } from "./LatestList";
+import { SourceCard } from "./SourceCard";
 import { fullTime, timeAgo } from "./time";
+import {
+  ChevronIcon,
+  Chip,
+  ClockIcon,
+  CloseIcon,
+  GridIcon,
+  RefreshIcon,
+  SearchIcon,
+  Segmented,
+  SlidersIcon,
+} from "./ui";
 
 type View = "sources" | "latest";
 type LangFilter = "all" | Lang;
 type Order = "default" | "newest";
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
-const PER_CARD = 8;
 
-const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
+const VIEW_OPTIONS: { value: View; label: string }[] = [
+  { value: "sources", label: "By source" },
+  { value: "latest", label: "Latest" },
+];
+const ORDER_OPTIONS: { value: Order; label: string }[] = [
+  { value: "default", label: "Editor's order" },
+  { value: "newest", label: "Newest first" },
+];
+const LANG_OPTIONS: { value: LangFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "bn", label: "বাংলা" },
+  { value: "en", label: "English" },
+];
 
-const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", html: "HTML" };
+const dhakaDate = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Dhaka",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+});
 
 /** Read /api/news/stream, calling `onSource` for each source as it arrives. Resolves with `generatedAt`. */
 async function streamNews(
@@ -63,6 +92,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   const [onlySource, setOnlySource] = useState<string>("");
   const [category, setCategory] = useState<Category | "">("");
   const [showFailures, setShowFailures] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -165,487 +195,425 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
 
   const okCount = statuses.filter((s) => s.ok).length;
   const failures = statuses.filter((s) => !s.ok);
+  const filtering = !!query.trim() || !!category;
+
+  // Filters that live in the sheet on phones; shown as removable pills so they are never hidden state.
+  const activeFilters = [
+    lang !== "all" && { key: "lang", label: lang === "bn" ? "বাংলা" : "English", clear: () => setLang("all") },
+    onlySource && {
+      key: "source",
+      label: sourceById.get(onlySource)?.name ?? onlySource,
+      clear: () => setOnlySource(""),
+    },
+    view === "sources" &&
+      order !== "default" && { key: "order", label: "Newest first", clear: () => setOrder("default") },
+  ].filter((f): f is { key: string; label: string; clear: () => void } => !!f);
+
+  const resetFilters = () => {
+    setLang("all");
+    setOnlySource("");
+    setOrder("default");
+  };
+
+  const changeView = (v: View) => {
+    setView(v);
+    window.scrollTo({ top: 0 });
+  };
+
+  const sourceSelect = (
+    <select
+      value={onlySource}
+      onChange={(e) => setOnlySource(e.target.value)}
+      className="h-11 w-full appearance-none rounded-xl border border-line bg-surface px-3.5 pr-9 text-sm font-medium outline-none focus:border-accent md:h-10 md:w-48"
+      aria-label="Filter by source"
+    >
+      <option value="">All sources</option>
+      {sources
+        .filter((s) => lang === "all" || s.lang === lang)
+        .map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+            {isFetched(s) ? "" : " (unavailable)"}
+          </option>
+        ))}
+    </select>
+  );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
-      {/* Header */}
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line py-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">BD News Desk</h1>
-          <p className="mt-1 text-sm text-muted">
-            Headlines from {fetchedCount} Bangladeshi news portals · RSS, news sitemaps and homepages
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {generatedAt && !loading && (
-            <span className="text-xs text-muted" title={fullTime(generatedAt)}>
-              Updated {timeAgo(generatedAt, now)}
-            </span>
-          )}
+    <div className="min-h-dvh pb-28 md:pb-16">
+      {/* Fetch progress */}
+      <div className="fixed inset-x-0 top-0 z-40 h-0.5" aria-hidden>
+        <div
+          className={`h-full bg-accent transition-all duration-500 ${loading ? "opacity-100" : "opacity-0"}`}
+          style={{ width: `${loading ? Math.max(4, (received / fetchedCount) * 100) : 100}%` }}
+        />
+      </div>
+
+      {/* Masthead */}
+      <header className="mx-auto max-w-7xl px-4 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-8">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold" suppressHydrationWarning>
+              {dhakaDate.format(now)}
+            </p>
+            <h1 className="mt-1 font-display text-[32px] font-semibold leading-none tracking-tight sm:text-5xl">
+              BD News Desk
+            </h1>
+          </div>
           <button
+            type="button"
             onClick={() => load(true)}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60 dark:text-black"
+            aria-label={loading ? "Fetching headlines" : "Refresh headlines"}
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3.5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-70 sm:px-5"
           >
-            <RefreshIcon spinning={loading} />
-            {loading ? `Fetching… ${received}/${fetchedCount}` : "Refresh"}
+            <RefreshIcon spinning={loading} className="h-[18px] w-[18px]" />
+            <span className="hidden sm:inline">{loading ? "Fetching…" : "Refresh"}</span>
           </button>
         </div>
-      </header>
 
-      {/* Status bar */}
-      {hasData && (
-        <div className="mt-4 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <Stat label="sources OK" value={`${okCount}/${fetchedCount}`} />
-            <Stat label="headlines" value={allItems.length.toLocaleString()} />
-            {failures.length > 0 && (
-              <button
-                onClick={() => setShowFailures((v) => !v)}
-                className="text-danger underline-offset-2 hover:underline"
-              >
-                {failures.length} failed {showFailures ? "▲" : "▼"}
-              </button>
+        {/* Status */}
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
+              <span className="relative h-2 w-2 rounded-full bg-accent" />
+            </span>
+            {loading ? (
+              <span className="tabular-nums">
+                Fetching {received} of {fetchedCount} sources
+              </span>
+            ) : generatedAt ? (
+              <span title={fullTime(generatedAt)}>Updated {timeAgo(generatedAt, now)}</span>
+            ) : (
+              <span>Live</span>
             )}
-          </div>
-          {showFailures && failures.length > 0 && (
-            <ul className="mt-3 grid gap-1 border-t border-line pt-3 text-xs sm:grid-cols-2">
-              {failures.map((f) => {
-                const source = sourceById.get(f.sourceId);
-                const problem = source && sourceProblem(source, f);
-                return (
-                  <li key={f.sourceId} className="flex gap-2">
-                    <span className="font-medium">{f.sourceName}</span>
-                    <span className="text-muted" title={f.error}>
-                      — {problem?.message ?? f.error}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+          </span>
+          {hasData && (
+            <>
+              <span className="whitespace-nowrap">
+                <b className="font-semibold tabular-nums text-foreground">{allItems.length.toLocaleString()}</b>{" "}
+                headlines <span aria-hidden>·</span>{" "}
+                <b className="font-semibold tabular-nums text-foreground">
+                  {okCount}/{fetchedCount}
+                </b>{" "}
+                sources
+              </span>
+              {failures.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowFailures((v) => !v)}
+                  aria-expanded={showFailures}
+                  className="inline-flex items-center gap-0.5 rounded-full bg-danger-soft px-2.5 py-0.5 text-xs font-semibold text-danger"
+                >
+                  {failures.length} failed
+                  <ChevronIcon className={`h-3.5 w-3.5 transition ${showFailures ? "rotate-180" : ""}`} />
+                </button>
+              )}
+            </>
           )}
         </div>
-      )}
 
-      {/* Controls */}
-      <div className="sticky top-0 z-10 -mx-4 mt-4 flex flex-wrap items-center gap-3 bg-background/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-        <Segmented
-          value={view}
-          onChange={setView}
-          options={[
-            { value: "sources", label: "By source" },
-            { value: "latest", label: "Latest" },
-          ]}
-        />
-        {view === "sources" && (
-          <Segmented
-            value={order}
-            onChange={setOrder}
-            options={[
-              { value: "default", label: "Default order" },
-              { value: "newest", label: "Newest first" },
-            ]}
-          />
+        {showFailures && failures.length > 0 && (
+          <ul className="mt-3 grid gap-2 rounded-2xl border border-line bg-surface p-4 text-xs shadow-card sm:grid-cols-2">
+            {failures.map((f) => {
+              const source = sourceById.get(f.sourceId);
+              const problem = source && sourceProblem(source, f);
+              return (
+                <li key={f.sourceId} className="leading-relaxed">
+                  <span className="font-semibold">{f.sourceName}</span>
+                  <span className="text-muted" title={f.error}>
+                    {" "}
+                    — {problem?.message ?? f.error}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         )}
-        <Segmented
-          value={lang}
-          onChange={setLang}
-          options={[
-            { value: "all", label: "All" },
-            { value: "bn", label: "বাংলা" },
-            { value: "en", label: "English" },
-          ]}
-        />
-        <select
-          value={onlySource}
-          onChange={(e) => setOnlySource(e.target.value)}
-          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm"
-          aria-label="Filter by source"
-        >
-          <option value="">All sources</option>
-          {sources
-            .filter((s) => lang === "all" || s.lang === lang)
-            .map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-                {isFetched(s) ? "" : " (unavailable)"}
-              </option>
+      </header>
+
+      {/* Toolbar */}
+      <div className="sticky top-0 z-30 mt-4 border-b border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 pt-3 sm:px-6">
+          <label className="relative min-w-0 flex-1 md:max-w-sm">
+            <span className="sr-only">Search headlines</span>
+            <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search headlines / শিরোনাম খুঁজুন"
+              enterKeyHint="search"
+              className="h-11 w-full rounded-xl border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-foreground"
+              >
+                <CloseIcon className="h-4 w-4" />
+              </button>
+            )}
+          </label>
+
+          {/* Inline controls on tablets and desktops; phones use the bottom bar and filter sheet. */}
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
+            <Segmented label="View" value={view} onChange={setView} options={VIEW_OPTIONS} />
+            {view === "sources" && <Segmented label="Order" value={order} onChange={setOrder} options={ORDER_OPTIONS} />}
+            <Segmented label="Language" value={lang} onChange={setLang} options={LANG_OPTIONS} />
+            <div className="relative">
+              {sourceSelect}
+              <ChevronIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            </div>
+          </div>
+        </div>
+
+        {hasData ? (
+          <div className="mx-auto max-w-7xl">
+            <div
+              className="no-scrollbar fade-x flex snap-x gap-2 overflow-x-auto scroll-px-4 px-4 py-3 sm:px-6 lg:flex-wrap"
+              role="group"
+              aria-label="Filter by category"
+            >
+              <Chip active={!category} onClick={() => setCategory("")} label="All" count={matching.length} />
+              {CATEGORIES.map((c) => (
+                <Chip
+                  key={c.id}
+                  active={category === c.id}
+                  onClick={() => setCategory(category === c.id ? "" : c.id)}
+                  label={c.label}
+                  title={c.bn}
+                  count={categoryCounts.get(c.id) ?? 0}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="h-3" />
+        )}
+      </div>
+
+      <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
+        {activeFilters.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 md:hidden">
+            {activeFilters.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={f.clear}
+                className="inline-flex h-8 items-center gap-1 rounded-full bg-accent-soft pl-3 pr-2 text-xs font-semibold text-accent"
+              >
+                {f.label}
+                <CloseIcon className="h-3.5 w-3.5" />
+                <span className="sr-only">Remove filter</span>
+              </button>
             ))}
-        </select>
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search headlines… / শিরোনাম খুঁজুন"
-          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent sm:max-w-xs"
-        />
-        {hasData && (
-          <div className="flex w-full flex-wrap gap-1.5" role="group" aria-label="Filter by category">
-            <CategoryChip active={!category} onClick={() => setCategory("")} label="All" count={matching.length} />
-            {CATEGORIES.map((c) => (
-              <CategoryChip
-                key={c.id}
-                active={category === c.id}
-                onClick={() => setCategory(category === c.id ? "" : c.id)}
-                label={c.label}
-                title={c.bn}
-                count={categoryCounts.get(c.id) ?? 0}
+          </div>
+        )}
+
+        {error && (
+          <p className="mb-4 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+            Could not load news: {error}
+          </p>
+        )}
+
+        {!hasData && loading && <SkeletonGrid />}
+
+        {hasData && filtering && filtered.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+            <p className="font-display text-xl">Nothing found</p>
+            <p className="mt-1 text-sm text-muted">Try another word or category.</p>
+          </div>
+        )}
+
+        {hasData && view === "latest" && <LatestList items={filtered} sourceById={sourceById} now={now} />}
+
+        {hasData && view === "sources" && (
+          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+            {visibleSources.map((s) => (
+              <SourceCard
+                key={s.id}
+                source={s}
+                status={statusById.get(s.id)}
+                items={itemsBySource.get(s.id) ?? []}
+                filtering={filtering}
+                now={now}
               />
             ))}
           </div>
         )}
-      </div>
+      </main>
 
-      {error && (
-        <p className="mt-6 rounded-lg border border-danger/40 bg-surface p-4 text-sm text-danger">
-          Could not load news: {error}
-        </p>
-      )}
-
-      {!hasData && loading && <SkeletonGrid />}
-
-      {hasData && view === "latest" && <LatestList items={filtered} sourceById={sourceById} now={now} />}
-
-      {hasData && view === "sources" && (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleSources.map((s) => (
-            <SourceCard
-              key={s.id}
-              source={s}
-              status={statusById.get(s.id)}
-              items={itemsBySource.get(s.id) ?? []}
-              filtering={!!query.trim() || !!category}
-              now={now}
-            />
-          ))}
+      {/* Bottom bar (phones) */}
+      <nav
+        className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
+        aria-label="View"
+      >
+        <div className="mx-auto grid h-16 max-w-md grid-cols-3">
+          <NavButton active={view === "sources"} onClick={() => changeView("sources")} label="Sources">
+            <GridIcon />
+          </NavButton>
+          <NavButton active={view === "latest"} onClick={() => changeView("latest")} label="Latest">
+            <ClockIcon />
+          </NavButton>
+          <NavButton active={false} onClick={() => setFiltersOpen(true)} label="Filters" badge={activeFilters.length}>
+            <SlidersIcon />
+          </NavButton>
         </div>
-      )}
-    </div>
-  );
-}
+      </nav>
 
-/** ISO dates sort as strings; items without a date go last. */
-function byNewest(a: NewsItem, b: NewsItem): number {
-  return (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
-}
-
-function LatestList({
-  items,
-  sourceById,
-  now,
-}: {
-  items: NewsItem[];
-  sourceById: Map<string, NewsSource>;
-  now: number;
-}) {
-  const dated = items
-    .filter((i) => i.publishedAt)
-    .sort(byNewest)
-    .slice(0, 300);
-  const undated = items.length - items.filter((i) => i.publishedAt).length;
-
-  return (
-    <section className="mt-4">
-      {undated > 0 && (
-        <p className="mb-3 text-xs text-muted">
-          Showing dated headlines only. {undated.toLocaleString()} headlines from homepage-scraped sources have no
-          timestamp; see them in “By source”.
-        </p>
-      )}
-      <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
-        {dated.map((it) => (
-          <li key={it.link} className="flex gap-4 px-4 py-3 hover:bg-accent-soft/50">
-            <time
-              dateTime={it.publishedAt}
-              title={fullTime(it.publishedAt)}
-              className="w-24 shrink-0 pt-0.5 text-xs tabular-nums text-muted"
-            >
-              {timeAgo(it.publishedAt, now)}
-            </time>
-            <div className="min-w-0">
-              <a
-                href={it.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium leading-snug hover:text-accent hover:underline"
-              >
-                {it.title}
-              </a>
-              <div className="mt-0.5 text-xs text-muted">
-                {sourceById.get(it.sourceId)?.name ?? it.sourceName}
-                {it.category !== "other" && <> · {CATEGORY_LABEL.get(it.category)}</>}
-              </div>
-            </div>
-          </li>
-        ))}
-        {dated.length === 0 && <li className="px-4 py-8 text-center text-sm text-muted">No headlines match.</li>}
-      </ol>
-    </section>
-  );
-}
-
-function SourceCard({
-  source,
-  status,
-  items,
-  filtering,
-  now,
-}: {
-  source: NewsSource;
-  status?: SourceStatus;
-  items: NewsItem[];
-  filtering: boolean;
-  now: number;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  if (filtering && items.length === 0) return null;
-  const shown = expanded ? items : items.slice(0, PER_CARD);
-  const problem = sourceProblem(source, status);
-  const pending = !problem && !status;
-
-  return (
-    <article className={`flex flex-col rounded-xl border border-line bg-surface ${problem ? "opacity-80" : ""}`}>
-      <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
-        <div className="min-w-0">
-          <SourceLogo source={source} />
-          <p className="mt-1 text-xs text-muted">
-            {source.kind} · {source.lang === "bn" ? "বাংলা" : "English"}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {METHOD_LABEL[source.method] && (
-            <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-              {METHOD_LABEL[source.method]}
-            </span>
+      <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+        <div className="space-y-6">
+          {view === "sources" && (
+            <Field label="Order sources">
+              <Segmented label="Order" value={order} onChange={setOrder} options={ORDER_OPTIONS} full />
+            </Field>
           )}
-          <span
-            className={`h-2 w-2 rounded-full ${problem ? "bg-danger" : pending ? "bg-line" : "bg-accent"}`}
-            title={problem ? problem.message : pending ? "Loading" : `${status?.count} items`}
-          />
+          <Field label="Language">
+            <Segmented label="Language" value={lang} onChange={setLang} options={LANG_OPTIONS} full />
+          </Field>
+          <Field label="Source">
+            <div className="relative">
+              {sourceSelect}
+              <ChevronIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            </div>
+          </Field>
         </div>
-      </header>
-
-      {problem ? (
-        <div className="flex-1 px-4 py-4 text-sm">
-          <p className="text-danger">{problem.message}</p>
-          {problem.detail && <p className="mt-1 text-xs text-muted">Details: {problem.detail}</p>}
-          <a
-            href={source.homepage}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+        <div className="mt-8 flex gap-3">
+          <button
+            type="button"
+            onClick={resetFilters}
+            disabled={activeFilters.length === 0}
+            className="h-12 flex-1 rounded-xl border border-line text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40"
           >
-            Visit {new URL(source.homepage).host.replace(/^www\./, "")} →
-          </a>
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(false)}
+            className="h-12 flex-[2] rounded-xl bg-foreground text-sm font-semibold text-background transition active:scale-[0.98]"
+          >
+            Show {filtered.length.toLocaleString()} headlines
+          </button>
         </div>
-      ) : pending ? (
-        <ul className="flex-1 space-y-3 px-4 py-4" aria-busy aria-label="Loading headlines">
-          {Array.from({ length: 4 }, (_, i) => (
-            <li key={i} className="h-4 animate-pulse rounded bg-line" style={{ width: `${90 - i * 12}%` }} />
-          ))}
-        </ul>
-      ) : (
-        <ul className="flex-1 divide-y divide-line">
-          {shown.map((it) => (
-            <li key={it.link} className="px-4 py-2.5">
-              <a
-                href={it.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[15px] leading-snug hover:text-accent hover:underline"
-              >
-                {it.title}
-              </a>
-              {it.publishedAt && (
-                <time
-                  dateTime={it.publishedAt}
-                  title={fullTime(it.publishedAt)}
-                  className="mt-0.5 block text-xs text-muted"
-                >
-                  {timeAgo(it.publishedAt, now)}
-                </time>
-              )}
-            </li>
-          ))}
-          {status?.ok && items.length === 0 && <li className="px-4 py-4 text-sm text-muted">No headlines.</li>}
-        </ul>
-      )}
-
-      {items.length > PER_CARD && (
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="border-t border-line px-4 py-2 text-left text-xs font-medium text-accent hover:underline"
-        >
-          {expanded ? "Show less" : `Show all ${items.length}`}
-        </button>
-      )}
-    </article>
-  );
-}
-
-/**
- * True for a light logo on a transparent background (made for a dark header),
- * which would vanish on our white logo plate. Logos are proxied through our
- * own origin, so the canvas is not tainted.
- */
-function isLightOnTransparent(img: HTMLImageElement): boolean {
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width = 64;
-    canvas.height = Math.max(1, Math.round((64 * img.naturalHeight) / img.naturalWidth));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return false;
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let opaque = 0;
-    let luminance = 0;
-    for (let i = 0; i < px.length; i += 4) {
-      if (px[i + 3] < 128) continue;
-      opaque++;
-      luminance += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
-    }
-    const transparentShare = 1 - opaque / (px.length / 4);
-    return opaque > 0 && transparentShare > 0.1 && luminance / opaque > 200;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * The source's logo from /api/logo, linking to its homepage. Wide images are
- * shown alone; square ones (favicons) sit next to the name; if there is no
- * image the name is shown as text.
- */
-function SourceLogo({ source }: { source: NewsSource }) {
-  const [kind, setKind] = useState<"loading" | "logo" | "icon" | "none">("loading");
-  const [light, setLight] = useState(false);
-
-  // Logos are drawn on a fixed plate so they read the same in light and dark mode.
-  const plate = light ? "bg-neutral-800" : "bg-white";
-
-  return (
-    <a
-      href={source.homepage}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={source.name}
-      className="flex h-9 min-w-0 items-center gap-2 font-semibold hover:text-accent"
-    >
-      {kind !== "none" && (
-        // eslint-disable-next-line @next/next/no-img-element -- proxied third-party logos of unknown size
-        <img
-          src={`/api/logo/${source.id}`}
-          alt={kind === "logo" ? source.name : ""}
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            const { naturalWidth: w, naturalHeight: h } = img;
-            setKind(w && h && w / h >= 1.8 ? "logo" : "icon");
-            setLight(isLightOnTransparent(img));
-          }}
-          onError={() => setKind("none")}
-          className={
-            kind === "logo"
-              ? `h-9 w-auto max-w-[200px] rounded-md object-contain object-left px-1.5 py-1 ${plate}`
-              : kind === "icon"
-                ? `h-6 w-6 shrink-0 rounded object-contain ${plate}`
-                : "absolute h-px w-px opacity-0"
-          }
-        />
-      )}
-      {kind !== "logo" && <span className="truncate">{source.name}</span>}
-    </a>
-  );
-}
-
-function Segmented<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: { value: T; label: string }[];
-}) {
-  return (
-    <div className="inline-flex rounded-lg border border-line bg-surface p-0.5" role="group">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          aria-pressed={value === o.value}
-          className={`rounded-md px-3 py-1.5 text-sm transition ${
-            value === o.value ? "bg-accent text-white dark:text-black" : "text-muted hover:text-foreground"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
+      </Sheet>
     </div>
   );
 }
 
-function CategoryChip({
+function NavButton({
   active,
   onClick,
   label,
-  title,
-  count,
+  badge = 0,
+  children,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
-  title?: string;
-  count: number;
+  badge?: number;
+  children: React.ReactNode;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      aria-pressed={active}
-      title={title}
-      disabled={!active && count === 0}
-      className={`rounded-full border px-3 py-1 text-xs transition disabled:opacity-40 ${
-        active
-          ? "border-accent bg-accent text-white dark:text-black"
-          : "border-line bg-surface text-muted hover:border-accent hover:text-foreground"
+      aria-current={active ? "page" : undefined}
+      className={`relative flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition active:scale-95 ${
+        active ? "text-accent" : "text-muted"
       }`}
     >
-      {label} <span className="tabular-nums opacity-70">{count.toLocaleString()}</span>
+      <span className="relative">
+        {children}
+        {badge > 0 && (
+          <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] text-accent-ink">
+            {badge}
+          </span>
+        )}
+      </span>
+      {label}
     </button>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <span>
-      <span className="font-semibold tabular-nums">{value}</span> <span className="text-muted">{label}</span>
-    </span>
+    <div>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">{label}</p>
+      {children}
+    </div>
   );
 }
 
-function RefreshIcon({ spinning }: { spinning: boolean }) {
+/** A modal bottom sheet built on <dialog>, so focus trapping and Escape come from the browser. */
+function Sheet({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+
   return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      className={`h-4 w-4 ${spinning ? "animate-spin" : ""}`}
-      aria-hidden
+    <dialog
+      ref={ref}
+      className="sheet"
+      onClose={onClose}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      aria-label={title}
     >
-      <path d="M16.5 10a6.5 6.5 0 1 1-1.9-4.6M16.5 3.5v3.9h-3.9" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+      <div className="pb-safe rounded-t-3xl border border-line bg-surface shadow-2xl sm:rounded-3xl">
+        <div className="px-5 pb-6 pt-3">
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" aria-hidden />
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="font-display text-2xl font-semibold">{title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-muted hover:text-foreground"
+            >
+              <CloseIcon className="h-5 w-5" />
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    </dialog>
   );
 }
 
 function SkeletonGrid() {
   return (
-    <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy>
-      {Array.from({ length: 6 }, (_, i) => (
-        <div key={i} className="h-72 animate-pulse rounded-xl border border-line bg-surface" />
-      ))}
+    <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3" aria-busy>
       <p className="col-span-full text-center text-sm text-muted">
-        Fetching headlines from all sources… the first load can take 10–20 seconds.
+        Gathering headlines from every source… the first load can take 10–20 seconds.
       </p>
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
+          <div className="skeleton h-8 w-32 rounded-lg" />
+          <div className="mt-5 space-y-4">
+            {Array.from({ length: 5 }, (_, j) => (
+              <div key={j} className="skeleton h-3.5 rounded-full" style={{ width: `${95 - j * 9}%` }} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
