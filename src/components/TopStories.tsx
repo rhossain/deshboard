@@ -5,7 +5,7 @@ import type { Story } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { timeAgo } from "./time";
-import { ChevronIcon, NewDot, SaveButton, ShareButton } from "./ui";
+import { ChevronIcon, ItemMenu, NewDot } from "./ui";
 
 /** Other outlets' headlines shown before "Show all". */
 const PREVIEW = 3;
@@ -127,8 +127,12 @@ function StoryCard({
             {itemTimeLabel(lead, now)}
           </p>
         </a>
-        <ShareButton onShare={() => onShare(lead)} className="pt-4" />
-        <SaveButton saved={savedLinks.has(lead.link)} onToggle={() => onToggleSave(lead)} className="pt-4" />
+        <ItemMenu
+          saved={savedLinks.has(lead.link)}
+          onToggleSave={() => onToggleSave(lead)}
+          onShare={() => onShare(lead)}
+          className="pt-4"
+        />
       </div>
       <ul className="border-t border-line">
         {shown.map((it) => (
@@ -146,8 +150,12 @@ function StoryCard({
                 {it.title}
               </span>
             </a>
-            <ShareButton onShare={() => onShare(it)} className="pt-2" />
-            <SaveButton saved={savedLinks.has(it.link)} onToggle={() => onToggleSave(it)} className="pt-2" />
+            <ItemMenu
+              saved={savedLinks.has(it.link)}
+              onToggleSave={() => onToggleSave(it)}
+              onShare={() => onShare(it)}
+              className="pt-2"
+            />
           </li>
         ))}
       </ul>

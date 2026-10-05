@@ -4,7 +4,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { sourceProblem } from "@/lib/problems";
 import type { NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import { AlertIcon, ArrowUpRightIcon, ChevronIcon, NewDot, SaveButton, ShareButton } from "./ui";
+import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot } from "./ui";
 
 const PER_CARD = 8;
 
@@ -237,8 +237,7 @@ function Headline({
         </span>
         <ItemTime item={item} now={now} className="mt-1 block text-xs text-muted" />
       </a>
-      <ShareButton onShare={() => onShare(item)} />
-      <SaveButton saved={saved} onToggle={() => onToggleSave(item)} />
+      <ItemMenu saved={saved} onToggleSave={() => onToggleSave(item)} onShare={() => onShare(item)} />
     </div>
   );
 }

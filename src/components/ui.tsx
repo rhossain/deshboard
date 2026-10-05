@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type KeyboardEvent, type ToggleEvent } from "react";
 
 export function Segmented<T extends string>({
   value,
@@ -168,32 +168,6 @@ export const BookmarkIcon = ({ filled, className }: { filled?: boolean; classNam
   </Icon>
 );
 
-/** Saves or un-saves a headline. Sits beside the headline's link, never inside it. */
-export function SaveButton({
-  saved,
-  onToggle,
-  className = "",
-}: {
-  saved: boolean;
-  onToggle: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={saved}
-      aria-label={saved ? "Remove from saved" : "Save for later"}
-      title={saved ? "Remove from saved" : "Save for later"}
-      className={`flex w-11 shrink-0 items-start justify-center pt-3 transition active:scale-90 ${
-        saved ? "text-gold" : "text-muted/60 hover:text-foreground"
-      } ${className}`}
-    >
-      <BookmarkIcon filled={saved} className="h-[18px] w-[18px]" />
-    </button>
-  );
-}
-
 export const ShareIcon = (p: { className?: string }) => (
   <Icon {...p}>
     <path d="M12 15V4M8 7.5 12 3.5l4 4" />
@@ -208,17 +182,122 @@ export const LinkIcon = (p: { className?: string }) => (
   </Icon>
 );
 
-/** Shares a headline. Sits beside the headline's link, next to the save button. */
-export function ShareButton({ onShare, className = "" }: { onShare: () => void; className?: string }) {
+export const DotsIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <circle cx="12" cy="5.5" r="1.4" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
+// Two rows of h-10 plus padding; used to flip the menu above the button near the bottom edge.
+const MENU_HEIGHT = 96;
+
+/**
+ * The ⋮ menu beside a headline (never inside its link) with Share and Save. The menu is a native
+ * popover, so it sits above cards that clip their overflow and closes on outside tap or Escape.
+ * The dots turn gold while the headline is saved.
+ */
+export function ItemMenu({
+  saved,
+  onToggleSave,
+  onShare,
+  className = "",
+}: {
+  saved: boolean;
+  onToggleSave: () => void;
+  onShare: () => void;
+  className?: string;
+}) {
+  const id = useId();
+  const button = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+
+  // The menu is pinned to where the button was; any scroll or resize closes it rather than leaving it behind.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => menu.current?.hidePopover();
+    window.addEventListener("scroll", close, { capture: true, passive: true });
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, { capture: true });
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  const place = (e: ToggleEvent<HTMLDivElement>) => {
+    const el = menu.current;
+    // Anchor to the dots, not the button: the button stretches to the full height of the headline row.
+    const r = button.current?.firstElementChild?.getBoundingClientRect();
+    if (e.newState !== "open" || !el || !r) return;
+    el.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+    if (r.bottom + MENU_HEIGHT + 8 > window.innerHeight) {
+      el.style.top = "auto";
+      el.style.bottom = `${window.innerHeight - r.top + 6}px`;
+    } else {
+      el.style.bottom = "auto";
+      el.style.top = `${r.bottom + 6}px`;
+    }
+  };
+
+  const items = () => Array.from(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? []);
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const all = items();
+    const at = all.indexOf(document.activeElement as HTMLElement);
+    all[(at + (e.key === "ArrowDown" ? 1 : all.length - 1)) % all.length]?.focus();
+  };
+
+  const run = (action: () => void) => () => {
+    menu.current?.hidePopover();
+    action();
+  };
+
+  const row =
+    "flex h-10 w-full items-center gap-3 whitespace-nowrap rounded-lg px-3 text-left text-sm font-medium text-foreground outline-none transition hover:bg-surface-2 focus-visible:bg-surface-2";
+
   return (
-    <button
-      type="button"
-      onClick={onShare}
-      aria-label="Share"
-      title="Share"
-      className={`flex w-9 shrink-0 items-start justify-center pt-3 text-muted/60 transition hover:text-foreground active:scale-90 ${className}`}
-    >
-      <ShareIcon className="h-[18px] w-[18px]" />
-    </button>
+    <>
+      <button
+        ref={button}
+        type="button"
+        popoverTarget={id}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={saved ? "More actions (saved)" : "More actions"}
+        title="More actions"
+        className={`flex w-10 shrink-0 items-start justify-center pt-3 transition active:scale-90 ${
+          saved ? "text-gold" : open ? "text-foreground" : "text-muted/60 hover:text-foreground"
+        } ${className}`}
+      >
+        <DotsIcon className="h-[18px] w-[18px]" />
+      </button>
+      <div
+        ref={menu}
+        id={id}
+        popover="auto"
+        role="menu"
+        onBeforeToggle={place}
+        onToggle={(e) => {
+          const isOpen = e.newState === "open";
+          setOpen(isOpen);
+          if (isOpen) items()[0]?.focus();
+        }}
+        onKeyDown={onKeyDown}
+        className="fixed inset-auto m-0 min-w-48 rounded-xl border border-line bg-surface p-1 text-foreground shadow-card"
+      >
+        <button type="button" role="menuitem" onClick={run(onShare)} className={row}>
+          <ShareIcon className="h-[18px] w-[18px] text-muted" />
+          Share
+        </button>
+        <button type="button" role="menuitem" onClick={run(onToggleSave)} className={row}>
+          <BookmarkIcon filled={saved} className={`h-[18px] w-[18px] ${saved ? "text-gold" : "text-muted"}`} />
+          {saved ? "Remove from saved" : "Save for later"}
+        </button>
+      </div>
+    </>
   );
 }

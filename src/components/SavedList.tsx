@@ -4,7 +4,7 @@ import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import type { SavedEntry } from "./saved";
 import { timeAgo } from "./time";
-import { BookmarkIcon, SaveButton, ShareButton } from "./ui";
+import { BookmarkIcon, ItemMenu } from "./ui";
 
 /** Headlines the reader saved on this device, most recently saved first. */
 export function SavedList({
@@ -62,8 +62,7 @@ export function SavedList({
                 </div>
                 <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent">{it.title}</p>
               </a>
-              <ShareButton onShare={() => onShare(it)} className="pt-4" />
-              <SaveButton saved onToggle={() => onToggleSave(it)} className="pt-4" />
+              <ItemMenu saved onToggleSave={() => onToggleSave(it)} onShare={() => onShare(it)} className="pt-4" />
             </li>
           ))}
         </ol>

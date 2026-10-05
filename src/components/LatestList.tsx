@@ -4,7 +4,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { itemTime } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import { NewDot, SaveButton, ShareButton } from "./ui";
+import { ItemMenu, NewDot } from "./ui";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 const MAX_ITEMS = 300;
@@ -94,8 +94,12 @@ export function LatestList({
                     </p>
                   </div>
                 </a>
-                <ShareButton onShare={() => onShare(it)} className="pt-4" />
-                <SaveButton saved={savedLinks.has(it.link)} onToggle={() => onToggleSave(it)} className="pt-4" />
+                <ItemMenu
+                  saved={savedLinks.has(it.link)}
+                  onToggleSave={() => onToggleSave(it)}
+                  onShare={() => onShare(it)}
+                  className="pt-4"
+                />
               </li>
             ))}
           </ol>
