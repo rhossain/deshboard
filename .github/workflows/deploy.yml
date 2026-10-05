@@ -73,8 +73,9 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           printf '%s' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           SSH="ssh -p $SSH_PORT -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
-          if ! $SSH "$SSH_USER@$SSH_HOST" test -d "$SITE_DIR"; then
-            echo "::error::$SITE_DIR doesn't exist on the server. Folders under domains/:"
+          # The site's folder (domains/<site>) must exist; its public_html is created if missing.
+          if ! $SSH "$SSH_USER@$SSH_HOST" "test -d \"$(dirname "$SITE_DIR")\" && mkdir -p \"$SITE_DIR\""; then
+            echo "::error::$(dirname "$SITE_DIR") doesn't exist on the server. Folders under domains/:"
             $SSH "$SSH_USER@$SSH_HOST" ls domains || true
             exit 1
           fi
