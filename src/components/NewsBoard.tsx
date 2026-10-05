@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { type Filters, filtersToSearch, type LangFilter, type Order, type View } from "@/lib/filters";
 import { sourceProblem } from "@/lib/problems";
@@ -47,6 +47,12 @@ const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "latest", label: "Latest" },
   { value: "saved", label: "Saved" },
 ];
+const VIEW_ICON: Record<View, typeof GridIcon> = {
+  sources: GridIcon,
+  top: StackIcon,
+  latest: ClockIcon,
+  saved: BookmarkIcon,
+};
 const VIEW_KEYS: Record<string, View> = { "1": "sources", "2": "top", "3": "latest", "4": "saved" };
 
 const SHORTCUTS: [string, string][] = [
@@ -460,11 +466,13 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
     return () => window.removeEventListener("keydown", onKey);
   }, [allItems, saved, toggleSaved, load, changeView]);
 
+  const orderControl = <Segmented label="Order" value={order} onChange={setOrder} options={ORDER_OPTIONS} full />;
+  const languageControl = <Segmented label="Language" value={lang} onChange={setLang} options={LANG_OPTIONS} full />;
   const sourceSelect = (
     <select
       value={onlySource}
       onChange={(e) => setOnlySource(e.target.value)}
-      className="h-11 w-full appearance-none rounded-xl border border-line bg-surface px-3.5 pr-9 text-sm font-medium outline-none focus:border-accent md:h-10 md:w-48"
+      className="h-11 w-full appearance-none rounded-xl border border-line bg-surface px-3.5 pr-9 text-sm font-medium outline-none focus:border-accent md:h-10"
       aria-label="Filter by source"
     >
       <option value="">All sources</option>
@@ -478,6 +486,12 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
         ))}
     </select>
   );
+  const sourceControl = (
+    <div className="relative">
+      {sourceSelect}
+      <ChevronIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+    </div>
+  );
 
   return (
     <div className="min-h-dvh pb-28 md:pb-16">
@@ -490,7 +504,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
       </div>
 
       {/* Masthead */}
-      <header className="mx-auto max-w-7xl px-4 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-8">
+      <header className="mx-auto max-w-7xl px-4 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-10">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold" suppressHydrationWarning>
@@ -516,7 +530,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
         </div>
 
         {/* Status */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted">
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted">
           <span className="inline-flex items-center gap-1.5">
             <span className="relative flex h-2 w-2">
               {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
@@ -599,10 +613,37 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
       {/* Toolbar */}
       <div
         data-toolbar
-        className="sticky top-0 z-30 mt-4 border-b border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150"
+        className="sticky top-0 z-30 mt-5 border-b sm:mt-7 border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150"
       >
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 pt-3 sm:px-6">
-          <label className="relative min-w-0 flex-1 md:max-w-sm">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 pt-3 sm:px-6 md:h-16 md:pt-0">
+          {/* Views and filters live in the bottom bar and filter sheet on phones. */}
+          <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label="View">
+            {VIEW_OPTIONS.map((o) => {
+              const Icon = VIEW_ICON[o.value];
+              const active = view === o.value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => changeView(o.value)}
+                  aria-current={active ? "page" : undefined}
+                  className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition active:scale-[0.97] ${
+                    active ? "bg-foreground text-background" : "text-muted hover:bg-surface-2 hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="hidden h-4 w-4 lg:block" />
+                  {o.label}
+                  {o.value === "saved" && saved.length > 0 && (
+                    <span className={`text-xs tabular-nums ${active ? "opacity-60" : "text-muted/80"}`}>
+                      {saved.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          <label className="relative min-w-0 flex-1 md:ml-auto md:max-w-xs">
             <span className="sr-only">Search headlines</span>
             <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
             <input
@@ -617,36 +658,44 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
               }}
               placeholder="Search headlines / শিরোনাম খুঁজুন"
               enterKeyHint="search"
-              className="h-11 w-full rounded-xl border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
+              className="peer h-11 w-full rounded-full border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
             />
-            {query && (
+            {query ? (
               <button
                 type="button"
                 onClick={() => setQuery("")}
                 aria-label="Clear search"
-                className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-foreground"
+                className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:text-foreground"
               >
                 <CloseIcon className="h-4 w-4" />
               </button>
+            ) : (
+              <kbd
+                className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-line px-1.5 font-sans text-[11px] font-semibold text-muted peer-focus:opacity-0 md:block"
+                aria-hidden
+              >
+                /
+              </kbd>
             )}
           </label>
 
-          {/* Inline controls on tablets and desktops; phones use the bottom bar and filter sheet. */}
-          <div className="hidden flex-wrap items-center gap-2 md:flex">
-            <Segmented label="View" value={view} onChange={setView} options={VIEW_OPTIONS} />
-            {view === "sources" && (
-              <Segmented label="Order" value={order} onChange={setOrder} options={ORDER_OPTIONS} />
-            )}
-            <Segmented label="Language" value={lang} onChange={setLang} options={LANG_OPTIONS} />
-            <div className="relative">
-              {sourceSelect}
-              <ChevronIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            </div>
-          </div>
+          <FilterPopover count={activeFilters.length}>
+            {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
+            <Field label="Language">{languageControl}</Field>
+            <Field label="Source">{sourceControl}</Field>
+            <button
+              type="button"
+              onClick={resetFilters}
+              disabled={activeFilters.length === 0}
+              className="h-10 w-full rounded-xl border border-line text-sm font-semibold transition hover:bg-surface-2 disabled:opacity-40"
+            >
+              Reset filters
+            </button>
+          </FilterPopover>
         </div>
 
         {hasData ? (
-          <div className="relative mx-auto -mb-px mt-1.5 max-w-7xl">
+          <div className="relative mx-auto -mb-px max-w-7xl md:-mt-1">
             <CategoryTabs tabs={categoryTabs} value={category} onChange={(id) => pickCategory(id as Category | "")} />
           </div>
         ) : (
@@ -656,7 +705,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
 
       <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
         {activeFilters.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-2 md:hidden">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             {activeFilters.map((f) => (
               <button
                 key={f.key}
@@ -808,11 +857,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
 
       <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
         <div className="space-y-6">
-          {view === "sources" && (
-            <Field label="Order sources">
-              <Segmented label="Order" value={order} onChange={setOrder} options={ORDER_OPTIONS} full />
-            </Field>
-          )}
+          {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
           {view === "sources" && (
             <Field label="Source cards">
               <div className="flex gap-2">
@@ -840,15 +885,8 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
               </p>
             </Field>
           )}
-          <Field label="Language">
-            <Segmented label="Language" value={lang} onChange={setLang} options={LANG_OPTIONS} full />
-          </Field>
-          <Field label="Source">
-            <div className="relative">
-              {sourceSelect}
-              <ChevronIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            </div>
-          </Field>
+          <Field label="Language">{languageControl}</Field>
+          <Field label="Source">{sourceControl}</Field>
           <Field label="Appearance">
             <ThemeSetting />
           </Field>
@@ -953,6 +991,70 @@ function NavButton({
       </span>
       {label}
     </button>
+  );
+}
+
+/**
+ * The Filters button on tablets and desktops, with its panel as a native popover (outside clicks and
+ * Escape close it). The panel follows the button as the page scrolls and the toolbar sticks.
+ */
+function FilterPopover({ count, children }: { count: number; children: React.ReactNode }) {
+  const id = useId();
+  const button = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+
+  const place = useCallback(() => {
+    const r = button.current?.getBoundingClientRect();
+    const el = panel.current;
+    if (!r || !el) return;
+    el.style.top = `${r.bottom + 8}px`;
+    el.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", place, { capture: true, passive: true });
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, { capture: true });
+      window.removeEventListener("resize", place);
+    };
+  }, [open, place]);
+
+  return (
+    <>
+      <button
+        ref={button}
+        type="button"
+        popoverTarget={id}
+        aria-expanded={open}
+        className={`hidden h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition active:scale-[0.97] md:inline-flex ${
+          open || count > 0
+            ? "border-accent/40 bg-accent-soft text-accent"
+            : "border-line bg-surface text-foreground hover:bg-surface-2"
+        }`}
+      >
+        <SlidersIcon className="h-4 w-4" />
+        Filters
+        {count > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold tabular-nums text-accent-ink">
+            {count}
+          </span>
+        )}
+      </button>
+      <div
+        ref={panel}
+        id={id}
+        popover="auto"
+        onBeforeToggle={(e) => e.newState === "open" && place()}
+        onToggle={(e) => setOpen(e.newState === "open")}
+        aria-label="Filters"
+        className="fixed inset-auto m-0 w-80 space-y-5 rounded-2xl border border-line bg-surface p-5 text-foreground shadow-card"
+      >
+        {children}
+      </div>
+    </>
   );
 }
 
