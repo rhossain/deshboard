@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { type Filters, filtersToSearch, type LangFilter, type Order, type View } from "@/lib/filters";
 import { sourceProblem } from "@/lib/problems";
+import { dedupeByLink } from "@/lib/fetchers/utils";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
@@ -40,19 +41,19 @@ const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const TOP_MIN_OUTLETS = 3;
 
 const VIEW_OPTIONS: { value: View; label: string }[] = [
-  { value: "top", label: "Top stories" },
   { value: "sources", label: "By source" },
+  { value: "top", label: "Top stories" },
   { value: "latest", label: "Latest" },
   { value: "saved", label: "Saved" },
 ];
-const VIEW_KEYS: Record<string, View> = { "1": "top", "2": "sources", "3": "latest", "4": "saved" };
+const VIEW_KEYS: Record<string, View> = { "1": "sources", "2": "top", "3": "latest", "4": "saved" };
 
 const SHORTCUTS: [string, string][] = [
   ["/", "Search headlines"],
   ["j / k", "Next / previous headline"],
   ["Enter", "Open the headline"],
   ["s", "Save or unsave the headline"],
-  ["1 – 4", "Top stories, By source, Latest, Saved"],
+  ["1 – 4", "By source, Top stories, Latest, Saved"],
   ["r", "Refresh"],
   ["Esc", "Clear the search, close a panel"],
   ["?", "Show these shortcuts"],
@@ -252,7 +253,8 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
     if (search !== window.location.search) window.history.replaceState(null, "", window.location.pathname + search);
   }, [view, lang, onlySource, category, query, order]);
 
-  const allItems = useMemo(() => [...results.values()].flatMap((r) => r.items), [results]);
+  // Two outlets can list the same article (e.g. a homepage linking a sister site), so keep the first.
+  const allItems = useMemo(() => dedupeByLink([...results.values()].flatMap((r) => r.items)), [results]);
   const statuses = useMemo(() => [...results.values()], [results]);
   const hasData = results.size > 0;
 
@@ -763,11 +765,11 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
         aria-label="View"
       >
         <div className="mx-auto grid h-16 max-w-md grid-cols-5">
-          <NavButton active={view === "top"} onClick={() => changeView("top")} label="Top">
-            <StackIcon />
-          </NavButton>
           <NavButton active={view === "sources"} onClick={() => changeView("sources")} label="Sources">
             <GridIcon />
+          </NavButton>
+          <NavButton active={view === "top"} onClick={() => changeView("top")} label="Top">
+            <StackIcon />
           </NavButton>
           <NavButton active={view === "latest"} onClick={() => changeView("latest")} label="Latest">
             <ClockIcon />
