@@ -1,7 +1,8 @@
 name: Deploy
 
-# Collects fresh headlines, builds the static site (the static-export branch) and uploads it to the
-# web host over FTP. Turned on by setting the SITE_URL repository variable; needs the FTP_* secrets.
+# Collects fresh headlines, builds the static site (the static-export branch) and commits the result
+# to the `deploy` branch, which the web host pulls (Hostinger: hPanel → Advanced → Git, with Auto
+# Deployment). Turned on by setting the SITE_URL repository variable.
 #
 # GitHub runs scheduled workflows only from the default branch, so this same file also lives on main:
 # from either branch it builds static-export.
@@ -17,6 +18,9 @@ on:
 concurrency:
   group: deploy
   cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
   deploy:
@@ -44,12 +48,24 @@ jobs:
       - run: npm run build
         env:
           SITE_URL: ${{ vars.SITE_URL }}
-      # Uploads only files that changed since the last run (it keeps a sync-state file on the server).
-      - uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: ./out/
-          server-dir: ${{ vars.FTP_DIR || 'public_html/' }}
+      # One new commit on top of the last, so the host can always fast-forward with `git pull`.
+      - name: Commit the site to the deploy branch
+        env:
+          REPO: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          if git ls-remote --exit-code --heads origin deploy > /dev/null; then
+            git clone --quiet --depth 1 --branch deploy "$REPO" site
+          else
+            git init --quiet -b deploy site
+            git -C site remote add origin "$REPO"
+          fi
+          rsync -a --delete --exclude .git out/ site/
+          cd site
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to deploy."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898099+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "Deploy $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push --quiet origin deploy

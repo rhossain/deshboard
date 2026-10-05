@@ -2,6 +2,9 @@
 
 ErrorDocument 404 /404.html
 
+# Deployed with git (Hostinger's Git deployment): never serve the repository folder.
+RedirectMatch 404 /\.git
+
 # Next writes the share image and the home-screen icon without a file extension.
 <FilesMatch "^(apple-icon|opengraph-image)$">
   ForceType image/png

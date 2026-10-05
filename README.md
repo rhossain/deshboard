@@ -95,13 +95,12 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 ## Deploy
 
 `.github/workflows/deploy.yml` runs hourly and on every push to the `static-export` branch: it fetches the
-headlines, builds the site and uploads `out/` over FTPS, sending only the files that changed. Scheduled runs start
-from the copy of the file on `main` (GitHub's rule), which builds `static-export` too. To turn it on, in the GitHub
-repo's **Settings → Secrets and variables → Actions**:
+headlines, builds the site and commits `out/` to the `deploy` branch. The host pulls that branch into its web
+folder: on Hostinger, hPanel → Advanced → Git with Auto Deployment, whose webhook GitHub calls on each push.
+Scheduled runs start from the copy of the file on `main` (GitHub's rule), which builds `static-export` too.
 
-- Secrets: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` (Hostinger: hPanel → Files → FTP Accounts).
-- Variables: `SITE_URL` (e.g. `https://example.com`; the workflow does nothing until it is set) and, optionally,
-  `FTP_DIR` (default `public_html/`).
+The workflow does nothing until the `SITE_URL` repository variable is set (GitHub → Settings → Secrets and variables
+→ Actions), e.g. `https://example.com`; it is the address used in the share image link.
 
 The headlines are as fresh as the last run. For a one-off manual upload instead, `npm run package` builds
 `deshboard.zip`; extract it into `public_html` (it includes `.htaccess`).
