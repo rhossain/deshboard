@@ -407,15 +407,8 @@ function SourceCard({
     <article className={`flex flex-col rounded-xl border border-line bg-surface ${problem ? "opacity-80" : ""}`}>
       <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div className="min-w-0">
-          <a
-            href={source.homepage}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block truncate font-semibold hover:text-accent"
-          >
-            {source.name}
-          </a>
-          <p className="text-xs text-muted">
+          <SourceLogo source={source} />
+          <p className="mt-1 text-xs text-muted">
             {source.kind} · {source.lang === "bn" ? "বাংলা" : "English"}
           </p>
         </div>
@@ -487,6 +480,80 @@ function SourceCard({
         </button>
       )}
     </article>
+  );
+}
+
+/**
+ * True for a light logo on a transparent background (made for a dark header),
+ * which would vanish on our white logo plate. Logos are proxied through our
+ * own origin, so the canvas is not tainted.
+ */
+function isLightOnTransparent(img: HTMLImageElement): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = Math.max(1, Math.round((64 * img.naturalHeight) / img.naturalWidth));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return false;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let opaque = 0;
+    let luminance = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 3] < 128) continue;
+      opaque++;
+      luminance += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+    }
+    const transparentShare = 1 - opaque / (px.length / 4);
+    return opaque > 0 && transparentShare > 0.1 && luminance / opaque > 200;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The source's logo from /api/logo, linking to its homepage. Wide images are
+ * shown alone; square ones (favicons) sit next to the name; if there is no
+ * image the name is shown as text.
+ */
+function SourceLogo({ source }: { source: NewsSource }) {
+  const [kind, setKind] = useState<"loading" | "logo" | "icon" | "none">("loading");
+  const [light, setLight] = useState(false);
+
+  // Logos are drawn on a fixed plate so they read the same in light and dark mode.
+  const plate = light ? "bg-neutral-800" : "bg-white";
+
+  return (
+    <a
+      href={source.homepage}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={source.name}
+      className="flex h-9 min-w-0 items-center gap-2 font-semibold hover:text-accent"
+    >
+      {kind !== "none" && (
+        // eslint-disable-next-line @next/next/no-img-element -- proxied third-party logos of unknown size
+        <img
+          src={`/api/logo/${source.id}`}
+          alt={kind === "logo" ? source.name : ""}
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            const { naturalWidth: w, naturalHeight: h } = img;
+            setKind(w && h && w / h >= 1.8 ? "logo" : "icon");
+            setLight(isLightOnTransparent(img));
+          }}
+          onError={() => setKind("none")}
+          className={
+            kind === "logo"
+              ? `h-9 w-auto max-w-[200px] rounded-md object-contain object-left px-1.5 py-1 ${plate}`
+              : kind === "icon"
+                ? `h-6 w-6 shrink-0 rounded object-contain ${plate}`
+                : "absolute h-px w-px opacity-0"
+          }
+        />
+      )}
+      {kind !== "logo" && <span className="truncate">{source.name}</span>}
+    </a>
   );
 }
 

@@ -17,14 +17,22 @@ export interface FetchedText {
   contentType: string;
 }
 
-/**
- * GET a URL as text with a timeout, a browser-like User-Agent and
- * charset-aware decoding (falls back to UTF-8).
- */
-export async function fetchText(
+export interface FetchedBytes {
+  bytes: ArrayBuffer;
+  url: string;
+  contentType: string;
+}
+
+interface FetchOptions {
+  timeoutMs?: number;
+  accept?: string;
+}
+
+/** GET a URL with a timeout and a browser-like User-Agent; errors become `FetchError`s. */
+export async function fetchBytes(
   url: string,
-  { timeoutMs = 12_000, accept = "*/*" }: { timeoutMs?: number; accept?: string } = {},
-): Promise<FetchedText> {
+  { timeoutMs = 12_000, accept = "*/*" }: FetchOptions = {},
+): Promise<FetchedBytes> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -39,17 +47,8 @@ export async function fetchText(
       signal: controller.signal,
     });
     if (!res.ok) throw new FetchError(`HTTP ${res.status}`, res.status);
-
-    const contentType = res.headers.get("content-type") ?? "";
-    const buf = await res.arrayBuffer();
-    const charset = /charset=([\w-]+)/i.exec(contentType)?.[1]?.toLowerCase() ?? "utf-8";
-    let text: string;
-    try {
-      text = new TextDecoder(charset).decode(buf);
-    } catch {
-      text = new TextDecoder("utf-8").decode(buf);
-    }
-    return { text, url: res.url || url, contentType };
+    const bytes = await res.arrayBuffer();
+    return { bytes, url: res.url || url, contentType: res.headers.get("content-type") ?? "" };
   } catch (err) {
     if (err instanceof FetchError) throw err;
     if (err instanceof Error && err.name === "AbortError") {
@@ -60,6 +59,19 @@ export async function fetchText(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** GET a URL as text with charset-aware decoding (falls back to UTF-8). */
+export async function fetchText(url: string, options: FetchOptions = {}): Promise<FetchedText> {
+  const { bytes, url: finalUrl, contentType } = await fetchBytes(url, options);
+  const charset = /charset=([\w-]+)/i.exec(contentType)?.[1]?.toLowerCase() ?? "utf-8";
+  let text: string;
+  try {
+    text = new TextDecoder(charset).decode(bytes);
+  } catch {
+    text = new TextDecoder("utf-8").decode(bytes);
+  }
+  return { text, url: finalUrl, contentType };
 }
 
 /** Many BD sites return an HTML page with status 200 instead of a real 404. */

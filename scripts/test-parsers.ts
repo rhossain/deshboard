@@ -7,6 +7,7 @@ import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
 import { parseDate } from "../src/lib/fetchers/utils";
+import { findLogoCandidates } from "../src/lib/logos";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -131,6 +132,23 @@ test("Categories from URL sections and feed tags", () => {
   assert.equal(categorize("https://www.ittefaq.com.bd/1/x", ["বিশ্ব সংবাদ", "বাংলাদেশ"]), "international");
   assert.equal(categorize("https://www.deshrupantor.com/1/x", ["আজকের পত্রিকা", "দেশ"]), "national");
   assert.equal(categorize("https://www.mzamin.com/article/47008"), "other");
+});
+
+test("Logo candidates: header logo first, social icons and parking pages skipped", () => {
+  const html = `<html><head>
+    <link rel="icon" href="/favicon.ico">
+    <script type="application/ld+json">{"@type":"NewsMediaOrganization","logo":{"@type":"ImageObject","url":"/ld-logo.png"}}</script>
+  </head><body>
+    <header><a href="/" class="site-logo"><img data-src="/img/logo.svg" src="data:image/gif;base64,R0lGOD"></a>
+      <a href="https://facebook.com/x"><img src="/icons/facebook-logo.svg"></a></header>
+    <img src="https://img.sedoparking.com/logo.png" alt="logo">
+    <footer><img src="/img/footer-logo.png"></footer>
+  </body></html>`;
+  const urls = findLogoCandidates(html, "https://www.site.test/");
+  assert.equal(urls[0], "https://www.site.test/img/logo.svg");
+  assert.equal(urls[1], "https://www.site.test/ld-logo.png");
+  assert.ok(!urls.some((u) => u.includes("facebook")));
+  assert.ok(!urls.some((u) => u.includes("sedoparking")));
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

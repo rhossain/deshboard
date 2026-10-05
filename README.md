@@ -35,6 +35,9 @@ npm test           # offline parser tests
 - `GET /api/news/stream` — same params, but NDJSON: one `{ "type": "source", "result" }` line per source as soon as
   it is fetched (`result` is a status plus its `items`), then `{ "type": "done", "generatedAt" }`. The UI uses this so
   each source shows up the moment it arrives.
+- `GET /api/logo/:sourceId` — the source's logo image (proxied, cached 24 h). Found on its homepage (header `<img>`
+  marked as the logo, JSON-LD `logo`, then touch icon / favicon); sites that block us fall back to Google's favicon
+  service. 404 when nothing is found, and the UI shows the name as text.
 - `GET /api/sources` — all 64 portals with method, URL and notes
 
 Each item: `{ title, link, publishedAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no `publishedAt`.
@@ -52,6 +55,7 @@ feeds have no tags (e.g. Manab Zamin, BSS, Daily Observer) always end up in `oth
 src/lib/sources.ts         source list (edit here to add/fix a portal)
 src/lib/categories.ts      section-name synonyms → main categories
 src/lib/problems.ts        reader-facing explanations for unavailable / failed sources
+src/lib/logos.ts           logo discovery from homepages + in-memory image cache
 src/lib/news.ts            fetch orchestration, in-memory cache (10 min, 1 min for failures), concurrency 8
 src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 detection
 src/lib/fetchers/rss.ts    RSS/Atom/RDF parser
