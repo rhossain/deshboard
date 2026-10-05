@@ -9,6 +9,7 @@ import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from
 import { useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
 import { byNewest, LatestList } from "./LatestList";
+import { Logo } from "./Logo";
 import { SourceCard } from "./SourceCard";
 import { setTheme, useTheme } from "./theme";
 import { fullTime, timeAgo } from "./time";
@@ -302,8 +303,8 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold" suppressHydrationWarning>
               {dhakaDate.format(now)}
             </p>
-            <h1 className="mt-1 font-display text-[32px] font-semibold leading-none tracking-tight sm:text-5xl">
-              BD News Desk
+            <h1 className="mt-1.5 text-[32px] sm:text-5xl">
+              <Logo />
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-2">

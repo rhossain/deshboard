@@ -8,9 +8,9 @@ const bengali = Noto_Sans_Bengali({ subsets: ["bengali"], variable: "--font-beng
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "BD News Desk",
+  title: "Deshboard",
   description: "Latest headlines from Bangladeshi news portals, collected from RSS feeds, news sitemaps and homepages.",
-  appleWebApp: { capable: true, title: "BD News Desk", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Deshboard", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

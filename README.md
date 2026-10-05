@@ -1,4 +1,4 @@
-# BD News Desk
+# Deshboard
 
 Headlines + links from Bangladeshi news portals, built with **Next.js 16** (App Router) and **Tailwind CSS v4**.
 
