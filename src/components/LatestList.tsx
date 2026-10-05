@@ -4,7 +4,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { itemTime } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import { NewDot, SaveButton } from "./ui";
+import { NewDot, SaveButton, ShareButton } from "./ui";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 const MAX_ITEMS = 300;
@@ -32,6 +32,7 @@ export function LatestList({
   isNew,
   savedLinks,
   onToggleSave,
+  onShare,
 }: {
   items: NewsItem[];
   sourceById: Map<string, NewsSource>;
@@ -39,6 +40,7 @@ export function LatestList({
   isNew: (item: NewsItem) => boolean;
   savedLinks: Set<string>;
   onToggleSave: (item: NewsItem) => void;
+  onShare: (item: NewsItem) => void;
 }) {
   const dated = items.filter(itemTime).sort(byNewest);
   const undated = items.length - dated.length;
@@ -92,6 +94,7 @@ export function LatestList({
                     </p>
                   </div>
                 </a>
+                <ShareButton onShare={() => onShare(it)} className="pt-4" />
                 <SaveButton saved={savedLinks.has(it.link)} onToggle={() => onToggleSave(it)} className="pt-4" />
               </li>
             ))}

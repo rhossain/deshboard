@@ -4,7 +4,7 @@ import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import type { SavedEntry } from "./saved";
 import { timeAgo } from "./time";
-import { BookmarkIcon, SaveButton } from "./ui";
+import { BookmarkIcon, SaveButton, ShareButton } from "./ui";
 
 /** Headlines the reader saved on this device, most recently saved first. */
 export function SavedList({
@@ -13,6 +13,7 @@ export function SavedList({
   sourceById,
   now,
   onToggleSave,
+  onShare,
 }: {
   /** Saved headlines matching the current filters. */
   entries: SavedEntry[];
@@ -21,6 +22,7 @@ export function SavedList({
   sourceById: Map<string, NewsSource>;
   now: number;
   onToggleSave: (item: NewsItem) => void;
+  onShare: (item: NewsItem) => void;
 }) {
   if (!total) {
     return (
@@ -60,6 +62,7 @@ export function SavedList({
                 </div>
                 <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent">{it.title}</p>
               </a>
+              <ShareButton onShare={() => onShare(it)} className="pt-4" />
               <SaveButton saved onToggle={() => onToggleSave(it)} className="pt-4" />
             </li>
           ))}

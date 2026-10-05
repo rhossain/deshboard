@@ -16,6 +16,7 @@ import { byNewest, LatestList } from "./LatestList";
 import { Logo } from "./Logo";
 import { useSaved } from "./saved";
 import { SavedList } from "./SavedList";
+import { ShareOptions, shareUrl } from "./ShareOptions";
 import { SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
@@ -151,6 +152,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
   const [showFailures, setShowFailures] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [sharing, setSharing] = useState<NewsItem | null>(null);
   // An automatic refresh that brought new headlines, held back until the reader asks for it.
   const [pending, setPending] = useState<Pending | null>(null);
   const quietRef = useRef<AbortController | null>(null);
@@ -410,6 +412,18 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
     if (window.scrollY > top) window.scrollTo({ top, behavior: "instant" });
   };
 
+  // Phones get the system share menu straight away; elsewhere (or if it's unavailable), the share sheet.
+  const shareItem = useCallback(
+    (item: NewsItem) => {
+      if (isPhone && typeof navigator.share === "function") {
+        navigator.share({ title: item.title, url: shareUrl(item) }).catch(() => {});
+      } else {
+        setSharing(item);
+      }
+    },
+    [isPhone],
+  );
+
   const changeView = useCallback((v: View) => {
     setView(v);
     window.scrollTo({ top: 0 });
@@ -583,7 +597,10 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
       </header>
 
       {/* Toolbar */}
-      <div data-toolbar className="sticky top-0 z-30 mt-4 border-b border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150">
+      <div
+        data-toolbar
+        className="sticky top-0 z-30 mt-4 border-b border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150"
+      >
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 pt-3 sm:px-6">
           <label className="relative min-w-0 flex-1 md:max-w-sm">
             <span className="sr-only">Search headlines</span>
@@ -617,7 +634,9 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
           {/* Inline controls on tablets and desktops; phones use the bottom bar and filter sheet. */}
           <div className="hidden flex-wrap items-center gap-2 md:flex">
             <Segmented label="View" value={view} onChange={setView} options={VIEW_OPTIONS} />
-            {view === "sources" && <Segmented label="Order" value={order} onChange={setOrder} options={ORDER_OPTIONS} />}
+            {view === "sources" && (
+              <Segmented label="Order" value={order} onChange={setOrder} options={ORDER_OPTIONS} />
+            )}
             <Segmented label="Language" value={lang} onChange={setLang} options={LANG_OPTIONS} />
             <div className="relative">
               {sourceSelect}
@@ -676,6 +695,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
             isNew={isNew}
             savedLinks={savedLinks}
             onToggleSave={toggleSaved}
+            onShare={shareItem}
             emptyHint={
               onlySource
                 ? `Nothing from ${sourceById.get(onlySource)?.name ?? "this source"} is covered by other outlets right now.`
@@ -696,6 +716,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
             isNew={isNew}
             savedLinks={savedLinks}
             onToggleSave={toggleSaved}
+            onShare={shareItem}
           />
         )}
 
@@ -706,6 +727,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
             sourceById={sourceById}
             now={now}
             onToggleSave={toggleSaved}
+            onShare={shareItem}
           />
         )}
 
@@ -726,6 +748,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
                 isNew={isNew}
                 savedLinks={savedLinks}
                 onToggleSave={toggleSaved}
+                onShare={shareItem}
               />
             ))}
           </div>
@@ -800,14 +823,21 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
                   <button
                     key={b.label}
                     type="button"
-                    onClick={() => setCollapsed(visibleSources.map((src) => src.id), b.collapsed)}
+                    onClick={() =>
+                      setCollapsed(
+                        visibleSources.map((src) => src.id),
+                        b.collapsed,
+                      )
+                    }
                     className="h-11 flex-1 rounded-xl border border-line bg-surface-2 text-sm font-medium transition active:scale-[0.98]"
                   >
                     {b.label}
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-muted">Tap a source&rsquo;s name to fold it. Your choice is remembered.</p>
+              <p className="mt-2 text-xs text-muted">
+                Tap a source&rsquo;s name to fold it. Your choice is remembered.
+              </p>
             </Field>
           )}
           <Field label="Language">
@@ -840,6 +870,12 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
             Show {filtered.length.toLocaleString()} headlines
           </button>
         </div>
+      </Sheet>
+
+      <Sheet open={!!sharing} onClose={() => setSharing(null)} title="Share headline">
+        {sharing && (
+          <ShareOptions item={sharing} sourceName={sourceById.get(sharing.sourceId)?.name ?? sharing.sourceName} />
+        )}
       </Sheet>
 
       <Sheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard shortcuts">

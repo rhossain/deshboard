@@ -5,7 +5,7 @@ import type { Story } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { timeAgo } from "./time";
-import { ChevronIcon, NewDot, SaveButton } from "./ui";
+import { ChevronIcon, NewDot, SaveButton, ShareButton } from "./ui";
 
 /** Other outlets' headlines shown before "Show all". */
 const PREVIEW = 3;
@@ -19,6 +19,7 @@ export function TopStories({
   isNew,
   savedLinks,
   onToggleSave,
+  onShare,
   emptyHint,
 }: {
   stories: Story[];
@@ -27,6 +28,7 @@ export function TopStories({
   isNew: (item: NewsItem) => boolean;
   savedLinks: Set<string>;
   onToggleSave: (item: NewsItem) => void;
+  onShare: (item: NewsItem) => void;
   /** Shown instead of the list when there are no stories. */
   emptyHint: string;
 }) {
@@ -57,6 +59,7 @@ export function TopStories({
             isNew={isNew}
             savedLinks={savedLinks}
             onToggleSave={onToggleSave}
+            onShare={onShare}
           />
         ))}
       </ol>
@@ -82,6 +85,7 @@ function StoryCard({
   isNew,
   savedLinks,
   onToggleSave,
+  onShare,
 }: {
   story: Story;
   rank: number;
@@ -90,6 +94,7 @@ function StoryCard({
   isNew: (item: NewsItem) => boolean;
   savedLinks: Set<string>;
   onToggleSave: (item: NewsItem) => void;
+  onShare: (item: NewsItem) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [lead, ...others] = story.items;
@@ -122,6 +127,7 @@ function StoryCard({
             {itemTimeLabel(lead, now)}
           </p>
         </a>
+        <ShareButton onShare={() => onShare(lead)} className="pt-4" />
         <SaveButton saved={savedLinks.has(lead.link)} onToggle={() => onToggleSave(lead)} className="pt-4" />
       </div>
       <ul className="border-t border-line">
@@ -140,6 +146,7 @@ function StoryCard({
                 {it.title}
               </span>
             </a>
+            <ShareButton onShare={() => onShare(it)} className="pt-2" />
             <SaveButton saved={savedLinks.has(it.link)} onToggle={() => onToggleSave(it)} className="pt-2" />
           </li>
         ))}

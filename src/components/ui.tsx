@@ -193,3 +193,32 @@ export function SaveButton({
     </button>
   );
 }
+
+export const ShareIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <path d="M12 15V4M8 7.5 12 3.5l4 4" />
+    <path d="M8.5 10.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.5a2 2 0 0 0-2-2h-1.5" />
+  </Icon>
+);
+
+export const LinkIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1" />
+    <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" />
+  </Icon>
+);
+
+/** Shares a headline. Sits beside the headline's link, next to the save button. */
+export function ShareButton({ onShare, className = "" }: { onShare: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onShare}
+      aria-label="Share"
+      title="Share"
+      className={`flex w-9 shrink-0 items-start justify-center pt-3 text-muted/60 transition hover:text-foreground active:scale-90 ${className}`}
+    >
+      <ShareIcon className="h-[18px] w-[18px]" />
+    </button>
+  );
+}

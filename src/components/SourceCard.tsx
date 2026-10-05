@@ -4,7 +4,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { sourceProblem } from "@/lib/problems";
 import type { NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import { AlertIcon, ArrowUpRightIcon, ChevronIcon, NewDot, SaveButton } from "./ui";
+import { AlertIcon, ArrowUpRightIcon, ChevronIcon, NewDot, SaveButton, ShareButton } from "./ui";
 
 const PER_CARD = 8;
 
@@ -28,6 +28,7 @@ export function SourceCard({
   isNew,
   savedLinks,
   onToggleSave,
+  onShare,
 }: {
   source: NewsSource;
   status?: SourceStatus;
@@ -44,6 +45,7 @@ export function SourceCard({
   isNew: (item: NewsItem) => boolean;
   savedLinks: Set<string>;
   onToggleSave: (item: NewsItem) => void;
+  onShare: (item: NewsItem) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const ref = useRef<HTMLElement>(null);
@@ -149,6 +151,7 @@ export function SourceCard({
                 isNew={isNew(lead)}
                 saved={savedLinks.has(lead.link)}
                 onToggleSave={onToggleSave}
+                onShare={onShare}
                 lead
               />
             </div>
@@ -163,6 +166,7 @@ export function SourceCard({
                     isNew={isNew(it)}
                     saved={savedLinks.has(it.link)}
                     onToggleSave={onToggleSave}
+                    onShare={onShare}
                   />
                 </li>
               ))}
@@ -204,6 +208,7 @@ function Headline({
   isNew,
   saved,
   onToggleSave,
+  onShare,
   lead = false,
 }: {
   item: NewsItem;
@@ -211,6 +216,7 @@ function Headline({
   isNew: boolean;
   saved: boolean;
   onToggleSave: (item: NewsItem) => void;
+  onShare: (item: NewsItem) => void;
   lead?: boolean;
 }) {
   // Opened headlines turn muted through the browser's own :visited state.
@@ -231,6 +237,7 @@ function Headline({
         </span>
         <ItemTime item={item} now={now} className="mt-1 block text-xs text-muted" />
       </a>
+      <ShareButton onShare={() => onShare(item)} />
       <SaveButton saved={saved} onToggle={() => onToggleSave(item)} />
     </div>
   );
