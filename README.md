@@ -95,9 +95,9 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 ## Deploy
 
 `.github/workflows/deploy.yml` runs hourly and on every push to the `static-export` branch: it fetches the
-headlines, builds the site and commits `out/` to the `deploy` branch as `public_html/`. Hostinger's Git deployment
-(hPanel → Advanced → GIT, connected with GitHub: branch `deploy`, root directory `public_html`, auto-deployment on)
-publishes each new commit. Scheduled runs start from the copy of the file on `main` (GitHub's rule), which builds
+headlines, builds the site and commits `out/` to the top of the `deploy` branch. Hostinger's Git deployment (hPanel
+→ Advanced → GIT, connected with GitHub: branch `deploy`, auto-deployment on) copies each new commit into the
+site's web folder. Scheduled runs start from the copy of the file on `main` (GitHub's rule), which builds
 `static-export` too.
 
 The workflow does nothing until the `SITE_URL` repository variable is set (GitHub → Settings → Secrets and variables
