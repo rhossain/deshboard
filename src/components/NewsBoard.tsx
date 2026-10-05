@@ -5,6 +5,7 @@ import { CATEGORIES, type Category } from "@/lib/categories";
 import { sourceProblem } from "@/lib/problems";
 import { isFetched } from "@/lib/sources";
 import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
+import { useCardPrefs, useIsPhone } from "./card-prefs";
 import { byNewest, LatestList } from "./LatestList";
 import { SourceCard } from "./SourceCard";
 import { fullTime, timeAgo } from "./time";
@@ -95,6 +96,8 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const controllerRef = useRef<AbortController | null>(null);
+  const isPhone = useIsPhone();
+  const [cardPrefs, updateCardPrefs] = useCardPrefs();
 
   /** Start streaming. State is only set from callbacks, so this is safe to call from an effect. */
   const start = useCallback((force: boolean) => {
@@ -215,6 +218,16 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
     setOrder("default");
   };
 
+  /** Saves a card's open/closed state, and its lead headline so later ones can be marked new. */
+  const setCollapsed = (ids: string[], collapsed: boolean) =>
+    updateCardPrefs((p) => {
+      for (const id of ids) {
+        p.collapsed[id] = collapsed;
+        const lead = itemsBySource.get(id)?.[0]?.link;
+        if (lead) p.seen[id] = lead;
+      }
+    });
+
   const changeView = (v: View) => {
     setView(v);
     window.scrollTo({ top: 0 });
@@ -334,7 +347,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
       </header>
 
       {/* Toolbar */}
-      <div className="sticky top-0 z-30 mt-4 border-b border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150">
+      <div data-toolbar className="sticky top-0 z-30 mt-4 border-b border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 pt-3 sm:px-6">
           <label className="relative min-w-0 flex-1 md:max-w-sm">
             <span className="sr-only">Search headlines</span>
@@ -441,6 +454,10 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
                 items={itemsBySource.get(s.id) ?? []}
                 filtering={filtering}
                 now={now}
+                collapsible={isPhone}
+                savedCollapsed={cardPrefs.collapsed[s.id]}
+                seenLead={cardPrefs.seen[s.id]}
+                onToggle={(collapsed) => setCollapsed([s.id], collapsed)}
               />
             ))}
           </div>
@@ -470,6 +487,26 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
           {view === "sources" && (
             <Field label="Order sources">
               <Segmented label="Order" value={order} onChange={setOrder} options={ORDER_OPTIONS} full />
+            </Field>
+          )}
+          {view === "sources" && (
+            <Field label="Source cards">
+              <div className="flex gap-2">
+                {[
+                  { label: "Expand all", collapsed: false },
+                  { label: "Collapse all", collapsed: true },
+                ].map((b) => (
+                  <button
+                    key={b.label}
+                    type="button"
+                    onClick={() => setCollapsed(visibleSources.map((src) => src.id), b.collapsed)}
+                    className="h-11 flex-1 rounded-xl border border-line bg-surface-2 text-sm font-medium transition active:scale-[0.98]"
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted">Tap a source&rsquo;s name to fold it. Your choice is remembered.</p>
             </Field>
           )}
           <Field label="Language">
