@@ -26,6 +26,7 @@ export function parseNewsSitemap(xml: string, baseUrl: string): RawItem[] {
       title: cleanTitle(news?.title),
       link: resolveUrl(textOf(u.loc), baseUrl) ?? "",
       publishedAt: parseDate(news?.publication_date ?? u.lastmod),
+      tags: textOf(news?.keywords).split(",").map((k) => k.trim()).filter(Boolean),
     };
   });
 

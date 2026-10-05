@@ -1,3 +1,4 @@
+import { categorize } from "./categories";
 import { extractHeadlines } from "./fetchers/html";
 import { fetchText } from "./fetchers/http";
 import { parseFeed, type RawItem } from "./fetchers/rss";
@@ -68,11 +69,12 @@ async function load(source: NewsSource): Promise<SourceResult> {
   };
   try {
     const { items, url } = await fetchRaw(source);
-    const news: NewsItem[] = dedupeByLink(items).map((it) => ({
+    const news: NewsItem[] = dedupeByLink(items).map(({ tags, ...it }) => ({
       ...it,
       sourceId: source.id,
       sourceName: source.name,
       lang: source.lang,
+      category: categorize(it.link, tags),
     }));
     return { ...base, ok: true, count: news.length, fetchedUrl: url, durationMs: Date.now() - started, items: news };
   } catch (err) {

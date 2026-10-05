@@ -2,6 +2,7 @@
  * Offline tests for the parsers (no network needed): npm test
  */
 import assert from "node:assert/strict";
+import { categorize } from "../src/lib/categories";
 import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
@@ -113,6 +114,23 @@ test("HTML: hidden headings, timestamps and overlay links", () => {
       "প্রতিটি সিটি করপোরেশনে মাস্টারপ্ল্যান",
     ],
   );
+});
+
+test("Categories from URL sections and feed tags", () => {
+  assert.equal(categorize("https://barta24.com/details/politics/341351"), "politics");
+  assert.equal(categorize("https://unb.com.bd/category/World/imran-khan-march/197027"), "international");
+  assert.equal(categorize("https://www.tbsnews.net/bangla/Economy/news-details-547781"), "business");
+  assert.equal(categorize("https://www.thedailystar.net/sports/more-sports/news/bigger-4290671"), "sports");
+  // A specific section beats the broad "national" parent
+  assert.equal(categorize("https://www.dhakatribune.com/bangladesh/politics/123456"), "politics");
+  assert.equal(categorize("https://www.prothomalo.com/bangladesh/capital/se83mmzf6z"), "national");
+  // The article slug is never treated as a section
+  assert.equal(categorize("https://example.com/news/sports"), "other");
+  // Bangla sitemap keywords
+  assert.equal(categorize("https://www.ittefaq.com.bd/813209/রোনালদো", ["খেলা", "রোনালদো", "ফুটবল"]), "sports");
+  assert.equal(categorize("https://www.ittefaq.com.bd/1/x", ["বিশ্ব সংবাদ", "বাংলাদেশ"]), "international");
+  assert.equal(categorize("https://www.deshrupantor.com/1/x", ["আজকের পত্রিকা", "দেশ"]), "national");
+  assert.equal(categorize("https://www.mzamin.com/article/47008"), "other");
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

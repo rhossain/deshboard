@@ -6,6 +6,8 @@ export interface RawItem {
   title: string;
   link: string;
   publishedAt?: string;
+  /** Section names from RSS <category> or sitemap news:keywords. */
+  tags?: string[];
 }
 
 type Node = Record<string, unknown>;
@@ -54,6 +56,7 @@ function rssItem(it: Node, baseUrl: string): RawItem {
     title: cleanTitle(it.title),
     link: resolveUrl(link, baseUrl) ?? "",
     publishedAt: parseDate(it.pubDate ?? it.date ?? it.published ?? it.updated),
+    tags: asArray(it.category as unknown).map(textOf).map(cleanTitle).filter(Boolean),
   };
 }
 

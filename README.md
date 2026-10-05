@@ -29,12 +29,20 @@ npm test           # offline parser tests
   - `?lang=bn|en`, `?source=id1,id2`, `?refresh=1` (bypass cache)
 - `GET /api/sources` — all 64 portals with method, URL and notes
 
-Each item: `{ title, link, publishedAt?, sourceId, sourceName, lang }`. HTML-scraped items have no `publishedAt`.
+Each item: `{ title, link, publishedAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no `publishedAt`.
+
+`category` is one of `national, politics, international, business, sports, entertainment, tech, education, health,
+lifestyle, crime, opinion, other`. It comes from the article URL's section path (`/details/politics/…`,
+`/category/World/…`) and, failing that, RSS `<category>` / sitemap `news:keywords` (`খেলা`, `বিশ্ব সংবাদ`). Each
+portal names sections differently, so `src/lib/categories.ts` maps their English slugs and Bangla names to the
+main categories; add a synonym there when a section lands in `other`. Sources whose URLs are bare IDs and whose
+feeds have no tags (e.g. Manab Zamin, BSS, Daily Observer) always end up in `other`.
 
 ## How it fits together
 
 ```
 src/lib/sources.ts         source list (edit here to add/fix a portal)
+src/lib/categories.ts      section-name synonyms → main categories
 src/lib/news.ts            fetch orchestration, in-memory cache (10 min, 1 min for failures), concurrency 8
 src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 detection
 src/lib/fetchers/rss.ts    RSS/Atom/RDF parser

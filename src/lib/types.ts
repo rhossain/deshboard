@@ -1,3 +1,5 @@
+import type { Category } from "./categories";
+
 export type Lang = "bn" | "en";
 
 /** How a source is fetched. `unclear` and `unavailable` are kept for reference but not fetched. */
@@ -25,6 +27,7 @@ export interface NewsItem {
   sourceId: string;
   sourceName: string;
   lang: Lang;
+  category: Category;
 }
 
 export interface SourceResult {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CATEGORIES, type Category } from "@/lib/categories";
 import type { Lang, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { fullTime, timeAgo } from "./time";
 
@@ -15,6 +16,8 @@ interface NewsResponse {
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const PER_CARD = 8;
+
+const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 
 const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", html: "HTML" };
 
@@ -32,6 +35,7 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   const [lang, setLang] = useState<LangFilter>("all");
   const [query, setQuery] = useState("");
   const [onlySource, setOnlySource] = useState<string>("");
+  const [category, setCategory] = useState<Category | "">("");
   const [showFailures, setShowFailures] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -73,7 +77,8 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
   const sourceById = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources]);
   const statusById = useMemo(() => new Map((data?.statuses ?? []).map((s) => [s.sourceId, s])), [data]);
 
-  const filtered = useMemo(() => {
+  // Everything except the category filter, so the chips can show counts.
+  const matching = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (data?.items ?? []).filter(
       (it) =>
@@ -83,10 +88,36 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
     );
   }, [data, lang, onlySource, query]);
 
-  const visibleSources = useMemo(
-    () => sources.filter((s) => (lang === "all" || s.lang === lang) && (!onlySource || s.id === onlySource)),
-    [sources, lang, onlySource],
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<Category, number>();
+    for (const it of matching) counts.set(it.category, (counts.get(it.category) ?? 0) + 1);
+    return counts;
+  }, [matching]);
+
+  const filtered = useMemo(
+    () => (category ? matching.filter((it) => it.category === category) : matching),
+    [matching, category],
   );
+
+  // Each source's headlines newest first; undated ones keep their page order at the end.
+  const itemsBySource = useMemo(() => {
+    const map = new Map<string, NewsItem[]>();
+    for (const it of filtered) {
+      const list = map.get(it.sourceId);
+      if (list) list.push(it);
+      else map.set(it.sourceId, [it]);
+    }
+    for (const list of map.values()) list.sort(byNewest);
+    return map;
+  }, [filtered]);
+
+  // Sources with the most recent headline come first; sources without dates go last.
+  const visibleSources = useMemo(() => {
+    const latest = (id: string) => itemsBySource.get(id)?.[0]?.publishedAt ?? "";
+    return sources
+      .filter((s) => (lang === "all" || s.lang === lang) && (!onlySource || s.id === onlySource))
+      .sort((a, b) => latest(b.id).localeCompare(latest(a.id)));
+  }, [sources, lang, onlySource, itemsBySource]);
 
   const statuses = data?.statuses ?? [];
   const okCount = statuses.filter((s) => s.ok).length;
@@ -188,6 +219,21 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
           placeholder="Search headlines… / শিরোনাম খুঁজুন"
           className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent sm:max-w-xs"
         />
+        {data && (
+          <div className="flex w-full flex-wrap gap-1.5" role="group" aria-label="Filter by category">
+            <CategoryChip active={!category} onClick={() => setCategory("")} label="All" count={matching.length} />
+            {CATEGORIES.map((c) => (
+              <CategoryChip
+                key={c.id}
+                active={category === c.id}
+                onClick={() => setCategory(category === c.id ? "" : c.id)}
+                label={c.label}
+                title={c.bn}
+                count={categoryCounts.get(c.id) ?? 0}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -207,8 +253,8 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
               key={s.id}
               source={s}
               status={statusById.get(s.id)}
-              items={filtered.filter((i) => i.sourceId === s.id)}
-              filtering={!!query.trim()}
+              items={itemsBySource.get(s.id) ?? []}
+              filtering={!!query.trim() || !!category}
               now={now}
             />
           ))}
@@ -216,6 +262,11 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
       )}
     </div>
   );
+}
+
+/** ISO dates sort as strings; items without a date go last. */
+function byNewest(a: NewsItem, b: NewsItem): number {
+  return (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
 }
 
 function LatestList({
@@ -229,7 +280,7 @@ function LatestList({
 }) {
   const dated = items
     .filter((i) => i.publishedAt)
-    .sort((a, b) => b.publishedAt!.localeCompare(a.publishedAt!))
+    .sort(byNewest)
     .slice(0, 300);
   const undated = items.length - items.filter((i) => i.publishedAt).length;
 
@@ -260,7 +311,10 @@ function LatestList({
               >
                 {it.title}
               </a>
-              <div className="mt-0.5 text-xs text-muted">{sourceById.get(it.sourceId)?.name ?? it.sourceName}</div>
+              <div className="mt-0.5 text-xs text-muted">
+                {sourceById.get(it.sourceId)?.name ?? it.sourceName}
+                {it.category !== "other" && <> · {CATEGORY_LABEL.get(it.category)}</>}
+              </div>
             </div>
           </li>
         ))}
@@ -379,6 +433,36 @@ function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+function CategoryChip({
+  active,
+  onClick,
+  label,
+  title,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  title?: string;
+  count: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      title={title}
+      disabled={!active && count === 0}
+      className={`rounded-full border px-3 py-1 text-xs transition disabled:opacity-40 ${
+        active
+          ? "border-accent bg-accent text-white dark:text-black"
+          : "border-line bg-surface text-muted hover:border-accent hover:text-foreground"
+      }`}
+    >
+      {label} <span className="tabular-nums opacity-70">{count.toLocaleString()}</span>
+    </button>
   );
 }
 
