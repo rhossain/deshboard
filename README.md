@@ -95,10 +95,10 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 ## Deploy
 
 `.github/workflows/deploy.yml` runs hourly and on every push to the `static-export` branch: it fetches the
-headlines, builds the site and copies `out/` to the web host over SSH with rsync, sending only changed files. The
-host, user and folder are at the top of the workflow; the private key is the `SSH_PRIVATE_KEY` secret, and its
-public half is added in hPanel → Advanced → SSH Access → SSH keys. Scheduled runs start from the copy of the file
-on `main` (GitHub's rule), which builds `static-export` too.
+headlines, builds the site and commits `out/` to the `deploy` branch as `public_html/`. Hostinger's Git deployment
+(hPanel → Advanced → GIT, connected with GitHub: branch `deploy`, root directory `public_html`, auto-deployment on)
+publishes each new commit. Scheduled runs start from the copy of the file on `main` (GitHub's rule), which builds
+`static-export` too.
 
 The workflow does nothing until the `SITE_URL` repository variable is set (GitHub → Settings → Secrets and variables
 → Actions), e.g. `https://example.com`; it is the address used in the share image link.
