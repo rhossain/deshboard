@@ -4,21 +4,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { sourceProblem } from "@/lib/problems";
 import { isFetched } from "@/lib/sources";
+import type { Theme } from "@/lib/theme";
 import type { Lang, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
 import { useCardPrefs, useIsPhone } from "./card-prefs";
 import { byNewest, LatestList } from "./LatestList";
 import { SourceCard } from "./SourceCard";
+import { setTheme, useTheme } from "./theme";
 import { fullTime, timeAgo } from "./time";
 import {
+  AutoThemeIcon,
   ChevronIcon,
   Chip,
   ClockIcon,
   CloseIcon,
   GridIcon,
+  MoonIcon,
   RefreshIcon,
   SearchIcon,
   Segmented,
   SlidersIcon,
+  SunIcon,
 } from "./ui";
 
 type View = "sources" | "latest";
@@ -39,6 +44,12 @@ const LANG_OPTIONS: { value: LangFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "bn", label: "বাংলা" },
   { value: "en", label: "English" },
+];
+
+const THEME_OPTIONS: { value: Theme; label: string }[] = [
+  { value: "system", label: "Auto" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
 ];
 
 const dhakaDate = new Intl.DateTimeFormat("en-GB", {
@@ -273,16 +284,19 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
               BD News Desk
             </h1>
           </div>
-          <button
-            type="button"
-            onClick={() => load(true)}
-            disabled={loading}
-            aria-label={loading ? "Fetching headlines" : "Refresh headlines"}
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3.5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-70 sm:px-5"
-          >
-            <RefreshIcon spinning={loading} className="h-[18px] w-[18px]" />
-            <span className="hidden sm:inline">{loading ? "Fetching…" : "Refresh"}</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <ThemeButton />
+            <button
+              type="button"
+              onClick={() => load(true)}
+              disabled={loading}
+              aria-label={loading ? "Fetching headlines" : "Refresh headlines"}
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3.5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-70 sm:px-5"
+            >
+              <RefreshIcon spinning={loading} className="h-[18px] w-[18px]" />
+              <span className="hidden sm:inline">{loading ? "Fetching…" : "Refresh"}</span>
+            </button>
+          </div>
         </div>
 
         {/* Status */}
@@ -518,6 +532,9 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
               <ChevronIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             </div>
           </Field>
+          <Field label="Appearance">
+            <ThemeSetting />
+          </Field>
         </div>
         <div className="mt-8 flex gap-3">
           <button
@@ -539,6 +556,31 @@ export function NewsBoard({ sources }: { sources: NewsSource[] }) {
       </Sheet>
     </div>
   );
+}
+
+const THEME_ICON: Record<Theme, typeof SunIcon> = { system: AutoThemeIcon, light: SunIcon, dark: MoonIcon };
+const NEXT_THEME: Record<Theme, Theme> = { system: "light", light: "dark", dark: "system" };
+
+/** Cycles Auto → Light → Dark. The icon shows the current setting. */
+function ThemeButton() {
+  const theme = useTheme();
+  const Icon = THEME_ICON[theme];
+  const label = (t: Theme) => THEME_OPTIONS.find((o) => o.value === t)!.label;
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(NEXT_THEME[theme])}
+      aria-label={`Theme: ${label(theme)}. Switch to ${label(NEXT_THEME[theme])}`}
+      title={`Theme: ${label(theme)}`}
+      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-foreground shadow-card transition active:scale-95"
+    >
+      <Icon className="h-[18px] w-[18px]" />
+    </button>
+  );
+}
+
+function ThemeSetting() {
+  return <Segmented label="Theme" value={useTheme()} onChange={setTheme} options={THEME_OPTIONS} full />;
 }
 
 function NavButton({

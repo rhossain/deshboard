@@ -154,3 +154,24 @@ export const AlertIcon = (p: { className?: string }) => (
     <path d="M12 8v4.5M12 16h.01" />
   </Icon>
 );
+
+export const SunIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="3.5" />
+    <path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1.1 1.1M17.3 17.3l1.1 1.1M5.6 18.4l1.1-1.1M17.3 6.7l1.1-1.1" />
+  </Icon>
+);
+
+export const MoonIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <path d="M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10Z" />
+  </Icon>
+);
+
+/** Half-filled circle: "follow the system". */
+export const AutoThemeIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="8" />
+    <path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" />
+  </Icon>
+);

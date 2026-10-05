@@ -17,8 +17,14 @@
   color-scheme: light;
 }
 
+/*
+ * Theme: <html data-theme="light|dark"> is a saved choice (set before paint by THEME_SCRIPT in
+ * src/lib/theme.ts); no attribute means follow the system. The dark values are listed twice, for a
+ * dark system and for an explicit choice; keep the two blocks identical.
+ * Colour only through these tokens: Tailwind's `dark:` variant would ignore the saved choice.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0e0f11;
     --surface: #16181b;
     --surface-2: #1d2024;
@@ -34,6 +40,23 @@
     --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -10px rgb(0 0 0 / 0.5);
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --background: #0e0f11;
+  --surface: #16181b;
+  --surface-2: #1d2024;
+  --foreground: #ebe8e2;
+  --muted: #999da4;
+  --border: #272a2f;
+  --accent: #5ccaa0;
+  --accent-soft: #11291f;
+  --accent-ink: #06140e;
+  --gold: #d4ae62;
+  --danger: #f97066;
+  --danger-soft: #2a1414;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -10px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -77,6 +100,20 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Set for one frame while the theme changes, so colours switch together instead of fading unevenly. */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
+/* A short cross-fade between themes where the browser supports view transitions. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.25s;
 }
 
 @utility no-scrollbar {
