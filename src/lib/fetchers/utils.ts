@@ -61,6 +61,11 @@ export function parseDate(input: unknown): string | undefined {
   return d.toISOString();
 }
 
+/** Reinterpret a time that was Dhaka wall-clock but labelled UTC (some feeds do this): subtract 6 hours. */
+export function shiftDhakaAsUtc(iso: string | undefined): string | undefined {
+  return iso && new Date(new Date(iso).getTime() - 6 * 3600_000).toISOString();
+}
+
 /** Today's date in Asia/Dhaka as YYYY-MM-DD, optionally shifted by `offsetDays`. */
 export function dhakaDate(offsetDays = 0): string {
   const d = new Date(Date.now() + offsetDays * 86_400_000);

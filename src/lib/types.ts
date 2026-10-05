@@ -16,6 +16,8 @@ export interface NewsSource {
   url?: string;
   /** HTML sources only: regex tested against the article URL's pathname. */
   articlePattern?: string;
+  /** The feed writes Dhaka wall-clock time but labels it UTC; its dates are shifted back 6 hours. */
+  dhakaTimeAsUtc?: boolean;
   notes?: string;
 }
 

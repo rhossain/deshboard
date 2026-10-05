@@ -6,7 +6,7 @@ import { categorize } from "../src/lib/categories";
 import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
-import { parseDate } from "../src/lib/fetchers/utils";
+import { parseDate, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
 import { findLogoCandidates } from "../src/lib/logos";
 
 let passed = 0;
@@ -77,6 +77,12 @@ test("Date formats seen on BD feeds", () => {
   assert.equal(parseDate("Sun, 04 Oct 2026 23:43:43 +06"), "2026-10-04T17:43:43.000Z");
   assert.equal(parseDate("2026-10-05T00:11:06+06:00"), "2026-10-04T18:11:06.000Z");
   assert.equal(parseDate("not a date"), undefined);
+});
+
+test("Dhaka time mislabelled as UTC is shifted back 6 hours", () => {
+  assert.equal(shiftDhakaAsUtc(parseDate("Mon, 05 Oct 2026 11:14:00 +0000")), "2026-10-05T05:14:00.000Z");
+  assert.equal(shiftDhakaAsUtc(parseDate("Mon, 05 Oct 2026 10:59:01 UTC")), "2026-10-05T04:59:01.000Z");
+  assert.equal(shiftDhakaAsUtc(undefined), undefined);
 });
 
 test("HTML headline extraction keeps best text and page order", () => {

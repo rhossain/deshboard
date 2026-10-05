@@ -3,7 +3,7 @@ import { extractHeadlines } from "./fetchers/html";
 import { fetchText } from "./fetchers/http";
 import { parseFeed, type RawItem } from "./fetchers/rss";
 import { parseNewsSitemap } from "./fetchers/sitemap";
-import { dedupeByLink, dhakaDate } from "./fetchers/utils";
+import { dedupeByLink, dhakaDate, shiftDhakaAsUtc } from "./fetchers/utils";
 import { ACTIVE_SOURCES, getSource } from "./sources";
 import type { NewsItem, NewsSource, SourceResult } from "./types";
 
@@ -71,6 +71,7 @@ async function load(source: NewsSource): Promise<SourceResult> {
     const { items, url } = await fetchRaw(source);
     const news: NewsItem[] = dedupeByLink(items).map(({ tags, ...it }) => ({
       ...it,
+      publishedAt: source.dhakaTimeAsUtc ? shiftDhakaAsUtc(it.publishedAt) : it.publishedAt,
       sourceId: source.id,
       sourceName: source.name,
       lang: source.lang,
