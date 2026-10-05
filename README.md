@@ -94,11 +94,12 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 
 ## Deploy
 
-`.github/workflows/deploy.yml` runs every 30 minutes and on every push to the `static-export` branch: it fetches the
-headlines, builds the site and commits `out/` to the top of the `deploy` branch. Hostinger's Git deployment (hPanel
-→ Advanced → GIT, connected with GitHub: branch `deploy`, auto-deployment on) copies each new commit into the
-site's web folder. Scheduled runs start from the copy of the file on `main` (GitHub's rule), which builds
-`static-export` too.
+`.github/workflows/deploy.yml` fetches the headlines, builds the site and commits `out/` to the top of the `deploy`
+branch; Hostinger's Git deployment (hPanel → Advanced → GIT, connected with GitHub: branch `deploy`, auto-deployment
+on) copies each new commit into the site's web folder. It runs on every push to `static-export` and every 15 minutes,
+started by a cron-job.org job that calls GitHub's API (`POST
+/repos/rhossain/deshboard/actions/workflows/deploy.yml/dispatches` with `{"ref":"main"}` and a fine-grained token
+allowed only this repo's Actions). The copy of the file on `main` builds `static-export` too.
 
 The workflow does nothing until the `SITE_URL` repository variable is set (GitHub → Settings → Secrets and variables
 → Actions), e.g. `https://example.com`; it is the address used in the share image link.

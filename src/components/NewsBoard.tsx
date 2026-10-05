@@ -47,8 +47,8 @@ import {
 } from "./ui";
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
-/** How often new headlines are published (the schedule in .github/workflows/deploy.yml). */
-const UPDATE_EVERY_MS = 30 * 60 * 1000;
+/** How often new headlines are published (the timer that starts .github/workflows/deploy.yml). */
+const UPDATE_EVERY_MS = 15 * 60 * 1000;
 /** How long a Refresh result stays in the status line. */
 const NOTICE_MS = 6000;
 /** Top stories need this many outlets, unless no story has that many. */
@@ -556,7 +556,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
                 onClick={() => load()}
                 disabled={loading}
                 aria-label={loading ? "Loading headlines" : "Check for new headlines"}
-                title="Headlines are collected about every 30 minutes"
+                title="Headlines are collected about every 15 minutes"
                 className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3.5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-70 sm:px-5"
               >
                 <RefreshIcon spinning={loading} className="h-[18px] w-[18px]" />
