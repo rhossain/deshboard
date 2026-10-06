@@ -224,6 +224,7 @@ function Headline({
     <div className="flex">
       <a
         data-headline
+        lang={item.lang}
         href={item.link}
         target="_blank"
         rel="noopener noreferrer"

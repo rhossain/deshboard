@@ -86,8 +86,8 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 
 ## Config
 
-- `SITE_URL` (default `http://localhost:3000`) — the public address, read at build time for the absolute link to the
-  share image.
+- `SITE_URL` (default `http://localhost:3000`) — the public address, read at build time for canonical links,
+  `sitemap.xml`, `robots.txt`, structured data and the share image.
 - `NEWS_DATA_DIR` (default `.data/`) — where first-seen times and source health are saved; `NEWS_PERSIST=0` keeps
   them in memory only.
 - `NEWS_CACHE_SECONDS` (default `600`) — how long `npm run check` and the fetch code reuse a source's result.

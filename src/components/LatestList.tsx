@@ -186,6 +186,7 @@ function Headline({
     <div className={`flex overflow-hidden border-x border-b border-line bg-surface ${edge}`}>
       <a
         data-headline
+        lang={it.lang}
         href={it.link}
         target="_blank"
         rel="noopener noreferrer"

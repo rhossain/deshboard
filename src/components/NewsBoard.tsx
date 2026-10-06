@@ -14,6 +14,7 @@ import { CATEGORIES, type Category } from "@/lib/categories";
 import { type Filters, filtersToSearch, type LangFilter, type Order, parseFilters, type View } from "@/lib/filters";
 import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
+import { categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
@@ -148,28 +149,39 @@ const noSubscribe = () => () => {};
 
 /**
  * The board with the view and filters from the URL (shared links). The static page is prerendered
- * with the defaults; when the URL asks for something else, the board starts over with it right
- * after hydration, before any headlines are shown.
+ * with the defaults (and a section page's `category`); when the URL asks for something else, the
+ * board starts over with it right after hydration.
  */
-export function NewsBoardFromUrl({ sources }: { sources: NewsSource[] }) {
+export function NewsBoardFromUrl({
+  sources,
+  seed,
+  category,
+}: {
+  sources: NewsSource[];
+  seed?: NewsFeed;
+  category?: Category;
+}) {
   const search = useSyncExternalStore(noSubscribe, () => openedWith, () => "");
-  const initial = useMemo(
-    () => parseFilters(Object.fromEntries(new URLSearchParams(search)), new Set(sources.map((s) => s.id))),
-    [search, sources],
-  );
-  return <NewsBoard key={search} sources={sources} initial={initial} />;
+  const initial = useMemo(() => {
+    const filters = parseFilters(Object.fromEntries(new URLSearchParams(search)), new Set(sources.map((s) => s.id)));
+    return category ? { ...filters, category } : filters;
+  }, [search, sources, category]);
+  return <NewsBoard key={search} sources={sources} initial={initial} seed={seed} />;
 }
 
 /**
  * `sources` is every listed portal in display order.
  * `initial` is the view and filters from the URL.
+ * `seed` is a few headlines per source baked into the page (see seedResults), shown until the feed loads.
  */
-export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial: Filters }) {
+export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; initial: Filters; seed?: NewsFeed }) {
   // Latest result per source; on refresh each one is replaced as its new result arrives.
-  const [results, setResults] = useState<Map<string, SourceResult>>(() => new Map());
-  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [logos, setLogos] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<Map<string, SourceResult>>(() => (seed ? byId(seed) : new Map()));
+  const [generatedAt, setGeneratedAt] = useState<string | null>(seed?.generatedAt ?? null);
+  const [logos, setLogos] = useState<Record<string, string>>(seed?.logos ?? {});
+  const [loading, setLoading] = useState(!seed);
+  // The seed is only part of its build's feed, so the first load replaces it even from the same build.
+  const partialRef = useRef(!!seed);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>(initial.view);
   const [order, setOrder] = useState<Order>(initial.order);
@@ -191,7 +203,8 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [now, setNow] = useState(() => Date.now());
+  // With a seed, the clock starts at its build time so the prerendered page and hydration agree.
+  const [now, setNow] = useState(() => (seed ? Date.parse(seed.generatedAt) : Date.now()));
   const controllerRef = useRef<AbortController | null>(null);
   const isPhone = useIsPhone();
   const [cardPrefs, updateCardPrefs] = useCardPrefs();
@@ -216,7 +229,8 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
       loadFeed(controller.signal).then(
         (feed) => {
           const newer = feed.generatedAt !== generatedAtRef.current;
-          if (newer) show(feed);
+          if (newer || partialRef.current) show(feed);
+          partialRef.current = false;
           if (manual) {
             clearTimeout(noticeTimer.current);
             setNotice(
@@ -317,10 +331,14 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
     };
   }, [newest, refreshQuietly]);
 
-  // Mirror the view and filters in the URL, so the page can be bookmarked or shared as it is.
+  // Mirror the view and filters in the URL, so the page can be bookmarked or shared as it is. A
+  // section with a page of its own (/news/sports/) uses that address and title.
   useEffect(() => {
-    const search = filtersToSearch({ view, lang, source: onlySource, category, query, order });
-    if (search !== window.location.search) window.history.replaceState(null, "", window.location.pathname + search);
+    const path = categoryPath(category);
+    const search = filtersToSearch({ view, lang, source: onlySource, category: path ? "" : category, query, order });
+    const url = (path ?? "/") + search;
+    if (url !== window.location.pathname + window.location.search) window.history.replaceState(null, "", url);
+    document.title = path && category ? categoryTitle(category) : SITE_TITLE;
   }, [view, lang, onlySource, category, query, order]);
 
   // Two outlets can list the same article (e.g. a homepage linking a sister site), so keep the first.
@@ -461,11 +479,12 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
   // Labels follow the language filter: Bangla names when only Bangla sources are shown.
   const bn = lang === "bn";
   const categoryTabs = [
-    { id: "", label: bn ? "সব" : "All", count: matching.length },
+    { id: "", label: bn ? "সব" : "All", href: "/", count: matching.length },
     ...CATEGORIES.map((c) => ({
       id: c.id,
       label: bn ? c.bn : c.label,
       title: bn ? c.label : c.bn,
+      href: categoryPath(c.id) ?? `/?cat=${c.id}`,
       count: categoryCounts.get(c.id) ?? 0,
     })),
   ];
@@ -575,6 +594,10 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
               </p>
               <h1 className="mt-1.5 text-[32px] sm:text-5xl">
                 <Logo />
+                <span className="sr-only">
+                  : {(categoryPath(category) && CATEGORIES.find((c) => c.id === category)?.label) || "Latest"} news
+                  from Bangladesh
+                </span>
               </h1>
             </div>
             <div className="flex shrink-0 items-center gap-2">

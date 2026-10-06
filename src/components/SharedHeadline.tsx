@@ -112,7 +112,7 @@ function Headline({ shared: { item, source, related, now } }: { shared: Shared }
             {item.category !== "other" && (item.publishedAt || item.seenAt) && <span>·</span>}
             <ItemTime item={item} now={now} />
           </p>
-          <h1 className="mt-3 text-[24px] font-semibold leading-[1.45] tracking-tight sm:text-[28px]">{item.title}</h1>
+          <h1 lang={item.lang} className="mt-3 text-[24px] font-semibold leading-[1.45] tracking-tight sm:text-[28px]">{item.title}</h1>
           <a
             href={item.link}
             rel="noopener"
@@ -142,7 +142,7 @@ function Headline({ shared: { item, source, related, now } }: { shared: Shared }
                   <span className="w-28 shrink-0 truncate pt-px text-xs font-semibold text-accent">
                     {it.sourceName}
                   </span>
-                  <span className="min-w-0 group-hover:text-accent">{it.title}</span>
+                  <span lang={it.lang} className="min-w-0 group-hover:text-accent">{it.title}</span>
                 </a>
               </li>
             ))}

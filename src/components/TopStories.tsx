@@ -106,6 +106,7 @@ function StoryCard({
       <div className="flex">
         <a
           data-headline
+          lang={lead.lang}
           href={lead.link}
           target="_blank"
           rel="noopener noreferrer"
@@ -139,6 +140,7 @@ function StoryCard({
           <li key={it.link} className="flex border-b border-line last:border-b-0">
             <a
               data-headline
+              lang={it.lang}
               href={it.link}
               target="_blank"
               rel="noopener noreferrer"
