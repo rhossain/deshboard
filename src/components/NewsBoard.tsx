@@ -46,9 +46,14 @@ import {
   SunIcon,
 } from "./ui";
 
-const AUTO_REFRESH_MS = 10 * 60 * 1000;
 /** How often new headlines are published (the timer that starts .github/workflows/deploy.yml). */
 const UPDATE_EVERY_MS = 15 * 60 * 1000;
+/** The build takes about a minute and Hostinger then copies it, so look for it this long after it's due. */
+const PUBLISH_LAG_MS = 2 * 60 * 1000;
+/** While an update is overdue, look again this often. */
+const RETRY_MS = 60 * 1000;
+/** Scrolled less than this, new headlines replace the board at once: nothing the reader is on moves. */
+const AT_TOP_PX = 200;
 /** How long a Refresh result stays in the status line. */
 const NOTICE_MS = 6000;
 /** Top stories need this many outlets, unless no story has that many. */
@@ -247,7 +252,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
 
   /**
    * The automatic refresh fetches in the background. Headlines don't move under the reader: if any
-   * are new, a button offers them; with nothing new, or while the page is hidden, they apply at once.
+   * are new while they're scrolled down the page, a button offers them; otherwise they apply at once.
    */
   const refreshQuietly = useCallback(() => {
     quietRef.current?.abort();
@@ -258,7 +263,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
         if (feed.generatedAt === generatedAtRef.current) return; // No new build since the last look.
         const known = new Set([...resultsRef.current.values()].flatMap((r) => r.items.map((it) => it.link)));
         const fresh = feed.results.reduce((n, r) => n + r.items.filter((it) => !known.has(it.link)).length, 0);
-        if (fresh && !document.hidden) {
+        if (fresh && !document.hidden && window.scrollY > AT_TOP_PX) {
           setPending({ feed, fresh });
         } else {
           show(feed);
@@ -278,16 +283,39 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
 
   useEffect(() => {
     start();
-    const refresh = setInterval(refreshQuietly, AUTO_REFRESH_MS);
     const tick = setInterval(() => setNow(Date.now()), 60_000);
     return () => {
       controllerRef.current?.abort();
       quietRef.current?.abort();
-      clearInterval(refresh);
       clearInterval(tick);
       clearTimeout(noticeTimer.current);
     };
-  }, [start, refreshQuietly]);
+  }, [start]);
+
+  // Look for the next build when it should have landed, then every minute until it has. Browsers
+  // pause timers in background tabs, so also look when the page comes back into view or online.
+  const newest = pending?.feed.generatedAt ?? generatedAt;
+  useEffect(() => {
+    if (!newest) return;
+    const due = Date.parse(newest) + UPDATE_EVERY_MS + PUBLISH_LAG_MS;
+    let timer: ReturnType<typeof setTimeout>;
+    const check = () => {
+      clearTimeout(timer);
+      refreshQuietly();
+      timer = setTimeout(check, RETRY_MS);
+    };
+    const checkIfDue = () => {
+      if (!document.hidden && Date.now() >= due) check();
+    };
+    timer = setTimeout(check, Math.max(due - Date.now(), 0));
+    document.addEventListener("visibilitychange", checkIfDue);
+    window.addEventListener("online", checkIfDue);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", checkIfDue);
+      window.removeEventListener("online", checkIfDue);
+    };
+  }, [newest, refreshQuietly]);
 
   // Mirror the view and filters in the URL, so the page can be bookmarked or shared as it is.
   useEffect(() => {
