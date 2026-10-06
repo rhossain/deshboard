@@ -33,11 +33,16 @@ type Row =
 
 /** Rows are measured once rendered; these only place the ones not yet seen. */
 const ESTIMATE = { heading: 56, item: 96 };
+/** Headlines shown at first, and added each time the reader nears the end. */
+const PAGE = 50;
+/** Add the next page once the last row on screen is this close to the end. */
+const LOAD_AHEAD = 10;
 
 /**
- * Thousands of headlines, so only the rows near the screen are in the page. The list scrolls with
- * the window: `scrollMargin` is where it starts in the page, kept current as the header above it
- * changes height.
+ * Thousands of headlines, so the list grows a page at a time as the reader nears its end, and only
+ * the rows near the screen are in the page. The list scrolls with the window: `scrollMargin` is
+ * where it starts in the page, kept current as the header above it changes height. Give it a `key`
+ * that changes with the filters, so a new search starts again from the first page.
  */
 export function LatestList({
   items,
@@ -56,22 +61,27 @@ export function LatestList({
   onToggleSave: (item: NewsItem) => void;
   onShare: (item: NewsItem) => void;
 }) {
-  const { rows, dated, undated } = useMemo(() => {
-    const dated = items.filter(itemTime).sort(byNewest);
+  const [shown, setShown] = useState(PAGE);
+  const dated = useMemo(() => items.filter(itemTime).sort(byNewest), [items]);
+  const undated = items.length - dated.length;
+  const more = shown < dated.length;
+
+  const rows = useMemo(() => {
+    const page = dated.slice(0, shown);
     const rows: Row[] = [];
     let label: string | undefined;
-    dated.forEach((item, i) => {
+    page.forEach((item, i) => {
       const next = groupLabel(itemTime(item)!, now);
       if (next !== label) {
         rows.push({ kind: "heading", label: next, first: label === undefined });
         label = next;
       }
-      const after = dated[i + 1];
+      const after = page[i + 1];
       const last = !after || groupLabel(itemTime(after)!, now) !== next;
       rows.push({ kind: "item", item, first: rows.at(-1)!.kind === "heading", last });
     });
-    return { rows, dated: dated.length, undated: items.length - dated.length };
-  }, [items, now]);
+    return rows;
+  }, [dated, shown, now]);
 
   const listRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
@@ -95,6 +105,11 @@ export function LatestList({
     },
     overscan: 8,
     scrollMargin,
+    onChange: (instance) => {
+      const last = instance.getVirtualItems().at(-1)?.index ?? 0;
+      // Scrolling fires this many times before the next page renders; add that page only once.
+      if (more && last >= rows.length - LOAD_AHEAD) setShown((n) => (n === shown ? n + PAGE : n));
+    },
   });
   const visible = virtualizer.getVirtualItems();
 
@@ -132,12 +147,12 @@ export function LatestList({
           })}
         </div>
       </div>
-      {dated === 0 && (
+      {dated.length === 0 && (
         <p className="rounded-2xl border border-dashed border-line px-4 py-12 text-center text-sm text-muted">
           No headlines match.
         </p>
       )}
-      {undated > 0 && (
+      {!more && undated > 0 && (
         <p className="px-1 pt-6 text-center text-xs leading-relaxed text-muted">
           {undated.toLocaleString()} headlines from homepage-scraped sources have no time yet — find them in “By
           source”. New ones are timed from when they first appear on the homepage.
