@@ -9,7 +9,7 @@ import { categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
-import type { NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
+import type { LogoShape, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
 import { useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLastVisit } from "./last-visit";
@@ -18,7 +18,7 @@ import { Logo } from "./Logo";
 import { useSaved } from "./saved";
 import { SavedList } from "./SavedList";
 import { ShareOptions, shareUrl } from "./ShareOptions";
-import { SourceCard } from "./SourceCard";
+import { LogoShapes, SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
 import { fullTime, timeAgo } from "./time";
@@ -89,13 +89,17 @@ const dhakaDate = new Intl.DateTimeFormat("en-GB", {
   month: "long",
 });
 
-/** Read /api/news/stream, calling `onSource` for each source as it arrives. Resolves with `generatedAt`. */
+/**
+ * Read /api/news/stream, calling `onSource` for each source as it arrives. Resolves with `generatedAt`.
+ * `priority: "low"` when the page already shows headlines, so it doesn't hold up the logos and fonts.
+ */
 async function streamNews(
   force: boolean,
   signal: AbortSignal,
   onSource: (result: SourceResult) => void,
+  priority: RequestPriority = "auto",
 ): Promise<string> {
-  const res = await fetch(`/api/news/stream${force ? "?refresh=1" : ""}`, { cache: "no-store", signal });
+  const res = await fetch(`/api/news/stream${force ? "?refresh=1" : ""}`, { cache: "no-store", signal, priority });
   if (!res.ok || !res.body) throw new Error(`Server returned ${res.status}`);
 
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -138,11 +142,16 @@ function focusHeadline(step: 1 | -1) {
   next?.scrollIntoView({ block: "center" });
 }
 
-/** A few cached headlines per source, rendered with the page (see seedResults) until the stream replaces them. */
+/** A few cached headlines per source, rendered with the page (see cachedSeed) until the stream replaces them. */
 export interface NewsSeed {
   generatedAt: string;
   results: SourceResult[];
+  /** Headlines per section in the whole cache, so the section tabs start out with their final counts. */
+  counts: Partial<Record<Category, number>>;
+  logoShapes: Record<string, LogoShape | null>;
 }
+
+const NO_SHAPES: Record<string, LogoShape | null> = {};
 
 /**
  * `sources` is every listed portal in display order; only the fetchable ones are requested.
@@ -157,6 +166,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [received, setReceived] = useState(0);
+  // The whole cache's section counts, from the seed, until the stream has delivered every source.
+  const [seedCounts, setSeedCounts] = useState(seed?.counts);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>(initial.view);
   const [order, setOrder] = useState<Order>(initial.order);
@@ -181,16 +192,22 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const [cardPrefs, updateCardPrefs] = useCardPrefs();
 
   /** Start streaming. State is only set from callbacks, so this is safe to call from an effect. */
-  const start = useCallback((force: boolean) => {
+  const start = useCallback((force: boolean, priority?: RequestPriority) => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
 
-    streamNews(force, controller.signal, (result) => {
-      setResults((prev) => new Map(prev).set(result.sourceId, result));
-      setReceived((n) => n + 1);
-    }).then(
+    streamNews(
+      force,
+      controller.signal,
+      (result) => {
+        setResults((prev) => new Map(prev).set(result.sourceId, result));
+        setReceived((n) => n + 1);
+      },
+      priority,
+    ).then(
       (at) => {
+        setSeedCounts(undefined);
         setGeneratedAt(at);
         setError(null);
         setNow(Date.now());
@@ -228,7 +245,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     const controller = new AbortController();
     quietRef.current = controller;
     const next = new Map<string, SourceResult>();
-    streamNews(false, controller.signal, (result) => next.set(result.sourceId, result)).then(
+    streamNews(false, controller.signal, (result) => next.set(result.sourceId, result), "low").then(
       (at) => {
         const known = new Set([...resultsRef.current.values()].flatMap((r) => r.items.map((it) => it.link)));
         const fresh = [...next.values()].reduce((n, r) => n + r.items.filter((it) => !known.has(it.link)).length, 0);
@@ -254,8 +271,10 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     window.scrollTo({ top: 0 });
   };
 
+  // Behind the seed's headlines, the first stream isn't what the reader is waiting on.
+  const seeded = !!seed;
   useEffect(() => {
-    start(false);
+    start(false, seeded ? "low" : "auto");
     const refresh = setInterval(refreshQuietly, AUTO_REFRESH_MS);
     const tick = setInterval(() => setNow(Date.now()), 60_000);
     return () => {
@@ -264,7 +283,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
       clearInterval(refresh);
       clearInterval(tick);
     };
-  }, [start, refreshQuietly]);
+  }, [start, refreshQuietly, seeded]);
 
   // Mirror the view and filters in the URL, so the page can be bookmarked or shared as it is. A
   // section with a page of its own (/news/sports) uses that address and title.
@@ -289,9 +308,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const isNew = useCallback((it: NewsItem) => !!lastVisit && (itemTime(it) ?? "") > lastVisit, [lastVisit]);
   const newCount = useMemo(() => allItems.filter(isNew).length, [allItems, isNew]);
 
+  // The search filters behind the typing: the box keeps up while the results catch up.
+  const searchQuery = useDeferredValue(query);
+
   // Everything except the category filter, so the chips can show counts.
   const matching = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     return allItems.filter(
       (it) =>
         (lang === "all" || it.lang === lang) &&
@@ -299,13 +321,18 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         (!onlyNew || isNew(it)) &&
         (!q || it.title.toLowerCase().includes(q)),
     );
-  }, [allItems, lang, onlySource, onlyNew, isNew, query]);
+  }, [allItems, lang, onlySource, onlyNew, isNew, searchQuery]);
 
+  // Until the stream has delivered every source, the unfiltered counts come with the seed, so the
+  // tabs don't widen as sources arrive.
+  const unfiltered = !onlyNew && lang === "all" && !onlySource && !searchQuery.trim();
   const categoryCounts = useMemo(() => {
+    if (seedCounts && unfiltered) return new Map(Object.entries(seedCounts) as [Category, number][]);
     const counts = new Map<Category, number>();
     for (const it of matching) counts.set(it.category, (counts.get(it.category) ?? 0) + 1);
     return counts;
-  }, [matching]);
+  }, [matching, seedCounts, unfiltered]);
+  const matchingCount = useMemo(() => [...categoryCounts.values()].reduce((a, b) => a + b, 0), [categoryCounts]);
 
   const filtered = useMemo(
     () => (category ? matching.filter((it) => it.category === category) : matching),
@@ -350,7 +377,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     [view, storyItems, lang, now],
   );
   const stories = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     const matches = allStories.filter((st) =>
       st.items.some(
         (it) =>
@@ -362,12 +389,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     );
     const big = matches.filter((st) => st.outlets >= TOP_MIN_OUTLETS);
     return big.length ? big : matches;
-  }, [allStories, query, onlySource, category, onlyNew, isNew]);
+  }, [allStories, searchQuery, onlySource, category, onlyNew, isNew]);
 
   // Saved headlines go through the same filters, except "new".
   const { saved, savedLinks, toggleSaved } = useSaved();
   const savedMatching = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     return saved.filter(
       ({ item: it }) =>
         (lang === "all" || it.lang === lang) &&
@@ -375,11 +402,11 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         (!category || it.category === category) &&
         (!q || it.title.toLowerCase().includes(q)),
     );
-  }, [saved, lang, onlySource, category, query]);
+  }, [saved, lang, onlySource, category, searchQuery]);
 
   const okCount = statuses.filter((s) => s.ok).length;
   const failures = statuses.filter((s) => !s.ok);
-  const filtering = !!query.trim() || !!category || onlyNew;
+  const filtering = !!searchQuery.trim() || !!category || onlyNew;
 
   // Filters that live in the sheet on phones; shown as removable pills so they are never hidden state.
   const activeFilters = [
@@ -402,19 +429,23 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   };
 
   /** Saves a card's open/closed state, and its lead headline so later ones can be marked new. */
-  const setCollapsed = (ids: string[], collapsed: boolean) =>
-    updateCardPrefs((p) => {
-      for (const id of ids) {
-        p.collapsed[id] = collapsed;
-        const lead = itemsBySource.get(id)?.[0]?.link;
-        if (lead) p.seen[id] = lead;
-      }
-    });
+  const setCollapsed = useCallback(
+    (ids: string[], collapsed: boolean) =>
+      updateCardPrefs((p) => {
+        for (const id of ids) {
+          p.collapsed[id] = collapsed;
+          const lead = itemsBySource.get(id)?.[0]?.link;
+          if (lead) p.seen[id] = lead;
+        }
+      }),
+    [updateCardPrefs, itemsBySource],
+  );
+  const toggleCard = useCallback((id: string, collapsed: boolean) => setCollapsed([id], collapsed), [setCollapsed]);
 
   // Labels follow the language filter: Bangla names when only Bangla sources are shown.
   const bn = lang === "bn";
   const categoryTabs = [
-    { id: "", label: bn ? "সব" : "All", href: "/", count: matching.length },
+    { id: "", label: bn ? "সব" : "All", href: "/", count: matchingCount },
     ...CATEGORIES.map((c) => ({
       id: c.id,
       label: bn ? c.bn : c.label,
@@ -510,446 +541,448 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   );
 
   return (
-    <div className="min-h-dvh pb-28 md:pb-16">
-      {/* Fetch progress */}
-      <div className="fixed inset-x-0 top-0 z-40 h-0.5" aria-hidden>
-        <div
-          className={`h-full bg-accent transition-all duration-500 ${loading ? "opacity-100" : "opacity-0"}`}
-          style={{ width: `${loading ? Math.max(4, (received / fetchedCount) * 100) : 100}%` }}
-        />
-      </div>
-
-      {/* Masthead */}
-      <header className="mx-auto max-w-7xl px-4 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-10">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold" suppressHydrationWarning>
-              {dhakaDate.format(now)}
-            </p>
-            <h1 className="mt-1.5 text-[32px] sm:text-5xl">
-              <Logo />
-              <span className="sr-only">
-                : {(categoryPath(category) && CATEGORIES.find((c) => c.id === category)?.label) || "Latest"} news from
-                Bangladesh
-              </span>
-            </h1>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <ThemeButton />
-            <button
-              type="button"
-              onClick={() => load(true)}
-              disabled={loading}
-              aria-label={loading ? "Fetching headlines" : "Refresh headlines"}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3.5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-70 sm:px-5"
-            >
-              <RefreshIcon spinning={loading} className="h-[18px] w-[18px]" />
-              <span className="hidden sm:inline">{loading ? "Fetching…" : "Refresh"}</span>
-            </button>
-          </div>
+    <LogoShapes value={seed?.logoShapes ?? NO_SHAPES}>
+      <div className="min-h-dvh pb-28 md:pb-16">
+        {/* Fetch progress */}
+        <div className="fixed inset-x-0 top-0 z-40 h-0.5" aria-hidden>
+          <div
+            className={`h-full bg-accent transition-all duration-500 ${loading ? "opacity-100" : "opacity-0"}`}
+            style={{ width: `${loading ? Math.max(4, (received / fetchedCount) * 100) : 100}%` }}
+          />
         </div>
 
-        {/* Status */}
-        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
-              <span className="relative h-2 w-2 rounded-full bg-accent" />
+        {/* Masthead */}
+        <header className="mx-auto max-w-7xl px-4 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-10">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold" suppressHydrationWarning>
+                {dhakaDate.format(now)}
+              </p>
+              <h1 className="mt-1.5 text-[32px] sm:text-5xl">
+                <Logo />
+                <span className="sr-only">
+                  : {(categoryPath(category) && CATEGORIES.find((c) => c.id === category)?.label) || "Latest"} news from
+                  Bangladesh
+                </span>
+              </h1>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <ThemeButton />
+              <button
+                type="button"
+                onClick={() => load(true)}
+                disabled={loading}
+                aria-label={loading ? "Fetching headlines" : "Refresh headlines"}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3.5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-70 sm:px-5"
+              >
+                <RefreshIcon spinning={loading} className="h-[18px] w-[18px]" />
+                <span className="hidden sm:inline">{loading ? "Fetching…" : "Refresh"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
+                <span className="relative h-2 w-2 rounded-full bg-accent" />
+              </span>
+              {loading ? (
+                <span className="tabular-nums">
+                  Fetching {received} of {fetchedCount} sources
+                </span>
+              ) : generatedAt ? (
+                <span title={fullTime(generatedAt)}>Updated {timeAgo(generatedAt, now)}</span>
+              ) : (
+                <span>Live</span>
+              )}
             </span>
-            {loading ? (
-              <span className="tabular-nums">
-                Fetching {received} of {fetchedCount} sources
-              </span>
-            ) : generatedAt ? (
-              <span title={fullTime(generatedAt)}>Updated {timeAgo(generatedAt, now)}</span>
-            ) : (
-              <span>Live</span>
+            {hasData && (
+              <>
+                <span className="whitespace-nowrap">
+                  <b className="font-semibold tabular-nums text-foreground">
+                    {okCount}/{fetchedCount}
+                  </b>{" "}
+                  sources
+                </span>
+                {newCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setOnlyNew((v) => !v)}
+                    aria-pressed={onlyNew}
+                    title="Headlines since your last visit. Click to show only these."
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${
+                      onlyNew ? "bg-gold text-background" : "bg-gold/15 text-gold"
+                    }`}
+                  >
+                    {!onlyNew && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />}
+                    {newCount.toLocaleString()} new
+                    {onlyNew && <CloseIcon className="h-3 w-3" />}
+                  </button>
+                )}
+                {failures.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFailures((v) => !v)}
+                    aria-expanded={showFailures}
+                    className="inline-flex items-center gap-0.5 rounded-full bg-danger-soft px-2.5 py-0.5 text-xs font-semibold text-danger"
+                  >
+                    {failures.length} failed
+                    <ChevronIcon className={`h-3.5 w-3.5 transition ${showFailures ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </>
             )}
-          </span>
-          {hasData && (
-            <>
-              <span className="whitespace-nowrap">
-                <b className="font-semibold tabular-nums text-foreground">
-                  {okCount}/{fetchedCount}
-                </b>{" "}
-                sources
-              </span>
-              {newCount > 0 && (
+          </div>
+
+          {showFailures && failures.length > 0 && (
+            <ul className="mt-3 grid gap-2 rounded-2xl border border-line bg-surface p-4 text-xs shadow-card sm:grid-cols-2">
+              {failures.map((f) => {
+                const source = sourceById.get(f.sourceId);
+                const problem = source && sourceProblem(source, f);
+                return (
+                  <li key={f.sourceId} className="leading-relaxed">
+                    <span className="font-semibold">{f.sourceName}</span>
+                    <span className="text-muted" title={f.error}>
+                      {" "}
+                      — {problem?.message ?? f.error}
+                    </span>
+                  </li>
+                );
+              })}
+              <li className="sm:col-span-2">
+                <a href="/health" className="font-semibold text-accent hover:underline">
+                  Source health: every source&rsquo;s status and history →
+                </a>
+              </li>
+            </ul>
+          )}
+        </header>
+
+        {/* Toolbar */}
+        <div
+          data-toolbar
+          className="sticky top-0 z-30 mt-5 border-b sm:mt-7 border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150"
+        >
+          <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 pt-3 sm:px-6 md:h-16 md:pt-0">
+            {/* Views and filters live in the bottom bar and filter sheet on phones. */}
+            <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label="View">
+              {VIEW_OPTIONS.map((o) => {
+                const Icon = VIEW_ICON[o.value];
+                const active = view === o.value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => changeView(o.value)}
+                    aria-current={active ? "page" : undefined}
+                    className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition active:scale-[0.97] ${
+                      active ? "bg-foreground text-background" : "text-muted hover:bg-surface-2 hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="hidden h-4 w-4 lg:block" />
+                    {o.label}
+                    {o.value === "saved" && saved.length > 0 && (
+                      <span className={`text-xs tabular-nums ${active ? "opacity-60" : "text-muted/80"}`}>
+                        {saved.length}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <label className="relative min-w-0 flex-1 md:ml-auto md:max-w-xs">
+              <span className="sr-only">Search headlines</span>
+              <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
+              <input
+                ref={searchRef}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Escape") return;
+                  setQuery("");
+                  e.currentTarget.blur();
+                }}
+                placeholder="Search headlines / শিরোনাম খুঁজুন"
+                enterKeyHint="search"
+                className="peer h-11 w-full rounded-full border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
+              />
+              {query ? (
                 <button
                   type="button"
-                  onClick={() => setOnlyNew((v) => !v)}
-                  aria-pressed={onlyNew}
-                  title="Headlines since your last visit. Click to show only these."
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${
-                    onlyNew ? "bg-gold text-background" : "bg-gold/15 text-gold"
-                  }`}
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                  className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:text-foreground"
                 >
-                  {!onlyNew && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />}
-                  {newCount.toLocaleString()} new
-                  {onlyNew && <CloseIcon className="h-3 w-3" />}
+                  <CloseIcon className="h-4 w-4" />
                 </button>
-              )}
-              {failures.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowFailures((v) => !v)}
-                  aria-expanded={showFailures}
-                  className="inline-flex items-center gap-0.5 rounded-full bg-danger-soft px-2.5 py-0.5 text-xs font-semibold text-danger"
+              ) : (
+                <kbd
+                  className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-line px-1.5 font-sans text-[11px] font-semibold text-muted peer-focus:opacity-0 md:block"
+                  aria-hidden
                 >
-                  {failures.length} failed
-                  <ChevronIcon className={`h-3.5 w-3.5 transition ${showFailures ? "rotate-180" : ""}`} />
-                </button>
+                  /
+                </kbd>
               )}
-            </>
+            </label>
+
+            <FilterPopover count={activeFilters.length}>
+              {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
+              <Field label="Language">{languageControl}</Field>
+              <Field label="Source">{sourceControl}</Field>
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={activeFilters.length === 0}
+                className="h-10 w-full rounded-xl border border-line text-sm font-semibold transition hover:bg-surface-2 disabled:opacity-40"
+              >
+                Reset filters
+              </button>
+            </FilterPopover>
+          </div>
+
+          {hasData ? (
+            <div className="relative mx-auto -mb-px max-w-7xl md:-mt-1">
+              <CategoryTabs tabs={categoryTabs} value={category} onChange={(id) => pickCategory(id as Category | "")} />
+            </div>
+          ) : (
+            <div className="h-3" />
           )}
         </div>
 
-        {showFailures && failures.length > 0 && (
-          <ul className="mt-3 grid gap-2 rounded-2xl border border-line bg-surface p-4 text-xs shadow-card sm:grid-cols-2">
-            {failures.map((f) => {
-              const source = sourceById.get(f.sourceId);
-              const problem = source && sourceProblem(source, f);
-              return (
-                <li key={f.sourceId} className="leading-relaxed">
-                  <span className="font-semibold">{f.sourceName}</span>
-                  <span className="text-muted" title={f.error}>
-                    {" "}
-                    — {problem?.message ?? f.error}
-                  </span>
-                </li>
-              );
-            })}
-            <li className="sm:col-span-2">
-              <a href="/health" className="font-semibold text-accent hover:underline">
-                Source health: every source&rsquo;s status and history →
-              </a>
-            </li>
-          </ul>
-        )}
-      </header>
-
-      {/* Toolbar */}
-      <div
-        data-toolbar
-        className="sticky top-0 z-30 mt-5 border-b sm:mt-7 border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150"
-      >
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 pt-3 sm:px-6 md:h-16 md:pt-0">
-          {/* Views and filters live in the bottom bar and filter sheet on phones. */}
-          <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label="View">
-            {VIEW_OPTIONS.map((o) => {
-              const Icon = VIEW_ICON[o.value];
-              const active = view === o.value;
-              return (
+        <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
+          {activeFilters.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              {activeFilters.map((f) => (
                 <button
-                  key={o.value}
+                  key={f.key}
                   type="button"
-                  onClick={() => changeView(o.value)}
-                  aria-current={active ? "page" : undefined}
-                  className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition active:scale-[0.97] ${
-                    active ? "bg-foreground text-background" : "text-muted hover:bg-surface-2 hover:text-foreground"
-                  }`}
+                  onClick={f.clear}
+                  className="inline-flex h-8 items-center gap-1 rounded-full bg-accent-soft pl-3 pr-2 text-xs font-semibold text-accent"
                 >
-                  <Icon className="hidden h-4 w-4 lg:block" />
-                  {o.label}
-                  {o.value === "saved" && saved.length > 0 && (
-                    <span className={`text-xs tabular-nums ${active ? "opacity-60" : "text-muted/80"}`}>
-                      {saved.length}
-                    </span>
-                  )}
+                  {f.label}
+                  <CloseIcon className="h-3.5 w-3.5" />
+                  <span className="sr-only">Remove filter</span>
                 </button>
-              );
-            })}
-          </nav>
+              ))}
+            </div>
+          )}
 
-          <label className="relative min-w-0 flex-1 md:ml-auto md:max-w-xs">
-            <span className="sr-only">Search headlines</span>
-            <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
-            <input
-              ref={searchRef}
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Escape") return;
-                setQuery("");
-                e.currentTarget.blur();
-              }}
-              placeholder="Search headlines / শিরোনাম খুঁজুন"
-              enterKeyHint="search"
-              className="peer h-11 w-full rounded-full border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
+          {error && (
+            <p className="mb-4 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+              Could not load news: {error}
+            </p>
+          )}
+
+          {!hasData && loading && <SkeletonGrid />}
+
+          {hasData && view !== "saved" && filtering && filtered.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+              <p className="font-display text-xl">Nothing found</p>
+              <p className="mt-1 text-sm text-muted">Try another word or category.</p>
+            </div>
+          )}
+
+          {hasData && view === "top" && !(filtering && filtered.length === 0) && (
+            <TopStories
+              stories={stories}
+              sourceById={sourceById}
+              now={now}
+              isNew={isNew}
+              savedLinks={savedLinks}
+              onToggleSave={toggleSaved}
+              onShare={shareItem}
+              emptyHint={
+                onlySource
+                  ? `Nothing from ${sourceById.get(onlySource)?.name ?? "this source"} is covered by other outlets right now.`
+                  : filtering
+                    ? "No story covered by several outlets matches."
+                    : loading
+                      ? "Grouping headlines into stories…"
+                      : "No story is covered by several outlets yet."
+              }
             />
-            {query ? (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                aria-label="Clear search"
-                className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:text-foreground"
-              >
-                <CloseIcon className="h-4 w-4" />
-              </button>
-            ) : (
-              <kbd
-                className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-line px-1.5 font-sans text-[11px] font-semibold text-muted peer-focus:opacity-0 md:block"
-                aria-hidden
-              >
-                /
-              </kbd>
-            )}
-          </label>
+          )}
 
-          <FilterPopover count={activeFilters.length}>
+          {hasData && view === "latest" && (
+            <LatestList
+              key={filtersToSearch({ view, lang, source: onlySource, category, query: searchQuery, order }) + onlyNew}
+              items={filtered}
+              sourceById={sourceById}
+              now={now}
+              isNew={isNew}
+              savedLinks={savedLinks}
+              onToggleSave={toggleSaved}
+              onShare={shareItem}
+            />
+          )}
+
+          {view === "saved" && (
+            <SavedList
+              entries={savedMatching}
+              total={saved.length}
+              sourceById={sourceById}
+              now={now}
+              onToggleSave={toggleSaved}
+              onShare={shareItem}
+            />
+          )}
+
+          {hasData && view === "sources" && (
+            <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+              {visibleSources.map((s) => (
+                <SourceCard
+                  key={s.id}
+                  source={s}
+                  status={statusById.get(s.id)}
+                  items={itemsBySource.get(s.id) ?? []}
+                  filtering={filtering}
+                  now={now}
+                  collapsible={isPhone}
+                  savedCollapsed={cardPrefs.collapsed[s.id]}
+                  seenLead={cardPrefs.seen[s.id]}
+                  onToggle={toggleCard}
+                  isNew={isNew}
+                  savedLinks={savedLinks}
+                  onToggleSave={toggleSaved}
+                  onShare={shareItem}
+                />
+              ))}
+            </div>
+          )}
+
+          <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
+            <a href="/health" className="hover:text-foreground">
+              Source health
+            </a>
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen(true)}
+              className="hidden hover:text-foreground md:inline"
+            >
+              Keyboard shortcuts <kbd className="ml-1 rounded border border-line px-1 font-sans">?</kbd>
+            </button>
+          </footer>
+        </main>
+
+        {/* New headlines from the automatic refresh, held back so nothing moves while reading. */}
+        {pending && (
+          <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
+            <button
+              type="button"
+              onClick={showPending}
+              className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink shadow-card transition active:scale-95"
+            >
+              <ChevronIcon className="h-4 w-4 rotate-180" />
+              {pending.fresh.toLocaleString()} new headline{pending.fresh === 1 ? "" : "s"}
+            </button>
+          </div>
+        )}
+
+        {/* Bottom bar (phones) */}
+        <nav
+          className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
+          aria-label="View"
+        >
+          <div className="mx-auto grid h-16 max-w-md grid-cols-5">
+            <NavButton active={view === "sources"} onClick={() => changeView("sources")} label="Sources">
+              <GridIcon />
+            </NavButton>
+            <NavButton active={view === "top"} onClick={() => changeView("top")} label="Top">
+              <StackIcon />
+            </NavButton>
+            <NavButton active={view === "latest"} onClick={() => changeView("latest")} label="Latest">
+              <ClockIcon />
+            </NavButton>
+            <NavButton active={view === "saved"} onClick={() => changeView("saved")} label="Saved">
+              <BookmarkIcon />
+            </NavButton>
+            <NavButton active={false} onClick={() => setFiltersOpen(true)} label="Filters" badge={activeFilters.length}>
+              <SlidersIcon />
+            </NavButton>
+          </div>
+        </nav>
+
+        <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+          <div className="space-y-6">
             {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
+            {view === "sources" && (
+              <Field label="Source cards">
+                <div className="flex gap-2">
+                  {[
+                    { label: "Expand all", collapsed: false },
+                    { label: "Collapse all", collapsed: true },
+                  ].map((b) => (
+                    <button
+                      key={b.label}
+                      type="button"
+                      onClick={() =>
+                        setCollapsed(
+                          visibleSources.map((src) => src.id),
+                          b.collapsed,
+                        )
+                      }
+                      className="h-11 flex-1 rounded-xl border border-line bg-surface-2 text-sm font-medium transition active:scale-[0.98]"
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  Tap a source&rsquo;s name to fold it. Your choice is remembered.
+                </p>
+              </Field>
+            )}
             <Field label="Language">{languageControl}</Field>
             <Field label="Source">{sourceControl}</Field>
+            <Field label="Appearance">
+              <ThemeSetting />
+            </Field>
+          </div>
+          <div className="mt-8 flex gap-3">
             <button
               type="button"
               onClick={resetFilters}
               disabled={activeFilters.length === 0}
-              className="h-10 w-full rounded-xl border border-line text-sm font-semibold transition hover:bg-surface-2 disabled:opacity-40"
+              className="h-12 flex-1 rounded-xl border border-line text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40"
             >
-              Reset filters
+              Reset
             </button>
-          </FilterPopover>
-        </div>
-
-        {hasData ? (
-          <div className="relative mx-auto -mb-px max-w-7xl md:-mt-1">
-            <CategoryTabs tabs={categoryTabs} value={category} onChange={(id) => pickCategory(id as Category | "")} />
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(false)}
+              className="h-12 flex-[2] rounded-xl bg-foreground text-sm font-semibold text-background transition active:scale-[0.98]"
+            >
+              Show {filtered.length.toLocaleString()} headlines
+            </button>
           </div>
-        ) : (
-          <div className="h-3" />
-        )}
-      </div>
+        </Sheet>
 
-      <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
-        {activeFilters.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            {activeFilters.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={f.clear}
-                className="inline-flex h-8 items-center gap-1 rounded-full bg-accent-soft pl-3 pr-2 text-xs font-semibold text-accent"
-              >
-                {f.label}
-                <CloseIcon className="h-3.5 w-3.5" />
-                <span className="sr-only">Remove filter</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {error && (
-          <p className="mb-4 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
-            Could not load news: {error}
-          </p>
-        )}
-
-        {!hasData && loading && <SkeletonGrid />}
-
-        {hasData && view !== "saved" && filtering && filtered.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
-            <p className="font-display text-xl">Nothing found</p>
-            <p className="mt-1 text-sm text-muted">Try another word or category.</p>
-          </div>
-        )}
-
-        {hasData && view === "top" && !(filtering && filtered.length === 0) && (
-          <TopStories
-            stories={stories}
-            sourceById={sourceById}
-            now={now}
-            isNew={isNew}
-            savedLinks={savedLinks}
-            onToggleSave={toggleSaved}
-            onShare={shareItem}
-            emptyHint={
-              onlySource
-                ? `Nothing from ${sourceById.get(onlySource)?.name ?? "this source"} is covered by other outlets right now.`
-                : filtering
-                  ? "No story covered by several outlets matches."
-                  : loading
-                    ? "Grouping headlines into stories…"
-                    : "No story is covered by several outlets yet."
-            }
-          />
-        )}
-
-        {hasData && view === "latest" && (
-          <LatestList
-            key={filtersToSearch({ view, lang, source: onlySource, category, query, order }) + onlyNew}
-            items={filtered}
-            sourceById={sourceById}
-            now={now}
-            isNew={isNew}
-            savedLinks={savedLinks}
-            onToggleSave={toggleSaved}
-            onShare={shareItem}
-          />
-        )}
-
-        {view === "saved" && (
-          <SavedList
-            entries={savedMatching}
-            total={saved.length}
-            sourceById={sourceById}
-            now={now}
-            onToggleSave={toggleSaved}
-            onShare={shareItem}
-          />
-        )}
-
-        {hasData && view === "sources" && (
-          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-            {visibleSources.map((s) => (
-              <SourceCard
-                key={s.id}
-                source={s}
-                status={statusById.get(s.id)}
-                items={itemsBySource.get(s.id) ?? []}
-                filtering={filtering}
-                now={now}
-                collapsible={isPhone}
-                savedCollapsed={cardPrefs.collapsed[s.id]}
-                seenLead={cardPrefs.seen[s.id]}
-                onToggle={(collapsed) => setCollapsed([s.id], collapsed)}
-                isNew={isNew}
-                savedLinks={savedLinks}
-                onToggleSave={toggleSaved}
-                onShare={shareItem}
-              />
-            ))}
-          </div>
-        )}
-
-        <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
-          <a href="/health" className="hover:text-foreground">
-            Source health
-          </a>
-          <button
-            type="button"
-            onClick={() => setShortcutsOpen(true)}
-            className="hidden hover:text-foreground md:inline"
-          >
-            Keyboard shortcuts <kbd className="ml-1 rounded border border-line px-1 font-sans">?</kbd>
-          </button>
-        </footer>
-      </main>
-
-      {/* New headlines from the automatic refresh, held back so nothing moves while reading. */}
-      {pending && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
-          <button
-            type="button"
-            onClick={showPending}
-            className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink shadow-card transition active:scale-95"
-          >
-            <ChevronIcon className="h-4 w-4 rotate-180" />
-            {pending.fresh.toLocaleString()} new headline{pending.fresh === 1 ? "" : "s"}
-          </button>
-        </div>
-      )}
-
-      {/* Bottom bar (phones) */}
-      <nav
-        className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
-        aria-label="View"
-      >
-        <div className="mx-auto grid h-16 max-w-md grid-cols-5">
-          <NavButton active={view === "sources"} onClick={() => changeView("sources")} label="Sources">
-            <GridIcon />
-          </NavButton>
-          <NavButton active={view === "top"} onClick={() => changeView("top")} label="Top">
-            <StackIcon />
-          </NavButton>
-          <NavButton active={view === "latest"} onClick={() => changeView("latest")} label="Latest">
-            <ClockIcon />
-          </NavButton>
-          <NavButton active={view === "saved"} onClick={() => changeView("saved")} label="Saved">
-            <BookmarkIcon />
-          </NavButton>
-          <NavButton active={false} onClick={() => setFiltersOpen(true)} label="Filters" badge={activeFilters.length}>
-            <SlidersIcon />
-          </NavButton>
-        </div>
-      </nav>
-
-      <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
-        <div className="space-y-6">
-          {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
-          {view === "sources" && (
-            <Field label="Source cards">
-              <div className="flex gap-2">
-                {[
-                  { label: "Expand all", collapsed: false },
-                  { label: "Collapse all", collapsed: true },
-                ].map((b) => (
-                  <button
-                    key={b.label}
-                    type="button"
-                    onClick={() =>
-                      setCollapsed(
-                        visibleSources.map((src) => src.id),
-                        b.collapsed,
-                      )
-                    }
-                    className="h-11 flex-1 rounded-xl border border-line bg-surface-2 text-sm font-medium transition active:scale-[0.98]"
-                  >
-                    {b.label}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-muted">
-                Tap a source&rsquo;s name to fold it. Your choice is remembered.
-              </p>
-            </Field>
+        <Sheet open={!!sharing} onClose={() => setSharing(null)} title="Share headline">
+          {sharing && (
+            <ShareOptions item={sharing} sourceName={sourceById.get(sharing.sourceId)?.name ?? sharing.sourceName} />
           )}
-          <Field label="Language">{languageControl}</Field>
-          <Field label="Source">{sourceControl}</Field>
-          <Field label="Appearance">
-            <ThemeSetting />
-          </Field>
-        </div>
-        <div className="mt-8 flex gap-3">
-          <button
-            type="button"
-            onClick={resetFilters}
-            disabled={activeFilters.length === 0}
-            className="h-12 flex-1 rounded-xl border border-line text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40"
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={() => setFiltersOpen(false)}
-            className="h-12 flex-[2] rounded-xl bg-foreground text-sm font-semibold text-background transition active:scale-[0.98]"
-          >
-            Show {filtered.length.toLocaleString()} headlines
-          </button>
-        </div>
-      </Sheet>
+        </Sheet>
 
-      <Sheet open={!!sharing} onClose={() => setSharing(null)} title="Share headline">
-        {sharing && (
-          <ShareOptions item={sharing} sourceName={sourceById.get(sharing.sourceId)?.name ?? sharing.sourceName} />
-        )}
-      </Sheet>
-
-      <Sheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard shortcuts">
-        <dl className="grid grid-cols-[auto_1fr] items-center gap-x-5 gap-y-3 text-sm">
-          {SHORTCUTS.map(([keys, what]) => (
-            <div key={keys} className="contents">
-              <dt className="text-right">
-                <kbd className="rounded-md border border-line bg-surface-2 px-2 py-0.5 font-sans text-xs font-semibold">
-                  {keys}
-                </kbd>
-              </dt>
-              <dd className="text-muted">{what}</dd>
-            </div>
-          ))}
-        </dl>
-      </Sheet>
-    </div>
+        <Sheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard shortcuts">
+          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-5 gap-y-3 text-sm">
+            {SHORTCUTS.map(([keys, what]) => (
+              <div key={keys} className="contents">
+                <dt className="text-right">
+                  <kbd className="rounded-md border border-line bg-surface-2 px-2 py-0.5 font-sans text-xs font-semibold">
+                    {keys}
+                  </kbd>
+                </dt>
+                <dd className="text-muted">{what}</dd>
+              </div>
+            ))}
+          </dl>
+        </Sheet>
+      </div>
+    </LogoShapes>
   );
 }
 

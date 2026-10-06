@@ -54,3 +54,10 @@ export type SourceStatus = Omit<SourceResult, "items">;
 
 /** One line of the NDJSON stream from /api/news/stream. */
 export type NewsStreamMessage = { type: "source"; result: SourceResult } | { type: "done"; generatedAt: string };
+
+/** A logo's pixel size, and whether it is light on a transparent background (made for a dark header). */
+export interface LogoShape {
+  width: number;
+  height: number;
+  light: boolean;
+}

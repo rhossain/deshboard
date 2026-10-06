@@ -6,7 +6,15 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const bengali = Noto_Sans_Bengali({ subsets: ["bengali"], variable: "--font-bengali", display: "swap" });
-const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
+// Only the wordmark and a few headings use it, all semibold: one weight, and not preloaded, so it
+// doesn't compete with the fonts the headlines are set in.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: "600",
+  variable: "--font-fraunces",
+  display: "swap",
+  preload: false,
+});
 
 export const metadata: Metadata = {
   // Absolute base for canonical and share image URLs; set SITE_URL to the public address when deploying.

@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { createContext, memo, useContext, useRef, useState, type ReactNode } from "react";
 import { sourceProblem } from "@/lib/problems";
-import type { NewsItem, NewsSource, SourceStatus } from "@/lib/types";
+import type { LogoShape, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot } from "./ui";
 
@@ -13,9 +13,9 @@ const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", h
 /**
  * One source's headlines. With `collapsible` (phones), tapping the header folds the card down to
  * just its header; unavailable sources start folded. A search or category filter opens every card
- * so matches are never hidden.
+ * so matches are never hidden. Memoized: the board re-renders for every filter and panel change.
  */
-export function SourceCard({
+export const SourceCard = memo(function SourceCard({
   source,
   status,
   items,
@@ -40,7 +40,7 @@ export function SourceCard({
   savedCollapsed?: boolean;
   /** The lead headline's link when the card was last toggled. */
   seenLead?: string;
-  onToggle?: (collapsed: boolean) => void;
+  onToggle?: (sourceId: string, collapsed: boolean) => void;
   /** True for headlines since the reader's last visit. */
   isNew: (item: NewsItem) => boolean;
   savedLinks: Set<string>;
@@ -66,7 +66,7 @@ export function SourceCard({
       const offset = card.getBoundingClientRect().top - toolbar.getBoundingClientRect().bottom - 8;
       if (offset < 0) window.scrollBy({ top: offset, behavior: "instant" });
     }
-    onToggle?.(!collapsed);
+    onToggle?.(source.id, !collapsed);
   };
 
   return (
@@ -188,7 +188,7 @@ export function SourceCard({
       )}
     </article>
   );
-}
+});
 
 /** Animates height open and closed; folded content is inert so it can't be tabbed into. */
 function Fold({ open, children }: { open: boolean; children: ReactNode }) {
@@ -202,7 +202,8 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }) {
   );
 }
 
-function Headline({
+/** Memoized, so a search only re-renders the headlines it adds or removes. */
+const Headline = memo(function Headline({
   item,
   now,
   isNew,
@@ -241,12 +242,13 @@ function Headline({
       <ItemMenu saved={saved} onToggleSave={() => onToggleSave(item)} onShare={() => onShare(item)} />
     </div>
   );
-}
+});
 
 /**
  * True for a light logo on a transparent background (made for a dark header),
  * which would vanish on our white logo plate. Logos are proxied through our
- * own origin, so the canvas is not tainted.
+ * own origin, so the canvas is not tainted. Only for logos the server hadn't
+ * measured yet when it rendered the page (see LogoShapes).
  */
 function isLightOnTransparent(img: HTMLImageElement): boolean {
   try {
@@ -276,21 +278,40 @@ function isLightOnTransparent(img: HTMLImageElement): boolean {
  * shown alone; square ones (favicons) sit next to the name; if there is no
  * image the name is shown as text.
  */
+/**
+ * The server's measurements of the logos it has prepared (see cachedLogoShapes): null for a source
+ * without a logo; missing when it hadn't prepared that one yet, and the browser measures it instead.
+ */
+export const LogoShapes = createContext<Record<string, LogoShape | null>>({});
+
 export function SourceLogo({
   source,
   size = "md",
   link = true,
+  shape: given,
 }: {
   source: NewsSource;
   size?: "sm" | "md";
   /** False when the logo sits inside a larger tap target (a collapsible card header). */
   link?: boolean;
+  /** The logo's measurements, for pages without LogoShapes around them. */
+  shape?: LogoShape | null;
 }) {
-  const [kind, setKind] = useState<"loading" | "logo" | "icon" | "none">("loading");
-  const [light, setLight] = useState(false);
+  const fromContext = useContext(LogoShapes)[source.id];
+  const known = given !== undefined ? given : fromContext;
+  const [measured, setMeasured] = useState<LogoShape>();
+  const [failed, setFailed] = useState(false);
+  const shape = known ?? measured;
+  const kind =
+    known === null || failed ? "none" : !shape ? "loading" : shape.width / shape.height >= 1.8 ? "logo" : "icon";
+
+  const measure = (img: HTMLImageElement) => {
+    const { naturalWidth: width, naturalHeight: height } = img;
+    if (!known && !measured && width && height) setMeasured({ width, height, light: isLightOnTransparent(img) });
+  };
 
   // Logos are drawn on a fixed plate so they read the same in light and dark mode.
-  const plate = light ? "bg-neutral-800" : "bg-white";
+  const plate = shape?.light ? "bg-neutral-800" : "bg-white";
   const sm = size === "sm";
   const Tag = link ? "a" : "span";
 
@@ -301,17 +322,21 @@ export function SourceLogo({
       className={`flex min-w-0 items-center gap-2 font-semibold hover:text-accent ${sm ? "h-5 text-xs" : "h-9 text-[15px]"}`}
     >
       {kind !== "none" && (
-        // eslint-disable-next-line @next/next/no-img-element -- proxied third-party logos of unknown size
+        // eslint-disable-next-line @next/next/no-img-element -- proxied third-party logos, measured by the server
         <img
           src={`/api/logo/${source.id}`}
           alt={kind === "logo" ? source.name : ""}
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            const { naturalWidth: w, naturalHeight: h } = img;
-            setKind(w && h && w / h >= 1.8 ? "logo" : "icon");
-            setLight(isLightOnTransparent(img));
+          // Its measured size reserves its width; lazy, so the logos don't compete with the page itself.
+          width={shape?.width}
+          height={shape?.height}
+          loading="lazy"
+          decoding="async"
+          // A logo can finish loading before hydration, when its load event has no listener yet.
+          ref={(img) => {
+            if (img?.complete) measure(img);
           }}
-          onError={() => setKind("none")}
+          onLoad={(e) => measure(e.currentTarget)}
+          onError={() => setFailed(true)}
           className={
             kind === "logo"
               ? sm

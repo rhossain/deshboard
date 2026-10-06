@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode, type KeyboardEvent, type ToggleEvent } from "react";
+import { flushSync } from "react-dom";
 
 export function Segmented<T extends string>({
   value,
@@ -196,7 +197,8 @@ const MENU_HEIGHT = 96;
 /**
  * The ⋮ menu beside a headline (never inside its link) with Share and Save. The menu is a native
  * popover, so it sits above cards that clip their overflow and closes on outside tap or Escape.
- * The dots turn gold while the headline is saved.
+ * The dots turn gold while the headline is saved. Its items are only rendered while it's open: the
+ * board has hundreds of these.
  */
 export function ItemMenu({
   saved,
@@ -227,10 +229,13 @@ export function ItemMenu({
   }, [open]);
 
   const place = (e: ToggleEvent<HTMLDivElement>) => {
+    if (e.newState !== "open") return;
+    // Render the items before the menu shows, so it never appears empty.
+    flushSync(() => setOpen(true));
     const el = menu.current;
     // Anchor to the dots, not the button: the button stretches to the full height of the headline row.
     const r = button.current?.firstElementChild?.getBoundingClientRect();
-    if (e.newState !== "open" || !el || !r) return;
+    if (!el || !r) return;
     el.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
     if (r.bottom + MENU_HEIGHT + 8 > window.innerHeight) {
       el.style.top = "auto";
@@ -289,14 +294,18 @@ export function ItemMenu({
         onKeyDown={onKeyDown}
         className="fixed inset-auto m-0 min-w-48 rounded-xl border border-line bg-surface p-1 text-foreground shadow-card"
       >
-        <button type="button" role="menuitem" onClick={run(onShare)} className={row}>
-          <ShareIcon className="h-[18px] w-[18px] text-muted" />
-          Share
-        </button>
-        <button type="button" role="menuitem" onClick={run(onToggleSave)} className={row}>
-          <BookmarkIcon filled={saved} className={`h-[18px] w-[18px] ${saved ? "text-gold" : "text-muted"}`} />
-          {saved ? "Remove from saved" : "Save for later"}
-        </button>
+        {open && (
+          <>
+            <button type="button" role="menuitem" onClick={run(onShare)} className={row}>
+              <ShareIcon className="h-[18px] w-[18px] text-muted" />
+              Share
+            </button>
+            <button type="button" role="menuitem" onClick={run(onToggleSave)} className={row}>
+              <BookmarkIcon filled={saved} className={`h-[18px] w-[18px] ${saved ? "text-gold" : "text-muted"}`} />
+              {saved ? "Remove from saved" : "Save for later"}
+            </button>
+          </>
+        )}
       </div>
     </>
   );

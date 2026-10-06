@@ -7,6 +7,7 @@ import { SourceLogo } from "@/components/SourceCard";
 import { ArrowUpRightIcon } from "@/components/ui";
 import { articleUrl, getSharedArticle } from "@/lib/article";
 import { CATEGORIES } from "@/lib/categories";
+import { getServedLogo } from "@/lib/logos";
 import { sharePath } from "@/lib/share";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
@@ -60,6 +61,7 @@ export default async function SharePage({ params }: Props) {
 
   const { title, link, source, item, description, image, related } = article;
   const now = requestTime();
+  const logo = await getServedLogo(source).catch(() => undefined);
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-4 pb-12 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-8">
@@ -81,7 +83,7 @@ export default async function SharePage({ params }: Props) {
             />
           )}
           <div className="p-5 sm:p-7">
-            <SourceLogo source={source} />
+            <SourceLogo source={source} shape={logo === undefined ? undefined : (logo?.shape ?? null)} />
             {item && (
               <p className="mt-3 flex flex-wrap gap-x-2 text-xs text-muted">
                 {item.category !== "other" && <span>{CATEGORY_LABEL.get(item.category)}</span>}

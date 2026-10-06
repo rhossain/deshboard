@@ -37,7 +37,9 @@ npm test           # offline parser tests
   each source shows up the moment it arrives.
 - `GET /api/logo/:sourceId` — the source's logo image (proxied, cached 24 h). Found on its homepage (header `<img>`
   marked as the logo, JSON-LD `logo`, then touch icon / favicon); sites that block us fall back to Google's favicon
-  service. 404 when nothing is found, and the UI shows the name as text.
+  service. Resized to what the cards need and served as WebP (`.ico` files as they are); the server prepares every
+  logo when it starts and renders their sizes into the page, so cards draw them right from the first paint. 404 when
+  nothing is found, and the UI shows the name as text.
 - `GET /api/sources` — all 64 portals with method, URL and notes
 
 Each item: `{ title, link, publishedAt?, seenAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no
