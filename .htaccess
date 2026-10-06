@@ -2,6 +2,9 @@
 
 ErrorDocument 404 /404.html
 
+# Browsers only read the web app manifest when it has its own type.
+AddType application/manifest+json .webmanifest
+
 # Next writes the share image and the home-screen icon without a file extension.
 <FilesMatch "^(apple-icon|opengraph-image)$">
   ForceType image/png
