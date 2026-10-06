@@ -48,6 +48,7 @@ export function SavedList({
             <li key={it.link} className="flex border-b border-line last:border-b-0">
               <a
                 data-headline
+                lang={it.lang}
                 href={it.link}
                 target="_blank"
                 rel="noopener noreferrer"

@@ -8,6 +8,8 @@ export interface CategoryTab {
   label: string;
   /** The other language's name, shown as a tooltip. */
   title?: string;
+  /** The tab's own address, so crawlers and middle-clicks can follow it; a plain click stays in place. */
+  href: string;
   count: number;
 }
 
@@ -29,7 +31,7 @@ export function CategoryTabs({
 }) {
   const rail = useRef<HTMLDivElement>(null);
   const indicator = useRef<HTMLSpanElement>(null);
-  const buttons = useRef(new Map<string, HTMLButtonElement>());
+  const buttons = useRef(new Map<string, HTMLAnchorElement>());
   const [edges, setEdges] = useState({ start: false, end: false });
   const first = useRef(true);
 
@@ -103,19 +105,24 @@ export function CategoryTabs({
       >
         {tabs.map((t) => {
           const active = t.id === value;
+          const empty = !active && t.count === 0;
           return (
-            <button
+            <a
               key={t.id}
               ref={(el) => {
                 if (el) buttons.current.set(t.id, el);
                 else buttons.current.delete(t.id);
               }}
-              type="button"
-              onClick={() => onChange(t.id)}
-              aria-pressed={active}
+              href={t.href}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                e.preventDefault();
+                if (!empty) onChange(t.id);
+              }}
+              aria-current={active ? "page" : undefined}
+              aria-disabled={empty || undefined}
               title={t.title}
-              disabled={!active && t.count === 0}
-              className={`group relative flex h-12 shrink-0 items-center gap-1.5 px-3 text-[14px] transition-colors active:opacity-70 disabled:opacity-30 ${
+              className={`group relative flex h-12 shrink-0 items-center gap-1.5 px-3 text-[14px] transition-colors active:opacity-70 aria-disabled:opacity-30 ${
                 active ? "text-foreground" : "text-muted hover:text-foreground"
               }`}
             >
@@ -133,7 +140,7 @@ export function CategoryTabs({
               >
                 {compact.format(t.count)}
               </span>
-            </button>
+            </a>
           );
         })}
         <span

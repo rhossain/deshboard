@@ -81,7 +81,8 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 - `NEWS_CACHE_SECONDS` (default `600`) — how long each source's result is reused.
 - `NEWS_BACKGROUND_REFRESH` — set to `0` to fetch only when a reader asks. Otherwise the server refreshes stale
   sources at startup and every half TTL, so readers get headlines from a warm cache.
-- `SITE_URL` (default `http://localhost:3000`) — the public address, used for the absolute link to the share image.
+- `SITE_URL` (default `http://localhost:3000`) — the public address, used for canonical links, `sitemap.xml`,
+  `robots.txt`, structured data and the share image.
 - `NEWS_DATA_DIR` (default `.data/`) — where the cache and first-seen times are saved; `NEWS_PERSIST=0` keeps them in
   memory only. On serverless hosts the filesystem is throwaway and timers don't run between requests, so both features
   quietly do nothing there; run on a long-lived Node server (VPS, container) to get them.

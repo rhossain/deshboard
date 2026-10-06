@@ -11,8 +11,10 @@ import type { NewsSource } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Source health · Deshboard",
+  title: "Source health",
   description: "Which news portals Deshboard can read right now, which are failing, and since when.",
+  // A status page for whoever runs the site, not something to find in search.
+  robots: { index: false, follow: true },
 };
 
 type State = "failing" | "waiting" | "ok" | "off";

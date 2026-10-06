@@ -20,12 +20,12 @@ type Props = { params: Promise<{ url: string[] }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { url } = await params;
   const article = await getSharedArticle(url.join("/"));
-  if (!article) return { title: "Deshboard" };
+  if (!article) return { robots: { index: false, follow: true } };
 
   const { title, source, description, image } = article;
   const summary = description ?? `${source.name} · via Deshboard`;
   return {
-    title: `${title} · ${source.name}`,
+    title: { absolute: `${title} · ${source.name}` },
     description: summary,
     // The outlet's article is the original; this page only points to it.
     robots: { index: false, follow: true },
@@ -89,7 +89,7 @@ export default async function SharePage({ params }: Props) {
                 <ItemTime item={item} now={now} />
               </p>
             )}
-            <h1 className="mt-3 text-[24px] font-semibold leading-[1.45] tracking-tight sm:text-[28px]">{title}</h1>
+            <h1 lang={item?.lang ?? source.lang} className="mt-3 text-[24px] font-semibold leading-[1.45] tracking-tight sm:text-[28px]">{title}</h1>
             {description && description !== title && (
               <p className="mt-3 text-[15px] leading-relaxed text-muted">{description}</p>
             )}
@@ -122,7 +122,7 @@ export default async function SharePage({ params }: Props) {
                     <span className="w-28 shrink-0 truncate pt-px text-xs font-semibold text-accent">
                       {it.sourceName}
                     </span>
-                    <span className="min-w-0 group-hover:text-accent">{it.title}</span>
+                    <span lang={it.lang} className="min-w-0 group-hover:text-accent">{it.title}</span>
                   </a>
                 </li>
               ))}

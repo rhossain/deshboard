@@ -5,6 +5,7 @@ import { CATEGORIES, type Category } from "@/lib/categories";
 import { type Filters, filtersToSearch, type LangFilter, type Order, type View } from "@/lib/filters";
 import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
+import { categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
@@ -137,13 +138,22 @@ function focusHeadline(step: 1 | -1) {
   next?.scrollIntoView({ block: "center" });
 }
 
+/** A few cached headlines per source, rendered with the page (see seedResults) until the stream replaces them. */
+export interface NewsSeed {
+  generatedAt: string;
+  results: SourceResult[];
+}
+
 /**
  * `sources` is every listed portal in display order; only the fetchable ones are requested.
  * `initial` is the view and filters from the URL.
+ * `seed` is shown from the first paint; each source's result is replaced as the stream delivers it.
  */
-export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial: Filters }) {
+export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; initial: Filters; seed?: NewsSeed }) {
   // Latest result per source; on refresh each one is replaced as its new result arrives.
-  const [results, setResults] = useState<Map<string, SourceResult>>(() => new Map());
+  const [results, setResults] = useState<Map<string, SourceResult>>(
+    () => new Map(seed?.results.map((r) => [r.sourceId, r])),
+  );
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [received, setReceived] = useState(0);
@@ -164,7 +174,8 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
   const quietRef = useRef<AbortController | null>(null);
   const resultsRef = useRef(results);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [now, setNow] = useState(() => Date.now());
+  // With a seed, the clock starts at its render time so the server's HTML and hydration agree.
+  const [now, setNow] = useState(() => (seed ? Date.parse(seed.generatedAt) : Date.now()));
   const controllerRef = useRef<AbortController | null>(null);
   const isPhone = useIsPhone();
   const [cardPrefs, updateCardPrefs] = useCardPrefs();
@@ -255,10 +266,14 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
     };
   }, [start, refreshQuietly]);
 
-  // Mirror the view and filters in the URL, so the page can be bookmarked or shared as it is.
+  // Mirror the view and filters in the URL, so the page can be bookmarked or shared as it is. A
+  // section with a page of its own (/news/sports) uses that address and title.
   useEffect(() => {
-    const search = filtersToSearch({ view, lang, source: onlySource, category, query, order });
-    if (search !== window.location.search) window.history.replaceState(null, "", window.location.pathname + search);
+    const path = categoryPath(category);
+    const search = filtersToSearch({ view, lang, source: onlySource, category: path ? "" : category, query, order });
+    const url = (path ?? "/") + search;
+    if (url !== window.location.pathname + window.location.search) window.history.replaceState(null, "", url);
+    document.title = path && category ? categoryTitle(category) : SITE_TITLE;
   }, [view, lang, onlySource, category, query, order]);
 
   // Two outlets can list the same article (e.g. a homepage linking a sister site), so keep the first.
@@ -399,11 +414,12 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
   // Labels follow the language filter: Bangla names when only Bangla sources are shown.
   const bn = lang === "bn";
   const categoryTabs = [
-    { id: "", label: bn ? "সব" : "All", count: matching.length },
+    { id: "", label: bn ? "সব" : "All", href: "/", count: matching.length },
     ...CATEGORIES.map((c) => ({
       id: c.id,
       label: bn ? c.bn : c.label,
       title: bn ? c.label : c.bn,
+      href: categoryPath(c.id) ?? `/?cat=${c.id}`,
       count: categoryCounts.get(c.id) ?? 0,
     })),
   ];
@@ -512,6 +528,10 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
             </p>
             <h1 className="mt-1.5 text-[32px] sm:text-5xl">
               <Logo />
+              <span className="sr-only">
+                : {(categoryPath(category) && CATEGORIES.find((c) => c.id === category)?.label) || "Latest"} news from
+                Bangladesh
+              </span>
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-2">
