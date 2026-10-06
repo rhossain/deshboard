@@ -823,6 +823,7 @@ export function NewsBoard({ sources, initial }: { sources: NewsSource[]; initial
 
           {hasData && view === "latest" && (
             <LatestList
+              key={filtersToSearch({ view, lang, source: onlySource, category, query, order }) + onlyNew}
               items={filtered}
               sourceById={sourceById}
               now={now}
