@@ -1,8 +1,9 @@
 import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
+import sharp from "sharp";
 import { fetchBytes, fetchText } from "./fetchers/http";
 import { resolveUrl } from "./fetchers/utils";
-import type { NewsSource } from "./types";
+import type { LogoShape, NewsSource } from "./types";
 
 export interface Logo {
   bytes: ArrayBuffer;
@@ -155,4 +156,72 @@ export async function getLogo(source: NewsSource): Promise<Logo | null> {
     .finally(() => inflight.delete(source.id));
   inflight.set(source.id, p);
   return p;
+}
+
+/** The largest image's size in an .ico file, which sharp can't read. Null if it isn't one. */
+function icoSize(bytes: Buffer): { width: number; height: number } | null {
+  if (bytes.length < 22 || bytes.readUInt32LE(0) !== 0x00010000) return null;
+  let width = 0;
+  let height = 0;
+  for (let i = 0; i < bytes.readUInt16LE(4) && 6 + 16 * i + 16 <= bytes.length; i++) {
+    // A size byte of 0 means 256.
+    const w = bytes[6 + 16 * i] || 256;
+    if (w > width) [width, height] = [w, bytes[7 + 16 * i] || 256];
+  }
+  return width ? { width, height } : null;
+}
+
+/**
+ * The most a logo needs: three times the box it's drawn in on a card (24 px tall, 164 px wide), so
+ * it stays sharp on high-density screens. Outlets' originals run to thousands of pixels.
+ */
+const SERVED_SIZE = { width: 492, height: 72 };
+
+/** A logo ready to serve: resized, re-encoded, and measured. */
+export interface PreparedLogo {
+  bytes: Buffer;
+  ext: string;
+  shape: LogoShape;
+}
+
+/** True for a light logo on a transparent background (made for a dark header). */
+async function isLightOnTransparent(image: Buffer): Promise<boolean> {
+  const data = await sharp(image).resize({ width: 64 }).ensureAlpha().raw().toBuffer();
+  let opaque = 0;
+  let luminance = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 128) continue;
+    opaque++;
+    luminance += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+  }
+  const transparentShare = 1 - opaque / (data.length / 4);
+  return opaque > 0 && transparentShare > 0.1 && luminance / opaque > 200;
+}
+
+/**
+ * An outlet's logo as the site serves it: no larger than SERVED_SIZE, as WebP (whichever of lossless
+ * and lossy is smaller; vector logos are drawn at that size too), with its measurements. Icons in
+ * .ico files, which sharp can't read, are served as they are. Null when the image can't be read.
+ */
+export async function prepareLogo(original: Buffer): Promise<PreparedLogo | null> {
+  const ico = icoSize(original);
+  if (ico) return { bytes: original, ext: "ico", shape: { ...ico, light: false } };
+  try {
+    const { format } = await sharp(original).metadata();
+    // SVGs are drawn at 72 dpi by default; four times that leaves room to scale down to SERVED_SIZE.
+    const resized = sharp(original, { animated: false, density: format === "svg" ? 288 : undefined }).resize({
+      ...SERVED_SIZE,
+      fit: "inside",
+      withoutEnlargement: true,
+    });
+    const [lossless, lossy] = await Promise.all([
+      resized.clone().webp({ lossless: true, effort: 6 }).toBuffer({ resolveWithObject: true }),
+      resized.clone().webp({ quality: 90, effort: 6 }).toBuffer({ resolveWithObject: true }),
+    ]);
+    const { data, info } = lossless.data.length <= lossy.data.length ? lossless : lossy;
+    const light = await isLightOnTransparent(data);
+    return { bytes: data, ext: "webp", shape: { width: info.width, height: info.height, light } };
+  } catch {
+    return null;
+  }
 }

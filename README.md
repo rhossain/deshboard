@@ -36,12 +36,16 @@ npm test           # offline parser tests
 
 `npm run fetch` (`scripts/fetch-news.ts`) writes what the site serves:
 
-- `public/data/news.json` — `{ generatedAt, results, logos }`: each fetched source's result (a status plus its
-  `items`) and each source's logo path. The board loads it and checks it again every 10 minutes.
-- `public/logos/<id>.<ext>` — each source's logo, found on its homepage (header `<img>` marked as the logo, JSON-LD
-  `logo`, then touch icon / favicon); sites that block us fall back to Google's favicon service. Kept for a week.
-  Without a logo the UI shows the name as text.
-- `.data/` — first-seen times and source health, carried from run to run; `/health` is built from it.
+- `public/data/news.json` — `{ generatedAt, results, logos, logoShapes }`: each fetched source's result (a status
+  plus its `items`), each source's logo path, and each logo's size and whether it is light on transparent (so cards
+  draw it at its final size and on the right plate from the first paint). The board loads it and checks it again
+  every 10 minutes.
+- `public/logos/<id>.webp` — each source's logo, found on its homepage (header `<img>` marked as the logo, JSON-LD
+  `logo`, then touch icon / favicon); sites that block us fall back to Google's favicon service. Resized to what the
+  cards need and re-encoded as WebP (`.ico` files are served as they are). Without a logo the UI shows the name as
+  text.
+- `.data/` — first-seen times, source health and the outlets' original logos (kept for a week), carried from run
+  to run; `/health` is built from it.
 
 It exits with an error when no source worked, so an outage never replaces the board with an empty one.
 

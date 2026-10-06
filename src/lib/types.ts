@@ -59,4 +59,19 @@ export interface NewsFeed {
   results: SourceResult[];
   /** Source id → logo path under `/logos/`, for sources whose logo was found. */
   logos: Record<string, string>;
+  /** Source id → the logo's measurements, so it is drawn at its final size on first paint. */
+  logoShapes: Record<string, LogoShape>;
+}
+
+/** The feed as prerendered into a page: a few headlines per source (see seedResults). */
+export interface NewsSeed extends NewsFeed {
+  /** Headlines per section in the whole feed, so the section tabs start out with their final counts. */
+  counts: Partial<Record<Category, number>>;
+}
+
+/** A logo's pixel size, and whether it is light on a transparent background (made for a dark header). */
+export interface LogoShape {
+  width: number;
+  height: number;
+  light: boolean;
 }

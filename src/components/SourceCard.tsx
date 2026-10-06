@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, memo, useContext, useRef, useState, type ReactNode } from "react";
 import { sourceProblem } from "@/lib/problems";
-import type { NewsItem, NewsSource, SourceStatus } from "@/lib/types";
+import type { NewsFeed, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot } from "./ui";
 
@@ -13,9 +13,9 @@ const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", h
 /**
  * One source's headlines. With `collapsible` (phones), tapping the header folds the card down to
  * just its header; unavailable sources start folded. A search or category filter opens every card
- * so matches are never hidden.
+ * so matches are never hidden. Memoized: the board re-renders for every filter and panel change.
  */
-export function SourceCard({
+export const SourceCard = memo(function SourceCard({
   source,
   status,
   items,
@@ -40,7 +40,7 @@ export function SourceCard({
   savedCollapsed?: boolean;
   /** The lead headline's link when the card was last toggled. */
   seenLead?: string;
-  onToggle?: (collapsed: boolean) => void;
+  onToggle?: (sourceId: string, collapsed: boolean) => void;
   /** True for headlines since the reader's last visit. */
   isNew: (item: NewsItem) => boolean;
   savedLinks: Set<string>;
@@ -66,7 +66,7 @@ export function SourceCard({
       const offset = card.getBoundingClientRect().top - toolbar.getBoundingClientRect().bottom - 8;
       if (offset < 0) window.scrollBy({ top: offset, behavior: "instant" });
     }
-    onToggle?.(!collapsed);
+    onToggle?.(source.id, !collapsed);
   };
 
   return (
@@ -188,7 +188,7 @@ export function SourceCard({
       )}
     </article>
   );
-}
+});
 
 /** Animates height open and closed; folded content is inert so it can't be tabbed into. */
 function Fold({ open, children }: { open: boolean; children: ReactNode }) {
@@ -202,7 +202,8 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }) {
   );
 }
 
-function Headline({
+/** Memoized, so a search only re-renders the headlines it adds or removes. */
+const Headline = memo(function Headline({
   item,
   now,
   isNew,
@@ -241,38 +242,10 @@ function Headline({
       <ItemMenu saved={saved} onToggleSave={() => onToggleSave(item)} onShare={() => onShare(item)} />
     </div>
   );
-}
+});
 
-/**
- * True for a light logo on a transparent background (made for a dark header),
- * which would vanish on our white logo plate. Logos are proxied through our
- * own origin, so the canvas is not tainted.
- */
-function isLightOnTransparent(img: HTMLImageElement): boolean {
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width = 64;
-    canvas.height = Math.max(1, Math.round((64 * img.naturalHeight) / img.naturalWidth));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return false;
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let opaque = 0;
-    let luminance = 0;
-    for (let i = 0; i < px.length; i += 4) {
-      if (px[i + 3] < 128) continue;
-      opaque++;
-      luminance += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
-    }
-    const transparentShare = 1 - opaque / (px.length / 4);
-    return opaque > 0 && transparentShare > 0.1 && luminance / opaque > 200;
-  } catch {
-    return false;
-  }
-}
-
-/** Source id → logo path, from the feed (see scripts/fetch-news.ts). */
-export const LogoUrls = createContext<Record<string, string>>({});
+/** The feed's logos and their measurements (see scripts/fetch-news.ts). */
+export const Logos = createContext<Pick<NewsFeed, "logos" | "logoShapes">>({ logos: {}, logoShapes: {} });
 
 /**
  * The source's logo, linking to its homepage. Wide images are shown alone;
@@ -289,12 +262,14 @@ export function SourceLogo({
   /** False when the logo sits inside a larger tap target (a collapsible card header). */
   link?: boolean;
 }) {
-  const src = useContext(LogoUrls)[source.id];
-  const [kind, setKind] = useState<"loading" | "logo" | "icon" | "none">("loading");
-  const [light, setLight] = useState(false);
+  const { logos, logoShapes } = useContext(Logos);
+  const src = logos[source.id];
+  const shape = logoShapes[source.id];
+  const [failed, setFailed] = useState(false);
+  const kind = !src || failed ? "none" : shape && shape.width / shape.height >= 1.8 ? "logo" : "icon";
 
   // Logos are drawn on a fixed plate so they read the same in light and dark mode.
-  const plate = light ? "bg-neutral-800" : "bg-white";
+  const plate = shape?.light ? "bg-neutral-800" : "bg-white";
   const sm = size === "sm";
   const Tag = link ? "a" : "span";
 
@@ -304,30 +279,27 @@ export function SourceLogo({
       title={source.name}
       className={`flex min-w-0 items-center gap-2 font-semibold hover:text-accent ${sm ? "h-5 text-xs" : "h-9 text-[15px]"}`}
     >
-      {src && kind !== "none" && (
-        // eslint-disable-next-line @next/next/no-img-element -- proxied third-party logos of unknown size
+      {kind !== "none" && (
+        // eslint-disable-next-line @next/next/no-img-element -- third-party logos, measured by the fetch script
         <img
           src={src}
           alt={kind === "logo" ? source.name : ""}
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            const { naturalWidth: w, naturalHeight: h } = img;
-            setKind(w && h && w / h >= 1.8 ? "logo" : "icon");
-            setLight(isLightOnTransparent(img));
-          }}
-          onError={() => setKind("none")}
+          // Its measured size reserves its width; lazy, so the logos don't compete with the page itself.
+          width={shape?.width}
+          height={shape?.height}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
           className={
             kind === "logo"
               ? sm
                 ? `h-5 w-auto max-w-[110px] rounded object-contain object-left px-1 py-0.5 ${plate}`
                 : `h-9 w-auto max-w-[180px] rounded-lg object-contain object-left px-2 py-1.5 ring-1 ring-line ${plate}`
-              : kind === "icon"
-                ? `${sm ? "h-4 w-4" : "h-7 w-7"} shrink-0 rounded-md object-contain ${plate}`
-                : "absolute h-px w-px opacity-0"
+              : `${sm ? "h-4 w-4" : "h-7 w-7"} shrink-0 rounded-md object-contain ${plate}`
           }
         />
       )}
-      {(!src || kind !== "logo") && <span className="truncate">{source.name}</span>}
+      {kind !== "logo" && <span className="truncate">{source.name}</span>}
     </Tag>
   );
 }

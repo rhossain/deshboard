@@ -18,7 +18,7 @@ import { categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
-import type { NewsFeed, NewsItem, NewsSource, SourceResult } from "@/lib/types";
+import type { NewsFeed, NewsItem, NewsSeed, NewsSource, SourceResult } from "@/lib/types";
 import { useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLastVisit } from "./last-visit";
@@ -27,7 +27,7 @@ import { Logo } from "./Logo";
 import { useSaved } from "./saved";
 import { SavedList } from "./SavedList";
 import { ShareOptions, shareUrl } from "./ShareOptions";
-import { LogoUrls, SourceCard } from "./SourceCard";
+import { Logos, SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
 import { fullTime, timeAgo } from "./time";
@@ -115,9 +115,12 @@ const dhakaDate = new Intl.DateTimeFormat("en-GB", {
   month: "long",
 });
 
-/** The headlines collected by the last build (`npm run fetch`), as a static file next to the page. */
-export async function loadFeed(signal?: AbortSignal): Promise<NewsFeed> {
-  const res = await fetch("/data/news.json", { cache: "no-cache", signal });
+/**
+ * The headlines collected by the last build (`npm run fetch`), as a static file next to the page.
+ * `priority: "low"` when the page already shows headlines, so it doesn't hold up the logos and fonts.
+ */
+export async function loadFeed(signal?: AbortSignal, priority: RequestPriority = "auto"): Promise<NewsFeed> {
+  const res = await fetch("/data/news.json", { cache: "no-cache", signal, priority });
   if (!res.ok) throw new Error(res.status === 404 ? "no headlines have been collected yet" : `server returned ${res.status}`);
   return (await res.json()) as NewsFeed;
 }
@@ -158,7 +161,7 @@ export function NewsBoardFromUrl({
   category,
 }: {
   sources: NewsSource[];
-  seed?: NewsFeed;
+  seed?: NewsSeed;
   category?: Category;
 }) {
   const search = useSyncExternalStore(noSubscribe, () => openedWith, () => "");
@@ -174,14 +177,19 @@ export function NewsBoardFromUrl({
  * `initial` is the view and filters from the URL.
  * `seed` is a few headlines per source baked into the page (see seedResults), shown until the feed loads.
  */
-export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; initial: Filters; seed?: NewsFeed }) {
+export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; initial: Filters; seed?: NewsSeed }) {
   // Latest result per source; on refresh each one is replaced as its new result arrives.
   const [results, setResults] = useState<Map<string, SourceResult>>(() => (seed ? byId(seed) : new Map()));
   const [generatedAt, setGeneratedAt] = useState<string | null>(seed?.generatedAt ?? null);
-  const [logos, setLogos] = useState<Record<string, string>>(seed?.logos ?? {});
+  const [logos, setLogos] = useState<Pick<NewsFeed, "logos" | "logoShapes">>(() => ({
+    logos: seed?.logos ?? {},
+    logoShapes: seed?.logoShapes ?? {},
+  }));
   const [loading, setLoading] = useState(!seed);
   // The seed is only part of its build's feed, so the first load replaces it even from the same build.
   const partialRef = useRef(!!seed);
+  // The whole feed's section counts, from the seed, until the whole feed is here.
+  const [seedCounts, setSeedCounts] = useState(seed?.counts);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>(initial.view);
   const [order, setOrder] = useState<Order>(initial.order);
@@ -211,7 +219,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
   const show = useCallback((feed: NewsFeed) => {
     setResults(byId(feed));
-    setLogos(feed.logos);
+    setLogos({ logos: feed.logos, logoShapes: feed.logoShapes });
+    setSeedCounts(undefined);
     setGeneratedAt(feed.generatedAt);
     setNow(Date.now());
   }, []);
@@ -226,7 +235,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
       const controller = new AbortController();
       controllerRef.current = controller;
 
-      loadFeed(controller.signal).then(
+      // Only the Refresh button, or a page without a seed, is waiting on it.
+      loadFeed(controller.signal, manual || !partialRef.current ? "auto" : "low").then(
         (feed) => {
           const newer = feed.generatedAt !== generatedAtRef.current;
           if (newer || partialRef.current) show(feed);
@@ -272,7 +282,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     quietRef.current?.abort();
     const controller = new AbortController();
     quietRef.current = controller;
-    loadFeed(controller.signal).then(
+    loadFeed(controller.signal, "low").then(
       (feed) => {
         if (feed.generatedAt === generatedAtRef.current) return; // No new build since the last look.
         const known = new Set([...resultsRef.current.values()].flatMap((r) => r.items.map((it) => it.link)));
@@ -354,9 +364,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const isNew = useCallback((it: NewsItem) => !!lastVisit && (itemTime(it) ?? "") > lastVisit, [lastVisit]);
   const newCount = useMemo(() => allItems.filter(isNew).length, [allItems, isNew]);
 
+  // The search filters behind the typing: the box keeps up while the results catch up.
+  const searchQuery = useDeferredValue(query);
+
   // Everything except the category filter, so the chips can show counts.
   const matching = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     return allItems.filter(
       (it) =>
         (lang === "all" || it.lang === lang) &&
@@ -364,13 +377,18 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         (!onlyNew || isNew(it)) &&
         (!q || it.title.toLowerCase().includes(q)),
     );
-  }, [allItems, lang, onlySource, onlyNew, isNew, query]);
+  }, [allItems, lang, onlySource, onlyNew, isNew, searchQuery]);
 
+  // While only the seed is here, the unfiltered counts come with it, so the tabs don't widen when the
+  // whole feed arrives.
+  const unfiltered = !onlyNew && lang === "all" && !onlySource && !searchQuery.trim();
   const categoryCounts = useMemo(() => {
+    if (seedCounts && unfiltered) return new Map(Object.entries(seedCounts) as [Category, number][]);
     const counts = new Map<Category, number>();
     for (const it of matching) counts.set(it.category, (counts.get(it.category) ?? 0) + 1);
     return counts;
-  }, [matching]);
+  }, [matching, seedCounts, unfiltered]);
+  const matchingCount = useMemo(() => [...categoryCounts.values()].reduce((a, b) => a + b, 0), [categoryCounts]);
 
   const filtered = useMemo(
     () => (category ? matching.filter((it) => it.category === category) : matching),
@@ -415,7 +433,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     [view, storyItems, lang, now],
   );
   const stories = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     const matches = allStories.filter((st) =>
       st.items.some(
         (it) =>
@@ -427,12 +445,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     );
     const big = matches.filter((st) => st.outlets >= TOP_MIN_OUTLETS);
     return big.length ? big : matches;
-  }, [allStories, query, onlySource, category, onlyNew, isNew]);
+  }, [allStories, searchQuery, onlySource, category, onlyNew, isNew]);
 
   // Saved headlines go through the same filters, except "new".
   const { saved, savedLinks, toggleSaved } = useSaved();
   const savedMatching = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     return saved.filter(
       ({ item: it }) =>
         (lang === "all" || it.lang === lang) &&
@@ -440,11 +458,11 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         (!category || it.category === category) &&
         (!q || it.title.toLowerCase().includes(q)),
     );
-  }, [saved, lang, onlySource, category, query]);
+  }, [saved, lang, onlySource, category, searchQuery]);
 
   const okCount = statuses.filter((s) => s.ok).length;
   const failures = statuses.filter((s) => !s.ok);
-  const filtering = !!query.trim() || !!category || onlyNew;
+  const filtering = !!searchQuery.trim() || !!category || onlyNew;
 
   // Filters that live in the sheet on phones; shown as removable pills so they are never hidden state.
   const activeFilters = [
@@ -467,19 +485,23 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   };
 
   /** Saves a card's open/closed state, and its lead headline so later ones can be marked new. */
-  const setCollapsed = (ids: string[], collapsed: boolean) =>
-    updateCardPrefs((p) => {
-      for (const id of ids) {
-        p.collapsed[id] = collapsed;
-        const lead = itemsBySource.get(id)?.[0]?.link;
-        if (lead) p.seen[id] = lead;
-      }
-    });
+  const setCollapsed = useCallback(
+    (ids: string[], collapsed: boolean) =>
+      updateCardPrefs((p) => {
+        for (const id of ids) {
+          p.collapsed[id] = collapsed;
+          const lead = itemsBySource.get(id)?.[0]?.link;
+          if (lead) p.seen[id] = lead;
+        }
+      }),
+    [updateCardPrefs, itemsBySource],
+  );
+  const toggleCard = useCallback((id: string, collapsed: boolean) => setCollapsed([id], collapsed), [setCollapsed]);
 
   // Labels follow the language filter: Bangla names when only Bangla sources are shown.
   const bn = lang === "bn";
   const categoryTabs = [
-    { id: "", label: bn ? "সব" : "All", href: "/", count: matching.length },
+    { id: "", label: bn ? "সব" : "All", href: "/", count: matchingCount },
     ...CATEGORIES.map((c) => ({
       id: c.id,
       label: bn ? c.bn : c.label,
@@ -575,7 +597,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   );
 
   return (
-    <LogoUrls value={logos}>
+    <Logos value={logos}>
       <div className="min-h-dvh pb-28 md:pb-16">
         {/* Fetch progress */}
         <div className="fixed inset-x-0 top-0 z-40 h-0.5" aria-hidden>
@@ -846,7 +868,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
           {hasData && view === "latest" && (
             <LatestList
-              key={filtersToSearch({ view, lang, source: onlySource, category, query, order }) + onlyNew}
+              key={filtersToSearch({ view, lang, source: onlySource, category, query: searchQuery, order }) + onlyNew}
               items={filtered}
               sourceById={sourceById}
               now={now}
@@ -881,7 +903,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                   collapsible={isPhone}
                   savedCollapsed={cardPrefs.collapsed[s.id]}
                   seenLead={cardPrefs.seen[s.id]}
-                  onToggle={(collapsed) => setCollapsed([s.id], collapsed)}
+                  onToggle={toggleCard}
                   isNew={isNew}
                   savedLinks={savedLinks}
                   onToggleSave={toggleSaved}
@@ -1019,7 +1041,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
           </dl>
         </Sheet>
       </div>
-    </LogoUrls>
+    </Logos>
   );
 }
 

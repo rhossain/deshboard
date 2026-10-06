@@ -5,11 +5,11 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { CATEGORIES } from "@/lib/categories";
 import { articleUrl, linkKey } from "@/lib/share";
 import { findStories } from "@/lib/stories";
-import type { NewsItem, NewsSource } from "@/lib/types";
+import type { NewsFeed, NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { Logo } from "./Logo";
 import { loadFeed } from "./NewsBoard";
-import { LogoUrls, SourceLogo } from "./SourceCard";
+import { Logos, SourceLogo } from "./SourceCard";
 import { ArrowUpRightIcon } from "./ui";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
@@ -22,7 +22,7 @@ interface Shared {
   source: NewsSource;
   /** The same story from other outlets. */
   related: NewsItem[];
-  logos: Record<string, string>;
+  logos: Pick<NewsFeed, "logos" | "logoShapes">;
   now: number;
 }
 
@@ -56,7 +56,7 @@ export function SharedHeadline() {
         const story = findStories(items).find((st) => st.items.some((it) => it.link === item.link));
         const related = story?.items.filter((it) => it.link !== item.link) ?? [];
         document.title = `${item.title} · ${found.source.name}`;
-        setShared({ item, source: found.source, related, logos: feed.logos, now: Date.now() });
+        setShared({ item, source: found.source, related, logos: { logos: feed.logos, logoShapes: feed.logoShapes }, now: Date.now() });
       },
       () => {
         if (!controller.signal.aborted) window.location.replace(found.url.href);
@@ -75,9 +75,9 @@ export function SharedHeadline() {
 
       <main className="mt-8 flex-1">
         {shared ? (
-          <LogoUrls value={shared.logos}>
+          <Logos value={shared.logos}>
             <Headline shared={shared} />
-          </LogoUrls>
+          </Logos>
         ) : isShare || pathname === null ? (
           <div className="h-64 animate-pulse rounded-3xl border border-line bg-surface shadow-card" aria-busy />
         ) : (
