@@ -153,8 +153,8 @@ export function LatestList({
       )}
       {!more && undated > 0 && (
         <p className="px-1 pt-6 text-center text-xs leading-relaxed text-muted">
-          {formatCount(undated)} headlines from homepage-scraped sources have no time yet — find them in “By
-          source”. New ones are timed from when they first appear on the homepage.
+          {formatCount(undated)} headlines from homepage-scraped sources have no time yet — find them in
+          “Newsstand”. New ones are timed from when they first appear on the homepage.
         </p>
       )}
     </section>

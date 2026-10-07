@@ -63,7 +63,7 @@ const NOTICE_MS = 6000;
 const TOP_MIN_OUTLETS = 3;
 
 const VIEW_OPTIONS: { value: View; label: string }[] = [
-  { value: "sources", label: "By source" },
+  { value: "sources", label: "Newsstand" },
   { value: "top", label: "Top stories" },
   { value: "latest", label: "Latest" },
   { value: "saved", label: "Saved" },
@@ -83,7 +83,7 @@ const SHORTCUTS: [string, string][] = [
   ["j / k", "Next / previous headline"],
   ["Enter", "Open the headline"],
   ["s", "Save or unsave the headline"],
-  ["1 – 5", "By source, Top stories, Latest, Saved, Videos"],
+  ["1 – 5", "Newsstand, Top stories, Latest, Saved, Videos"],
   ["r", "Refresh"],
   ["Esc", "Clear the search, close a panel"],
   ["?", "Show these shortcuts"],
@@ -1059,7 +1059,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
           aria-label="View"
         >
           <div className="mx-auto grid h-16 max-w-md grid-cols-6">
-            <NavButton active={view === "sources"} onClick={() => changeView("sources")} label="Sources">
+            <NavButton active={view === "sources"} onClick={() => changeView("sources")} label="News">
               <GridIcon />
             </NavButton>
             <NavButton active={view === "top"} onClick={() => changeView("top")} label="Top">
