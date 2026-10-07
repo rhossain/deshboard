@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  startTransition,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -238,13 +239,17 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const isPhone = useIsPhone();
   const [cardPrefs, updateCardPrefs] = useCardPrefs();
 
+  // A transition: React draws the thousands of headlines in short slices, between which the page
+  // stays responsive, instead of in one long task.
   const show = useCallback((feed: NewsFeed) => {
-    setResults(byId(feed));
-    setLogos({ logos: feed.logos, logoShapes: feed.logoShapes });
-    setSeedCounts(undefined);
-    setSeedTotals(undefined);
-    setGeneratedAt(feed.generatedAt);
-    setNow(Date.now());
+    startTransition(() => {
+      setResults(byId(feed));
+      setLogos({ logos: feed.logos, logoShapes: feed.logoShapes });
+      setSeedCounts(undefined);
+      setSeedTotals(undefined);
+      setGeneratedAt(feed.generatedAt);
+      setNow(Date.now());
+    });
   }, []);
 
   /**
