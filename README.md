@@ -18,7 +18,7 @@ articles is read from Google News instead (`site:` search, Bangladesh edition fo
 ones; only items whose publisher is the site itself). Google's links are opaque ids, so each is turned into the
 article's real address (two requests to news.google.com) before it is shown: sections, sharing and duplicate checks
 then work as for any other source. Addresses are kept in memory and in `.data/google-news-links.json` for three days,
-and looked up within a budget (180 per ten minutes, at most 10 per source per fetch, newest first; a pause if Google
+and looked up within a budget (300 per ten minutes, at most 10 per source per fetch, newest first; a pause if Google
 answers 429), so a card fills over a few refreshes (up to 30 headlines) and later ones only look up what's new. Cards
 say "via Google News"; `/health` lists these sources separately with the site's own error and how long it has failed.
 Daily Sun is the exception: Google lists its articles days late, so it stays failing.
