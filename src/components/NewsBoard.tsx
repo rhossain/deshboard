@@ -202,7 +202,6 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const [onlySource, setOnlySource] = useState<string>(initial.source);
   const [category, setCategory] = useState<Category | "">(initial.category);
   const [onlyNew, setOnlyNew] = useState(false);
-  const [showFailures, setShowFailures] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [sharing, setSharing] = useState<NewsItem | null>(null);
@@ -452,8 +451,10 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     );
   }, [saved, lang, onlySource, category, searchQuery]);
 
-  const okCount = statuses.filter((s) => s.ok).length;
-  const failures = statuses.filter((s) => !s.ok);
+  // Single sources failing are explained on their cards (and on /health); half or more failing at once
+  // is an outage worth saying at the top. Judged once every source has reported.
+  const failedCount = statuses.filter((s) => !s.ok).length;
+  const outage = !loading && statuses.length >= fetchedCount && failedCount * 2 >= fetchedCount;
   const filtering = !!searchQuery.trim() || !!category || onlyNew;
 
   // Filters that live in the sheet on phones; shown as removable pills so they are never hidden state.
@@ -652,12 +653,6 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
             </span>
             {hasData && (
               <>
-                <span className="whitespace-nowrap">
-                  <b className="font-semibold tabular-nums text-foreground">
-                    {okCount}/{fetchedCount}
-                  </b>{" "}
-                  sources
-                </span>
                 {newCount > 0 && (
                   <button
                     type="button"
@@ -673,42 +668,18 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                     {onlyNew && <CloseIcon className="h-3 w-3" />}
                   </button>
                 )}
-                {failures.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowFailures((v) => !v)}
-                    aria-expanded={showFailures}
-                    className="inline-flex items-center gap-0.5 rounded-full bg-danger-soft px-2.5 py-0.5 text-xs font-semibold text-danger"
-                  >
-                    {failures.length} failed
-                    <ChevronIcon className={`h-3.5 w-3.5 transition ${showFailures ? "rotate-180" : ""}`} />
-                  </button>
-                )}
               </>
             )}
           </div>
 
-          {showFailures && failures.length > 0 && (
-            <ul className="mt-3 grid gap-2 rounded-2xl border border-line bg-surface p-4 text-xs shadow-card sm:grid-cols-2">
-              {failures.map((f) => {
-                const source = sourceById.get(f.sourceId);
-                const problem = source && sourceProblem(source, f);
-                return (
-                  <li key={f.sourceId} className="leading-relaxed">
-                    <span className="font-semibold">{f.sourceName}</span>
-                    <span className="text-muted" title={f.error}>
-                      {" "}
-                      — {problem?.message ?? f.error}
-                    </span>
-                  </li>
-                );
-              })}
-              <li className="sm:col-span-2">
-                <a href="/health" className="font-semibold text-accent hover:underline">
-                  Source health: every source&rsquo;s status and history →
-                </a>
-              </li>
-            </ul>
+          {outage && (
+            <p role="status" className="mt-3 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+              Many news sites couldn&rsquo;t be reached on the last update ({formatCount(failedCount)} of{" "}
+              {formatCount(fetchedCount)}), so headlines may be missing until the next one.{" "}
+              <a href="/health" className="font-semibold underline">
+                Source health
+              </a>
+            </p>
           )}
         </header>
 
