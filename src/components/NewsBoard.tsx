@@ -29,11 +29,10 @@ import { Logo } from "./Logo";
 import { useSaved, useSavedVideos } from "./saved";
 import { SavedList } from "./SavedList";
 import { AUTO_REFRESH_MS } from "./schedule";
-import { type Shareable, ShareOptions, shareUrl } from "./ShareOptions";
+import { type Shareable, ShareOptions, shareUrl, videoShareUrl } from "./ShareOptions";
 import { LogoShapes, SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
-import { watchUrl } from "./VideoCard";
 import { cachedVideos, loadVideoBoard, prefetchVideos } from "./videos";
 import { VideoSkeleton } from "./VideoSkeleton";
 import { dhakaDate, formatCount, fullTime, timeAgo } from "./time";
@@ -541,7 +540,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   );
   const shareVideo = useCallback(
     (video: Video, channelName: string) =>
-      share({ title: video.title, url: watchUrl(video.id), sourceName: channelName, video: true }),
+      share({ title: video.title, url: videoShareUrl(video.id), sourceName: channelName, video: true }),
     [share],
   );
 

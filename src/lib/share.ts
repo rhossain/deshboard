@@ -8,6 +8,19 @@ export function sharePath(link: string): string {
   return `/s/${link.replace(/^https?:\/\//, "")}`;
 }
 
+/** Shared videos use YouTube's short link in the same form: `/s/youtu.be/<video id>`. */
+const VIDEO_HOST = "youtu.be";
+const VIDEO_ID = /^[\w-]{11}$/;
+
+export function videoSharePath(id: string): string {
+  return `/s/${VIDEO_HOST}/${id}`;
+}
+
+/** The YouTube video ID in a share path's segments, or null if it isn't a video's. */
+export function sharedVideoId(segments: string[]): string | null {
+  return segments.length === 2 && segments[0] === VIDEO_HOST && VIDEO_ID.test(segments[1]) ? segments[1] : null;
+}
+
 export interface ShareTarget {
   id: string;
   label: string;
