@@ -3,13 +3,13 @@
 import { memo, useEffect, useRef } from "react";
 import type { Video } from "@/lib/types";
 import { compactCount, fullTime, timeAgo } from "./time";
-import { ArrowUpRightIcon, CloseIcon, ItemMenu } from "./ui";
+import { ArrowUpRightIcon, CloseIcon, ItemMenu, StarIcon } from "./ui";
 import { thumb, watchUrl } from "./youtube";
 
 /**
  * One video: a row (thumbnail beside the title) on phones, a card in a grid on larger screens. A
  * plain click plays it here; modified clicks open YouTube as links do. The ⋮ menu beside the title
- * shares or saves it, as for headlines.
+ * shares or saves it, as for headlines, and pins its channel when `onTogglePin` is given.
  */
 export const VideoCard = memo(function VideoCard({
   video,
@@ -20,6 +20,8 @@ export const VideoCard = memo(function VideoCard({
   onPlay,
   onToggleSave,
   onShare,
+  pinned = false,
+  onTogglePin,
 }: {
   video: Video;
   channelName: string;
@@ -29,6 +31,9 @@ export const VideoCard = memo(function VideoCard({
   onPlay: (video: Video) => void;
   onToggleSave: (video: Video, channelName: string) => void;
   onShare: (video: Video, channelName: string) => void;
+  /** The video's channel is one of the reader's own (see pinned.ts). */
+  pinned?: boolean;
+  onTogglePin?: (channelId: string) => void;
 }) {
   const href = watchUrl(video.id);
   const open = (e: React.MouseEvent) => {
@@ -94,6 +99,13 @@ export const VideoCard = memo(function VideoCard({
           saved={saved}
           onToggleSave={() => onToggleSave(video, channelName)}
           onShare={() => onShare(video, channelName)}
+          extra={
+            onTogglePin && {
+              label: pinned ? `Unpin ${channelName}` : `Pin ${channelName}`,
+              icon: <StarIcon filled={pinned} className={`h-[18px] w-[18px] ${pinned ? "text-gold" : "text-muted"}`} />,
+              onSelect: () => onTogglePin(video.channel),
+            }
+          }
           className="-mr-2"
         />
       </div>
