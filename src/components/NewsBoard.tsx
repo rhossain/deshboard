@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { type Filters, filtersToSearch, type LangFilter, type Order, type View } from "@/lib/filters";
 import { sourceProblem } from "@/lib/problems";
@@ -205,7 +205,9 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
       force,
       controller.signal,
       (result) => {
-        setResults((prev) => new Map(prev).set(result.sourceId, result));
+        // A transition: React draws each source's headlines in short slices, between which the page
+        // stays responsive, instead of in one long task.
+        startTransition(() => setResults((prev) => new Map(prev).set(result.sourceId, result)));
         setReceived((n) => n + 1);
       },
       priority,
@@ -256,10 +258,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         if (fresh && !document.hidden) {
           setPending({ results: next, generatedAt: at, fresh });
         } else {
-          setResults(next);
-          setGeneratedAt(at);
-          setPending(null);
-          setNow(Date.now());
+          startTransition(() => {
+            setResults(next);
+            setGeneratedAt(at);
+            setPending(null);
+            setNow(Date.now());
+          });
         }
       },
       () => {}, // A failed background refresh changes nothing; the next one tries again.
@@ -268,10 +272,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
   const showPending = () => {
     if (!pending) return;
-    setResults(pending.results);
-    setGeneratedAt(pending.generatedAt);
-    setPending(null);
-    setNow(Date.now());
+    startTransition(() => {
+      setResults(pending.results);
+      setGeneratedAt(pending.generatedAt);
+      setPending(null);
+      setNow(Date.now());
+    });
     window.scrollTo({ top: 0 });
   };
 

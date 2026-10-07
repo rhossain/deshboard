@@ -82,7 +82,9 @@ export const SourceCard = memo(function SourceCard({
   return (
     <article
       ref={ref}
-      className={`flex flex-col overflow-hidden rounded-2xl border border-line bg-surface ${
+      // Cards off screen are skipped when the page is laid out and painted (most of them, on a page of
+      // fifty); the estimate holds their place until they are.
+      className={`flex flex-col overflow-hidden rounded-2xl border border-line bg-surface [contain-intrinsic-size:auto_560px] [content-visibility:auto] ${
         problem ? "" : "shadow-card"
       }`}
     >
