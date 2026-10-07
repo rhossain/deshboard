@@ -2,8 +2,11 @@ import type { Category } from "./categories";
 
 export type Lang = "bn" | "en";
 
-/** How a source is fetched. `unclear` and `unavailable` are kept for reference but not fetched. */
-export type Method = "rss" | "sitemap" | "html" | "unclear" | "unavailable";
+/**
+ * How a source is fetched. `google-news`: the site can't be read directly at all (see its notes), so
+ * its articles come from Google News. `unclear` and `unavailable` are kept for reference but not fetched.
+ */
+export type Method = "rss" | "sitemap" | "html" | "google-news" | "unclear" | "unavailable";
 
 export interface NewsSource {
   id: string;

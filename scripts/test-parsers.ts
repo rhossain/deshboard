@@ -11,6 +11,7 @@ import { cleanVideoTitle, parseYouTubeFeed } from "../src/lib/fetchers/youtube";
 import {
   articleSignature,
   googleNewsFeedUrl,
+  looksLikeArticle,
   parseGoogleNewsFeed,
   parseResolvedUrl,
   siteHost,
@@ -459,6 +460,30 @@ test("Google News feed: the site's own articles, without the publisher suffix", 
   assert.throws(() => parseGoogleNewsFeed("<!doctype html><html></html>", "kalbela.com"), /web page/);
 });
 
+test("Google News feed: pages that aren't articles are left out", () => {
+  const item = (id: string, title: string) =>
+    `<item><title>${title} - দৈনিক ইনকিলাব</title><link>https://news.google.com/rss/articles/${id}</link>
+     <pubDate>Wed, 07 Oct 2026 08:31:19 GMT</pubDate><source url="https://dailyinqilab.com">দৈনিক ইনকিলাব</source></item>`;
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel>
+    ${item("a", "Photo Card Details")}${item("b", "Photo Card Details")}${item("c", "Photo Card Details")}
+    ${item("d", "বাংলাদেশ")}
+    ${item("e", "আন্তর্জাতিক । দৈনিক ইনকিলাব")}
+    ${item("f", "রুফটপ সৌরবিদ্যুৎ প্রকল্পের আওতায় আসতে পারে সব মসজিদ")}
+    ${item("h", "আগামী বছর পাঠ্যক্রমে যুক্ত হবে নতুন ৪ বিষয় - দৈনিক ইনকিলাব")}
+    ${item("g", "রুফটপ সৌরবিদ্যুৎ প্রকল্পের আওতায় আসতে পারে সব মসজিদ")}
+  </channel></rss>`;
+  assert.deepEqual(
+    parseGoogleNewsFeed(xml, "dailyinqilab.com").map((e) => e.title),
+    ["রুফটপ সৌরবিদ্যুৎ প্রকল্পের আওতায় আসতে পারে সব মসজিদ", "আগামী বছর পাঠ্যক্রমে যুক্ত হবে নতুন ৪ বিষয়"],
+  );
+  assert.equal(looksLikeArticle("https://dailyinqilab.com/national/article/812345"), true);
+  assert.equal(looksLikeArticle("https://sangbad.net/news/19926/"), true);
+  assert.equal(looksLikeArticle("https://www.newagebd.net/post/country/279134"), true);
+  assert.equal(looksLikeArticle("https://www.bd-pratidin.com/national/2026/10/07/1182345"), true);
+  assert.equal(looksLikeArticle("https://dailyinqilab.com/"), false);
+  assert.equal(looksLikeArticle("https://dailyinqilab.com/national"), false);
+});
+
 test("Google News article addresses: the page's signature, then the lookup's answer", () => {
   assert.deepEqual(articleSignature('<c-wiz data-n-a-sg="AZ5r3e_sig" data-n-a-ts="1791360000">'), {
     signature: "AZ5r3e_sig",
@@ -476,6 +501,9 @@ test("Fallback note: why a source's headlines come from Google News", () => {
   const note = fallbackNote({ ...base, via: "google-news", directError: "HTTP 403" });
   assert.equal(note?.message, "via Google News");
   assert.match(note?.detail ?? "", /blocking automated access.*Google News instead/);
+  // A site read only through Google News: its notes say why.
+  const jsOnly = fallbackNote({ ...base, via: "google-news", directError: "No feed/sitemap; homepage JS-rendered" });
+  assert.match(jsOnly?.detail ?? "", /loads its headlines with JavaScript.*Google News instead/);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

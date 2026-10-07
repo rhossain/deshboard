@@ -1,5 +1,5 @@
 import { FetchError, fetchText } from "./fetchers/http";
-import { googleNewsFeedUrl, parseGoogleNewsFeed, resolveArticle, siteHost } from "./fetchers/google-news";
+import { googleNewsFeedUrl, looksLikeArticle, parseGoogleNewsFeed, resolveArticle, siteHost } from "./fetchers/google-news";
 import type { RawItem } from "./fetchers/rss";
 import { readStore, writeStoreSoon } from "./store";
 import type { NewsSource } from "./types";
@@ -19,9 +19,9 @@ const PER_SOURCE = 30;
 const LOOKUPS_PER_SOURCE = 10;
 /**
  * Address lookups in any ten minutes, across all sources: enough for every fallback source's first
- * fetch (some 22 sites × LOOKUPS_PER_SOURCE), so none is left empty while the cache fills.
+ * fetch (some 33 sites × LOOKUPS_PER_SOURCE), so none is left empty while the cache fills.
  */
-const BUDGET = 300;
+const BUDGET = 400;
 const BUDGET_WINDOW_MS = 10 * 60_000;
 /** Lookups running at once. */
 const CONCURRENCY = 3;
@@ -63,11 +63,14 @@ async function inSlot<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Looks up an article's address, keeping the answer; only addresses on the source's own site count. */
+/**
+ * Looks up an article's address, keeping the answer; only an article on the source's own site
+ * counts (not the homepage or a section page).
+ */
 async function lookUp(id: string, host: string): Promise<void> {
   try {
     const url = await inSlot(() => resolveArticle(id));
-    links[id] = siteHost(url) === host ? { url, at: Date.now() } : { at: Date.now() };
+    links[id] = siteHost(url) === host && looksLikeArticle(url) ? { url, at: Date.now() } : { at: Date.now() };
   } catch (err) {
     links[id] = { at: Date.now() };
     // Google is limiting us: stop looking up until the window is over.
@@ -100,7 +103,8 @@ export async function googleNewsFallback(source: NewsSource): Promise<{ items: R
 
   const items = entries.flatMap(({ id, title, publishedAt }) => {
     const link = links[id]?.url;
-    return link ? [{ title, link, publishedAt }] : [];
+    // (Checked again here for addresses kept from before the check existed.)
+    return link && looksLikeArticle(link) ? [{ title, link, publishedAt }] : [];
   });
   if (!items.length) throw new Error("Google News lists this site's headlines, but their addresses aren't known yet");
   return { items, url };

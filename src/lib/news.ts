@@ -77,6 +77,8 @@ async function fetchWithFallback(
   source: NewsSource,
 ): Promise<{ items: RawItem[]; url: string; via?: "google-news"; directError?: string }> {
   try {
+    // A site that can't be read at all goes straight to Google News; its notes say why.
+    if (source.method === "google-news") throw new Error(source.notes ?? "The site can't be read directly");
     return await fetchRaw(source);
   } catch (err) {
     const directError = message(err);

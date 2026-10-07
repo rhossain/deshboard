@@ -8,7 +8,7 @@ import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot } from "./ui
 
 const PER_CARD = 8;
 
-const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", html: "Web" };
+const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", html: "Web", "google-news": "Google News" };
 
 /**
  * One source's headlines. With `collapsible` (phones), tapping the header folds the card down to

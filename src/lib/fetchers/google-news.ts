@@ -31,9 +31,16 @@ export function googleNewsFeedUrl(homepage: string, lang: "bn" | "en"): string {
   return `https://news.google.com/rss/search?q=${encodeURIComponent(`site:${siteHost(homepage)} when:1d`)}&${edition}`;
 }
 
+/** Fewer words than this is a section's name ("জাতীয়"), not a headline. */
+const MIN_WORDS = 3;
+/** A title this many times in one feed is a page template ("Photo Card Details"), not an article. */
+const TEMPLATE_REPEATS = 3;
+
 /**
  * The feed's articles from `host` itself; a site search also turns up its e-paper and sister
  * sites, told apart by each item's <source url>. Titles lose the " - Publisher" Google appends.
+ * Google also lists pages that aren't articles; these are left out: section pages (named after
+ * the publisher, or a word or two), page templates (one title many times), and repeats.
  */
 export function parseGoogleNewsFeed(xml: string, host: string): GoogleNewsEntry[] {
   if (!looksLikeXml(xml)) throw new Error("Google News returned a web page instead of a feed");
@@ -53,10 +60,29 @@ export function parseGoogleNewsFeed(xml: string, host: string): GoogleNewsEntry[
     const id = /\/articles\/([^?/]+)/.exec(textOf(it.link))?.[1];
     const publisher = cleanTitle(source);
     let title = cleanTitle(it.title);
-    if (publisher && title.endsWith(` - ${publisher}`)) title = title.slice(0, -publisher.length - 3).trim();
-    if (id && title) entries.push({ id, title, publishedAt: parseDate(it.pubDate) });
+    // (Sometimes twice: "… - কালের কণ্ঠ - কালের কণ্ঠ".)
+    while (publisher && title.endsWith(` - ${publisher}`)) title = title.slice(0, -publisher.length - 3).trim();
+    if (!id || !title || (publisher && title.includes(publisher))) continue;
+    if (title.split(/\s+/).length < MIN_WORDS) continue;
+    entries.push({ id, title, publishedAt: parseDate(it.pubDate) });
   }
-  return entries;
+  const repeats = new Map<string, number>();
+  for (const { title } of entries) repeats.set(title, (repeats.get(title) ?? 0) + 1);
+  const seen = new Set<string>();
+  return entries.filter(({ title }) => {
+    if (repeats.get(title)! >= TEMPLATE_REPEATS || seen.has(title)) return false;
+    seen.add(title);
+    return true;
+  });
+}
+
+/**
+ * An article's address, not the site's homepage or a section's (`/national`): something past the
+ * first path segment, or a number in it.
+ */
+export function looksLikeArticle(url: string): boolean {
+  const segments = new URL(url).pathname.split("/").filter(Boolean);
+  return segments.length > 1 || /\d/.test(segments[0] ?? "");
 }
 
 /** The two values on an article's Google page that its address lookup needs. */
