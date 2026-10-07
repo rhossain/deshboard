@@ -67,6 +67,10 @@ export interface NewsFeed {
 export interface NewsSeed extends NewsFeed {
   /** Headlines per section in the whole feed, so the section tabs start out with their final counts. */
   counts: Partial<Record<Category, number>>;
+  /** The section the page is for, if any: `totals` count only its headlines. */
+  category?: Category;
+  /** Source id → its headlines in the whole feed, so each card starts out at its final size. */
+  totals: Record<string, number>;
 }
 
 /** A logo's pixel size, and whether it is light on a transparent background (made for a dark header). */

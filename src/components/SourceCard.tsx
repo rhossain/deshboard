@@ -29,6 +29,7 @@ export const SourceCard = memo(function SourceCard({
   savedLinks,
   onToggleSave,
   onShare,
+  total,
 }: {
   source: NewsSource;
   status?: SourceStatus;
@@ -46,6 +47,8 @@ export const SourceCard = memo(function SourceCard({
   savedLinks: Set<string>;
   onToggleSave: (item: NewsItem) => void;
   onShare: (item: NewsItem) => void;
+  /** Its headlines in the whole feed, while the page only has a few of them (see NewsSeed). */
+  total?: number;
 }) {
   const [showAll, setShowAll] = useState(false);
   const ref = useRef<HTMLElement>(null);
@@ -59,6 +62,9 @@ export const SourceCard = memo(function SourceCard({
   const collapsed = collapsible && foldsOnPhone;
   const phoneFolded = !collapsible && foldsOnPhone;
   const [lead, ...rest] = showAll ? items : items.slice(0, PER_CARD);
+  const count = total ?? items.length;
+  // Rows for the headlines still to come, so the card is already the size it will be.
+  const placeholders = showAll ? 0 : Math.max(0, Math.min(count, PER_CARD) - Math.min(items.length, PER_CARD));
   const hasNew = collapsed && !!lead && !!seenLead && seenLead !== lead.link;
 
   const toggle = () => {
@@ -112,7 +118,7 @@ export const SourceCard = memo(function SourceCard({
           )}
           {!problem && !pending && items.length > 0 && (
             <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold tabular-nums text-accent">
-              {items.length}
+              {count}
             </span>
           )}
           {/* Shown at phone widths even before the board knows it's on a phone (see phoneFolded). */}
@@ -185,15 +191,26 @@ export const SourceCard = memo(function SourceCard({
               ))}
             </ul>
           )}
-          {status?.ok && items.length === 0 && <p className="px-4 pb-6 text-sm text-muted">No headlines.</p>}
-          {items.length > PER_CARD && (
+          {placeholders > 0 && (
+            <ul className="border-t border-line" aria-hidden>
+              {Array.from({ length: placeholders }, (_, i) => (
+                <li key={i} className="space-y-2 border-b border-line px-4 py-3 last:border-b-0">
+                  <div className="skeleton h-3.5 rounded-full" />
+                  <div className="skeleton h-3.5 w-3/5 rounded-full" />
+                  <div className="skeleton h-2.5 w-16 rounded-full" />
+                </li>
+              ))}
+            </ul>
+          )}
+          {status?.ok && count === 0 && <p className="px-4 pb-6 text-sm text-muted">No headlines.</p>}
+          {count > PER_CARD && (
             <button
               type="button"
               onClick={() => setShowAll((v) => !v)}
               aria-expanded={showAll}
               className="flex min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2"
             >
-              {showAll ? "Show less" : `Show all ${items.length}`}
+              {showAll ? "Show less" : `Show all ${count}`}
               <ChevronIcon className={`h-4 w-4 transition ${showAll ? "rotate-180" : ""}`} />
             </button>
           )}

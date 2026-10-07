@@ -116,6 +116,26 @@ const dhakaDate = new Intl.DateTimeFormat("en-GB", {
 });
 
 /**
+ * Runs `fn` once the page has loaded and the browser is idle (at most `timeout` ms after loading).
+ * Returns a function that cancels it.
+ */
+function whenSettled(fn: () => void, timeout = 2000): () => void {
+  let idle: number | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const wait = () => {
+    if (typeof requestIdleCallback === "function") idle = requestIdleCallback(fn, { timeout });
+    else timer = setTimeout(fn, 200);
+  };
+  if (document.readyState === "complete") wait();
+  else window.addEventListener("load", wait, { once: true });
+  return () => {
+    window.removeEventListener("load", wait);
+    if (idle !== undefined) cancelIdleCallback(idle);
+    clearTimeout(timer);
+  };
+}
+
+/**
  * The headlines collected by the last build (`npm run fetch`), as a static file next to the page.
  * `priority: "low"` when the page already shows headlines, so it doesn't hold up the logos and fonts.
  */
@@ -188,8 +208,9 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const [loading, setLoading] = useState(!seed);
   // The seed is only part of its build's feed, so the first load replaces it even from the same build.
   const partialRef = useRef(!!seed);
-  // The whole feed's section counts, from the seed, until the whole feed is here.
+  // The whole feed's section and card counts, from the seed, until the whole feed is here.
   const [seedCounts, setSeedCounts] = useState(seed?.counts);
+  const [seedTotals, setSeedTotals] = useState(seed?.totals);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>(initial.view);
   const [order, setOrder] = useState<Order>(initial.order);
@@ -221,6 +242,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     setResults(byId(feed));
     setLogos({ logos: feed.logos, logoShapes: feed.logoShapes });
     setSeedCounts(undefined);
+    setSeedTotals(undefined);
     setGeneratedAt(feed.generatedAt);
     setNow(Date.now());
   }, []);
@@ -305,16 +327,21 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     window.scrollTo({ top: 0 });
   };
 
+  // Behind the prerendered headlines, the whole feed waits until the page has loaded and the browser
+  // is idle, so reading and drawing it never holds up the first frames.
+  const seeded = !!seed;
   useEffect(() => {
-    start();
+    // (Unless Refresh got there first.)
+    const cancel = seeded ? whenSettled(() => controllerRef.current || start()) : (start(), undefined);
     const tick = setInterval(() => setNow(Date.now()), 60_000);
     return () => {
+      cancel?.();
       controllerRef.current?.abort();
       quietRef.current?.abort();
       clearInterval(tick);
       clearTimeout(noticeTimer.current);
     };
-  }, [start]);
+  }, [start, seeded]);
 
   // Look for the next build when it should have landed, then every minute until it has. Browsers
   // pause timers in background tabs, so also look when the page comes back into view or online.
@@ -331,7 +358,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     const checkIfDue = () => {
       if (!document.hidden && Date.now() >= due) check();
     };
-    timer = setTimeout(check, Math.max(due - Date.now(), 0));
+    // Not before a minute has passed: when the page is already overdue, its first load just looked.
+    timer = setTimeout(check, Math.max(due - Date.now(), RETRY_MS));
     document.addEventListener("visibilitychange", checkIfDue);
     window.addEventListener("online", checkIfDue);
     return () => {
@@ -388,6 +416,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     for (const it of matching) counts.set(it.category, (counts.get(it.category) ?? 0) + 1);
     return counts;
   }, [matching, seedCounts, unfiltered]);
+  // Each card's final size while only the seed is here (it was counted with the default filters).
+  const cardTotals = seedTotals && unfiltered && (category || undefined) === seed?.category ? seedTotals : undefined;
   const matchingCount = useMemo(() => [...categoryCounts.values()].reduce((a, b) => a + b, 0), [categoryCounts]);
 
   const filtered = useMemo(
@@ -909,6 +939,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                   savedLinks={savedLinks}
                   onToggleSave={toggleSaved}
                   onShare={shareItem}
+                  total={cardTotals && (cardTotals[s.id] ?? 0)}
                 />
               ))}
             </div>
