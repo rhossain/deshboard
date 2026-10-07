@@ -140,6 +140,9 @@ The headlines are as fresh as the last run. For a one-off manual upload instead,
 
 ## Features
 
+- **Sections** — News, Videos and Saved. News has three views, switched at the top of the page: Newsstand (a card
+  per outlet), Top stories and Latest; it reopens on the last one used. On phones the bottom bar is News · Videos ·
+  Saved · Filters.
 - **Top stories** — headlines are reduced to weighted keywords (Bangla suffixes stripped, rare words count more) and
   linked when two outlets share most of them; the stories covered by the most outlets rank first. Runs in the browser.
 - **New since your last visit** — headlines newer than the end of the reader's previous visit get a gold dot, with a
@@ -149,7 +152,7 @@ The headlines are as fresh as the last run. For a one-off manual upload instead,
 - **Saved** — the bookmark beside each headline keeps it on this device (whole item, so it outlives the feed).
 - **Quiet auto-refresh** — every 10 minutes the board checks for a newer build; new headlines wait behind a
   "N new headlines" button instead of moving the page (applied at once if nothing is new or the tab is hidden).
-- **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`4` views, `r` refresh, `?` help.
+- **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`5` Newsstand, Top stories, Latest, Videos, Saved, `r` refresh, `?` help.
 - **Share image** — `src/app/opengraph-image.tsx`, rendered at build time with the site's fonts.
 - **Share links** — `/s/<article address>` shows the headline with a button to the article, looked up in the browser
   (`src/components/SharedHeadline.tsx`); once it has left the board the link goes straight to the article. Links
