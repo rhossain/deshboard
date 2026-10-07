@@ -1,7 +1,7 @@
 import type { Category } from "./categories";
 import { dedupeByLink } from "./fetchers/utils";
 import { cachedLogoShapes } from "./logos";
-import { cachedResult } from "./news";
+import { cachedResult, forBoard } from "./news";
 import { seedResults } from "./site";
 import { ACTIVE_SOURCES } from "./sources";
 
@@ -11,7 +11,11 @@ import { ACTIVE_SOURCES } from "./sources";
  * fetches; undefined while nothing is cached yet.
  */
 export function cachedSeed(category?: Category) {
-  const results = ACTIVE_SOURCES.flatMap((s) => cachedResult(s.id) ?? []);
+  // The board's share of each source's cache, so the counts match what it will load.
+  const results = ACTIVE_SOURCES.flatMap((s) => {
+    const result = cachedResult(s.id);
+    return result ? [forBoard(result)] : [];
+  });
   if (!results.length) return undefined;
   // Counted as the board counts them: every headline once, however many outlets list it.
   const counts: Partial<Record<Category, number>> = {};

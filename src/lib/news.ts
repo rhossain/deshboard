@@ -18,9 +18,14 @@ const TTL_MS = Number(process.env.NEWS_CACHE_SECONDS ?? 600) * 1000;
 const ERROR_TTL_MS = 60_000;
 const CONCURRENCY = 8;
 /** Headlines older than this drop off (as long as first-seen.ts remembers a link). */
-const MAX_AGE_MS = 72 * 3600_000;
-/** And each source keeps at most this many, newest first. */
-const PER_SOURCE = 150;
+export const MAX_AGE_MS = 72 * 3600_000;
+/**
+ * The board gets each source's newest this many: a day or more for all but the busiest outlets.
+ * The rest of the 72 hours stays in the cache for shared links.
+ */
+const PER_SOURCE = 300;
+/** A safety limit on what is kept, should a sitemap start listing thousands of links. */
+const MAX_KEPT = 3000;
 
 type CacheEntry = { at: number; result: SourceResult };
 const CACHE_STORE = "news-cache";
@@ -84,7 +89,12 @@ export function mergeNews(fresh: NewsItem[], kept: NewsItem[], now = Date.now())
   // dedupeByLink keeps the first of each link, so this fetch's title and section win.
   return dedupeByLink([...fresh.filter((it) => !itemTime(it) || recent(it)), ...kept.filter(recent)])
     .sort((a, b) => newestFirst(itemTime(a), itemTime(b)))
-    .slice(0, PER_SOURCE);
+    .slice(0, MAX_KEPT);
+}
+
+/** A source's result as the board gets it: only its newest PER_SOURCE headlines. */
+export function forBoard<T extends SourceResult>(result: T): T {
+  return result.items.length > PER_SOURCE ? { ...result, items: result.items.slice(0, PER_SOURCE) } : result;
 }
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -167,7 +177,10 @@ async function load(source: NewsSource): Promise<SourceResult> {
   }
 }
 
-/** The cached result for a source, without fetching (undefined if it was never fetched). */
+/**
+ * The cached result for a source, without fetching (undefined if it was never fetched): all of its
+ * last 72 hours; forBoard trims it for the board.
+ */
 export function cachedResult(sourceId: string): (SourceResult & { cachedAt: number }) | undefined {
   const hit = cache.get(sourceId);
   return hit && { ...hit.result, cachedAt: hit.at };
@@ -235,7 +248,7 @@ function selectSources({ lang, sourceIds }: NewsQuery): NewsSource[] {
 /** Fetch every active source (or a subset) in parallel. */
 export async function getNews(query: NewsQuery = {}) {
   const results = await mapLimit(selectSources(query), CONCURRENCY, (s) => getSourceNews(s, query.force));
-  const items = results.flatMap((r) => r.items);
+  const items = results.flatMap((r) => forBoard(r).items);
   const statuses = results.map((r) => {
     const { items: _omit, ...status } = r; // eslint-disable-line @typescript-eslint/no-unused-vars
     return status;
@@ -247,7 +260,7 @@ export async function getNews(query: NewsQuery = {}) {
 export async function eachSourceNews(query: NewsQuery, onResult: (result: SourceResult) => void): Promise<void> {
   await mapLimit(selectSources(query), CONCURRENCY, async (s) => {
     const result = await getSourceNews(s, query.force);
-    onResult(result);
+    onResult(forBoard(result));
   });
 }
 
