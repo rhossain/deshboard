@@ -72,6 +72,17 @@ export interface NewsFeed {
   logoShapes: Record<string, LogoShape>;
 }
 
+/**
+ * One Dhaka calendar day of headlines from the last 72 hours, every source's, newest first
+ * (public/data/days/<date>.json). The board only has each source's newest few hundred; these let a
+ * shared link to an older headline still show it.
+ */
+export interface NewsDay {
+  /** "2026-10-07" */
+  date: string;
+  items: NewsItem[];
+}
+
 /** The feed as prerendered into a page: a few headlines per source (see seedResults). */
 export interface NewsSeed extends NewsFeed {
   /** Headlines per section in the whole feed, so the section tabs start out with their final counts. */

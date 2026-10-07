@@ -3,6 +3,7 @@
  *
  * Fetches every active source and each outlet's logo, then writes what the static site serves:
  *   public/data/news.json   the board's headlines (see NewsFeed)
+ *   public/data/days/<date>.json every headline of the last 72 hours, by day (see NewsDay)
  *   public/data/videos.json the Videos view: TV channels' latest YouTube videos (see VideoFeed)
  *   public/logos/<id>.<ext> logos, resized for the cards (see prepareLogo)
  * and updates `.data/` (first-seen times, source health, which `next build` reads for /health, and
@@ -13,11 +14,13 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { getLogo, prepareLogo } from "../src/lib/logos";
-import { getNews } from "../src/lib/news";
+import { dhakaDay } from "../src/components/time";
+import { cachedResult, getNews } from "../src/lib/news";
 import { getVideos } from "../src/lib/videos";
-import { SOURCES } from "../src/lib/sources";
+import { ACTIVE_SOURCES, SOURCES } from "../src/lib/sources";
+import { itemTime, newestFirst } from "../src/lib/stories";
 import { flushStores } from "../src/lib/store";
-import type { LogoShape, NewsFeed, SourceResult } from "../src/lib/types";
+import type { LogoShape, NewsDay, NewsFeed, NewsItem, SourceResult } from "../src/lib/types";
 
 const PUBLIC = path.join(process.cwd(), "public");
 /** The logos as the outlets publish them. */
@@ -90,6 +93,32 @@ async function publishLogos(originals: Record<string, string>): Promise<Pick<New
   return { logos, logoShapes };
 }
 
+/**
+ * Writes every source's cached headlines (all of the last 72 hours, not just the board's share) as
+ * one file per Dhaka day, replacing the last run's. Undated headlines are left out: they are on the
+ * board while they are on their homepage. Returns how many days were written.
+ */
+function writeDays(): number {
+  const days = new Map<string, NewsItem[]>();
+  for (const s of ACTIVE_SOURCES) {
+    for (const it of cachedResult(s.id)?.items ?? []) {
+      const time = itemTime(it);
+      if (!time) continue;
+      const day = dhakaDay(time);
+      if (!days.has(day)) days.set(day, []);
+      days.get(day)!.push(it);
+    }
+  }
+  const dir = path.join(PUBLIC, "data", "days");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  for (const [date, items] of days) {
+    const day: NewsDay = { date, items: items.sort((a, b) => newestFirst(itemTime(a), itemTime(b))) };
+    writeFileSync(path.join(dir, `${date}.json`), JSON.stringify(day));
+  }
+  return days.size;
+}
+
 async function main() {
   const started = Date.now();
   const [news, originals, videos] = await Promise.all([getNews({ force: true }), updateLogos(), getVideos()]);
@@ -103,12 +132,13 @@ async function main() {
   mkdirSync(path.join(PUBLIC, "data"), { recursive: true });
   writeFileSync(path.join(PUBLIC, "data", "news.json"), JSON.stringify(feed));
   writeFileSync(path.join(PUBLIC, "data", "videos.json"), JSON.stringify(videos));
+  const days = writeDays();
   flushStores();
 
   const ok = news.statuses.filter((s) => s.ok).length;
   console.log(
     `${ok}/${news.statuses.length} sources OK, ${news.items.length} headlines, ` +
-      `${Object.keys(logos).length} logos, ` +
+      `${days} days of archive, ${Object.keys(logos).length} logos, ` +
       `${videos.channels.filter((c) => c.ok).length}/${videos.channels.length} channels with ${videos.videos.length} videos (${((Date.now() - started) / 1000).toFixed(1)} s)`,
   );
   for (const s of news.statuses.filter((s) => s.via)) {

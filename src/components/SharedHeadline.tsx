@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CATEGORIES } from "@/lib/categories";
 import { articleUrl, linkKey, sharedVideoId } from "@/lib/share";
-import { findStories } from "@/lib/stories";
-import type { NewsFeed, NewsItem, NewsSource, Video } from "@/lib/types";
+import { findStories, itemTime } from "@/lib/stories";
+import type { NewsDay, NewsFeed, NewsItem, NewsSource, Video } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { Logo } from "./Logo";
 import { loadFeed } from "./NewsBoard";
 import { SharedVideo } from "./SharedVideo";
+import { dhakaDay } from "./time";
 import { Logos, SourceLogo } from "./SourceCard";
 import { ArrowUpRightIcon } from "./ui";
 import { loadVideos } from "./videos";
@@ -17,6 +18,8 @@ import { watchUrl } from "./youtube";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 const RELATED_MAX = 6;
+/** Days of headlines kept besides the board (public/data/days): the last 72 hours span four. */
+const ARCHIVE_DAYS = 4;
 
 const noSubscribe = () => () => {};
 
@@ -38,10 +41,23 @@ interface SharedClip {
 /**
  * The page for a shared headline (`/s/<host>/<path>`, see sharePath) or video (`/s/youtu.be/<id>`,
  * see videoSharePath), and for any other unknown address. The site is static, so the headline or
- * video is looked up in the browser: links to an outlet on the board show the headline, or go
- * straight to the article once it has left the board; videos likewise go to YouTube once they have
- * left the Videos view; anything else goes to the board.
+ * video is looked up in the browser: links to an outlet on the board show the headline, from the
+ * board or, once it has left it, from the last 72 hours' day files; older ones go straight to the
+ * article. Videos likewise go to YouTube once they have left the Videos view; anything else goes
+ * to the board.
  */
+/** A headline that has left the board, with the rest of its day's; null if no day file has it. */
+async function findInDays(key: string, signal: AbortSignal): Promise<{ item: NewsItem; items: NewsItem[] } | null> {
+  for (let i = 0; i < ARCHIVE_DAYS; i++) {
+    const res = await fetch(`/data/days/${dhakaDay(Date.now() - i * 86_400_000)}.json`, { cache: "no-cache", signal });
+    if (!res.ok) continue;
+    const { items } = (await res.json()) as NewsDay;
+    const item = items.find((it) => linkKey(it.link) === key);
+    if (item) return { item, items };
+  }
+  return null;
+}
+
 export function SharedHeadline() {
   // null while prerendering: the page is the same file for every address.
   const pathname = useSyncExternalStore(noSubscribe, () => window.location.pathname, () => null);
@@ -74,22 +90,26 @@ export function SharedHeadline() {
       return;
     }
     const controller = new AbortController();
-    loadFeed(controller.signal).then(
-      (feed) => {
-        const items = feed.results.flatMap((r) => r.items);
+    loadFeed(controller.signal)
+      .then(async (feed) => {
         const key = linkKey(found.url.href);
-        const item = items.find((it) => linkKey(it.link) === key);
-        // The headline has left the board: the article itself is the best we can do.
-        if (!item) return window.location.replace(found.url.href);
-        const story = findStories(items).find((st) => st.items.some((it) => it.link === item.link));
+        const board = feed.results.flatMap((r) => r.items);
+        const onBoard = board.find((it) => linkKey(it.link) === key);
+        const hit = onBoard ? { item: onBoard, items: board } : await findInDays(key, controller.signal);
+        // Older than 72 hours: the article itself is the best we can do.
+        if (!hit) return window.location.replace(found.url.href);
+        const { item, items } = hit;
+        // An older headline's story as it stood around when it was published.
+        const time = itemTime(item);
+        const options = onBoard || !time ? {} : { now: Date.parse(time) + 12 * 3600_000 };
+        const story = findStories(items, options).find((st) => st.items.some((it) => it.link === item.link));
         const related = story?.items.filter((it) => it.link !== item.link) ?? [];
         document.title = `${item.title} · ${found.source.name}`;
         setShared({ item, source: found.source, related, logos: { logos: feed.logos, logoShapes: feed.logoShapes }, now: Date.now() });
-      },
-      () => {
+      })
+      .catch(() => {
         if (!controller.signal.aborted) window.location.replace(found.url.href);
-      },
-    );
+      });
     return () => controller.abort();
   }, [pathname]);
 

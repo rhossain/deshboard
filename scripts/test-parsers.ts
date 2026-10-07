@@ -21,11 +21,11 @@ import { cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from
 import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filters";
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
-import { mergeNews } from "../src/lib/news";
+import { forBoard, mergeNews } from "../src/lib/news";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
 import { articleUrl, linkKey, SHARE_TARGETS, sharedVideoId, sharePath, videoSharePath } from "../src/lib/share";
 import { findStories, keywords } from "../src/lib/stories";
-import type { NewsItem, NewsSource, SourceStatus, Video } from "../src/lib/types";
+import type { NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
 import { mergeVideos } from "../src/lib/videos";
 
 let passed = 0;
@@ -443,7 +443,7 @@ test("Videos build up across runs: the last day, at most 30 per channel", () => 
   assert.equal(mergeVideos(many, [], now)[0].id, "m0");
 });
 
-test("Headlines build up across runs: the last 72 hours, at most 150 per source", () => {
+test("Headlines build up across runs: the last 72 hours kept, the newest 300 on the board", () => {
   const now = Date.parse("2026-10-07T12:00:00Z");
   const at = (hoursAgo: number) => new Date(now - hoursAgo * 3600_000).toISOString();
   const it = (link: string, hoursAgo?: number, title = link, seen = false): NewsItem => ({
@@ -464,9 +464,20 @@ test("Headlines build up across runs: the last 72 hours, at most 150 per source"
     ["a:a", "b:new title", "d:d", "c:c", "e:e"],
   );
   assert.deepEqual(mergeNews([], kept, now).map((x) => x.title), ["old title", "d", "c"]);
-  const many = Array.from({ length: 200 }, (_, i) => it(`m${i}`, i / 10));
-  assert.equal(mergeNews(many, [], now).length, 150);
-  assert.equal(mergeNews(many, [], now)[0].title, "m0");
+  const many = mergeNews(Array.from({ length: 700 }, (_, i) => it(`m${i}`, i / 10)), [], now);
+  assert.equal(many.length, 700);
+  const result: SourceResult = {
+    sourceId: "x",
+    sourceName: "X",
+    method: "sitemap",
+    fetchedAt: new Date(now).toISOString(),
+    ok: true,
+    count: 700,
+    durationMs: 0,
+    items: many,
+  };
+  assert.deepEqual(forBoard(result).items, many.slice(0, 300));
+  assert.equal(forBoard({ ...result, items: many.slice(0, 5) }).items.length, 5);
 });
 
 test("Google News: one site's last day, in its language's edition", () => {
