@@ -4,7 +4,7 @@ import { createContext, memo, useContext, useRef, useState, type ReactNode } fro
 import { fallbackNote, sourceProblem } from "@/lib/problems";
 import type { NewsFeed, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot } from "./ui";
+import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot, StarIcon } from "./ui";
 
 const PER_CARD = 8;
 
@@ -30,6 +30,8 @@ export const SourceCard = memo(function SourceCard({
   onToggleSave,
   onShare,
   total,
+  pinned = false,
+  onTogglePin,
 }: {
   source: NewsSource;
   status?: SourceStatus;
@@ -49,6 +51,9 @@ export const SourceCard = memo(function SourceCard({
   onShare: (item: NewsItem) => void;
   /** Its headlines in the whole feed, while the page only has a few of them (see NewsSeed). */
   total?: number;
+  /** One of the reader's own sources (see pinned.ts), shown first. */
+  pinned?: boolean;
+  onTogglePin?: (sourceId: string) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const ref = useRef<HTMLElement>(null);
@@ -124,6 +129,20 @@ export const SourceCard = memo(function SourceCard({
           )}
         </div>
         <div className="pointer-events-none relative flex shrink-0 items-center gap-2">
+          {onTogglePin && (
+            <button
+              type="button"
+              onClick={() => onTogglePin(source.id)}
+              aria-pressed={pinned}
+              aria-label={pinned ? `Unpin ${source.name}` : `Pin ${source.name}: show it first`}
+              title={pinned ? "Pinned: shown first. Click to unpin." : "Pin: show this source first"}
+              className={`pointer-events-auto -my-2 flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-surface-2 active:scale-90 ${
+                pinned ? "text-gold" : "text-muted/60 hover:text-foreground"
+              }`}
+            >
+              <StarIcon filled={pinned} className="h-[18px] w-[18px]" />
+            </button>
+          )}
           {hasNew && (
             <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gold">
               New

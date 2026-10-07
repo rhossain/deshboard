@@ -1,13 +1,15 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, preconnect } from "react-dom";
 import type { Video, VideoFeed } from "@/lib/types";
 import { CategoryTabs } from "./CategoryTabs";
+import { MAX_PINS, pinRanks, togglePin, usePinnedChannels } from "./pinned";
+import { PinPicker } from "./PinPicker";
 import { AT_TOP_PX, PUBLISH_LAG_MS, RETRY_MS, UPDATE_EVERY_MS } from "./schedule";
 import { useSavedVideos } from "./saved";
 import { formatCount } from "./time";
-import { ChevronIcon } from "./ui";
+import { ChevronIcon, Sheet, StarIcon } from "./ui";
 import { Player, VideoCard } from "./VideoCard";
 import { cachedVideos, loadVideos } from "./videos";
 import { VideoSkeleton } from "./VideoSkeleton";
@@ -24,8 +26,9 @@ type Pending = { feed: VideoFeed; fresh: number };
 
 /**
  * The Videos view: TV channels' latest YouTube videos, newest first, with a channel rail in the
- * toolbar (`rail`). Loaded only when the reader opens it (see videos.ts). A video plays in a player
- * over the page; YouTube's own page is a middle-click or a link away.
+ * toolbar (`rail`). The reader's pinned channels come first (see pinned.ts). Loaded only when the
+ * reader opens it (see videos.ts). A video plays in a player over the page; YouTube's own page is a
+ * middle-click or a link away.
  */
 export default function VideoBoard({
   query,
@@ -47,6 +50,8 @@ export default function VideoBoard({
   const [playing, setPlaying] = useState<Video | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const { savedVideoIds, toggleSavedVideo } = useSavedVideos();
+  const [pins, updatePins] = usePinnedChannels();
+  const [pinsOpen, setPinsOpen] = useState(false);
   const feedRef = useRef(feed);
   useEffect(() => {
     feedRef.current = feed;
@@ -119,6 +124,21 @@ export default function VideoBoard({
   }, [newest, refreshQuietly]);
 
   const names = useMemo(() => new Map(feed?.channels.map((c) => [c.id, c.name])), [feed]);
+  // The reader's own channels and their places; empty while "Pinned first" is off.
+  const rank = useMemo(() => pinRanks(pins, new Set(names.keys())), [pins, names]);
+  const pinnedIds = useMemo(() => new Set(pins.ids), [pins]);
+
+  /** A video's "Pin channel". Pinning turns "Pinned first" back on; with no room left, the picker opens. */
+  const togglePinned = useCallback(
+    (id: string) => {
+      if (!pins.ids.includes(id) && pins.ids.length >= MAX_PINS) return setPinsOpen(true);
+      updatePins((p) => {
+        const next = togglePin(p, id);
+        return next.ids.includes(id) ? { ...next, off: false } : next;
+      });
+    },
+    [pins, updatePins],
+  );
   const q = query.trim().toLowerCase();
   const matching = useMemo(
     () => (q ? (feed?.videos ?? []).filter((v) => v.title.toLowerCase().includes(q)) : (feed?.videos ?? [])),
@@ -129,10 +149,16 @@ export default function VideoBoard({
     for (const v of matching) counts.set(v.channel, (counts.get(v.channel) ?? 0) + 1);
     return counts;
   }, [matching]);
-  const list = useMemo(() => (channel ? matching.filter((v) => v.channel === channel) : matching), [matching, channel]);
+  // With pinned channels (and no single channel picked), their videos come first, each part newest first.
+  const { list, mine } = useMemo(() => {
+    if (channel) return { list: matching.filter((v) => v.channel === channel), mine: 0 };
+    const pinned = matching.filter((v) => rank.has(v.channel));
+    if (!pinned.length || pinned.length === matching.length) return { list: matching, mine: 0 };
+    return { list: [...pinned, ...matching.filter((v) => !rank.has(v.channel))], mine: pinned.length };
+  }, [matching, channel, rank]);
 
-  // A new channel or search starts again from the first page.
-  const listKey = `${channel}\n${q}`;
+  // A new channel, search or set of pins starts again from the first page.
+  const listKey = `${channel}\n${q}\n${[...rank.keys()].join()}`;
   const [paging, setPaging] = useState({ key: listKey, shown: PAGE });
   const shown = paging.key === listKey ? paging.shown : PAGE;
   const more = shown < list.length;
@@ -174,7 +200,10 @@ export default function VideoBoard({
   const tabs = feed
     ? [
         { id: "", label: "All", href: "/?view=videos", count: matching.length },
-        ...feed.channels.map((c) => ({ id: c.id, label: c.name, href: "/?view=videos", count: counts.get(c.id) ?? 0 })),
+        // Pinned channels first in the rail too, in the reader's order.
+        ...[...feed.channels]
+          .sort((a, b) => (rank.get(a.id) ?? MAX_PINS) - (rank.get(b.id) ?? MAX_PINS))
+          .map((c) => ({ id: c.id, label: c.name, href: "/?view=videos", count: counts.get(c.id) ?? 0 })),
       ]
     : [];
 
@@ -207,22 +236,65 @@ export default function VideoBoard({
         </div>
       )}
 
+      {feed && (
+        <div className="mb-4 flex justify-end sm:mb-5">
+          <button
+            type="button"
+            onClick={() => setPinsOpen(true)}
+            className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition active:scale-[0.97] ${
+              pins.ids.length > 0
+                ? "border-accent/40 bg-accent-soft text-accent"
+                : "border-line bg-surface text-foreground hover:bg-surface-2"
+            }`}
+          >
+            <StarIcon filled={pins.ids.length > 0} className="h-4 w-4" />
+            My channels
+            {pins.ids.length > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold tabular-nums text-accent-ink">
+                {pins.ids.length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
       {feed && list.length > 0 && (
-        <ul className="grid gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-y-7 lg:grid-cols-3 xl:grid-cols-4">
-          {list.slice(0, shown).map((v, i) => (
-            <VideoCard
-              key={v.id}
-              video={v}
-              channelName={names.get(v.channel) ?? v.channel}
-              now={now}
-              eager={i < EAGER}
-              saved={savedVideoIds.has(v.id)}
-              onPlay={play}
-              onToggleSave={toggleSavedVideo}
-              onShare={onShare}
-            />
-          ))}
-        </ul>
+        <>
+          {/* With pinned channels on show, theirs and everyone else's are two grids, each with a heading. */}
+          {(mine ? [list.slice(0, Math.min(shown, mine)), list.slice(mine, shown)] : [list.slice(0, shown)]).map(
+            (part, p) =>
+              part.length > 0 && (
+                <Fragment key={p}>
+                  {mine > 0 && (
+                    <h2 className={`mb-3 flex items-center gap-2 px-1 font-display text-xl ${p ? "pt-10" : ""}`}>
+                      {p === 0 && <StarIcon filled className="h-[18px] w-[18px] text-gold" />}
+                      {p === 0 ? "From your channels" : "Everything else"}
+                      <span className="font-sans text-sm tabular-nums text-muted">
+                        {formatCount(p === 0 ? mine : list.length - mine)}
+                      </span>
+                    </h2>
+                  )}
+                  <ul className="grid gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-y-7 lg:grid-cols-3 xl:grid-cols-4">
+                    {part.map((v, i) => (
+                      <VideoCard
+                        key={v.id}
+                        video={v}
+                        channelName={names.get(v.channel) ?? v.channel}
+                        now={now}
+                        eager={p === 0 && i < EAGER}
+                        saved={savedVideoIds.has(v.id)}
+                        onPlay={play}
+                        onToggleSave={toggleSavedVideo}
+                        onShare={onShare}
+                        pinned={pinnedIds.has(v.channel)}
+                        onTogglePin={togglePinned}
+                      />
+                    ))}
+                  </ul>
+                </Fragment>
+              ),
+          )}
+        </>
       )}
       <div ref={sentinel} aria-hidden />
 
@@ -251,6 +323,15 @@ export default function VideoBoard({
           </button>
         </div>
       )}
+
+      <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title="My channels">
+        <PinPicker
+          noun="channel"
+          options={(feed?.channels ?? []).map((c) => ({ id: c.id, name: c.name }))}
+          pins={pins}
+          onChange={updatePins}
+        />
+      </Sheet>
 
       {playing && (
         <Player

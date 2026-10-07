@@ -7,7 +7,7 @@ import { itemTime, newestFirst } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { dhakaDay, formatCount } from "./time";
-import { ItemMenu, NewDot } from "./ui";
+import { ItemMenu, NewDot, StarIcon } from "./ui";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 
@@ -25,13 +25,17 @@ function groupLabel(iso: string, now: number): string {
   return "Older";
 }
 
-/** The list flattened for the virtualizer: a heading row per group, then its headlines. */
+/**
+ * The list flattened for the virtualizer: a heading row per group, then its headlines. With pinned
+ * sources, a section row starts their part and the everyone-else part, each grouped on its own.
+ */
 type Row =
-  | { kind: "heading"; label: string; first: boolean }
+  | { kind: "section"; label: string; count: number; first: boolean }
+  | { kind: "heading"; label: string; part: number; first: boolean }
   | { kind: "item"; item: NewsItem; first: boolean; last: boolean };
 
 /** Rows are measured once rendered; these only place the ones not yet seen. */
-const ESTIMATE = { heading: 56, item: 96 };
+const ESTIMATE = { section: 64, heading: 56, item: 96 };
 /** Headlines shown at first, and added each time the reader nears the end. */
 const PAGE = 50;
 /** Add the next page once the last row on screen is this close to the end. */
@@ -41,7 +45,8 @@ const LOAD_AHEAD = 10;
  * Thousands of headlines, so the list grows a page at a time as the reader nears its end, and only
  * the rows near the screen are in the page. The list scrolls with the window: `scrollMargin` is
  * where it starts in the page, kept current as the header above it changes height. Give it a `key`
- * that changes with the filters, so a new search starts again from the first page.
+ * that changes with the filters, so a new search starts again from the first page. Headlines from
+ * `pinned` sources come first, in a part of their own.
  */
 export function LatestList({
   items,
@@ -51,6 +56,7 @@ export function LatestList({
   savedLinks,
   onToggleSave,
   onShare,
+  pinned,
 }: {
   items: NewsItem[];
   sourceById: Map<string, NewsSource>;
@@ -59,28 +65,48 @@ export function LatestList({
   savedLinks: Set<string>;
   onToggleSave: (item: NewsItem) => void;
   onShare: (item: NewsItem) => void;
+  /** The reader's pinned sources (see pinned.ts); their headlines come first. */
+  pinned?: Map<string, number>;
 }) {
   const [shown, setShown] = useState(PAGE);
-  const dated = useMemo(() => items.filter(itemTime).sort(byNewest), [items]);
-  const undated = items.length - dated.length;
-  const more = shown < dated.length;
+  // The parts, each newest first: just one unless some, but not all, headlines are from pinned sources.
+  const { parts, dated } = useMemo(() => {
+    const dated = items.filter(itemTime).sort(byNewest);
+    const mine = pinned?.size ? dated.filter((it) => pinned.has(it.sourceId)) : [];
+    const parts: { label?: string; items: NewsItem[] }[] =
+      mine.length && mine.length < dated.length
+        ? [
+            { label: "From your sources", items: mine },
+            { label: "Everything else", items: dated.filter((it) => !pinned!.has(it.sourceId)) },
+          ]
+        : [{ items: dated }];
+    return { parts, dated: dated.length };
+  }, [items, pinned]);
+  const undated = items.length - dated;
+  const more = shown < dated;
 
   const rows = useMemo(() => {
-    const page = dated.slice(0, shown);
     const rows: Row[] = [];
-    let label: string | undefined;
-    page.forEach((item, i) => {
-      const next = groupLabel(itemTime(item)!, now);
-      if (next !== label) {
-        rows.push({ kind: "heading", label: next, first: label === undefined });
-        label = next;
-      }
-      const after = page[i + 1];
-      const last = !after || groupLabel(itemTime(after)!, now) !== next;
-      rows.push({ kind: "item", item, first: rows.at(-1)!.kind === "heading", last });
+    let left = shown;
+    parts.forEach((part, p) => {
+      if (left <= 0) return;
+      const page = part.items.slice(0, left);
+      left -= page.length;
+      if (part.label) rows.push({ kind: "section", label: part.label, count: part.items.length, first: p === 0 });
+      let label: string | undefined;
+      page.forEach((item, i) => {
+        const next = groupLabel(itemTime(item)!, now);
+        if (next !== label) {
+          rows.push({ kind: "heading", label: next, part: p, first: rows.at(-1)?.kind !== "item" });
+          label = next;
+        }
+        const after = page[i + 1];
+        const last = !after || groupLabel(itemTime(after)!, now) !== next;
+        rows.push({ kind: "item", item, first: rows.at(-1)!.kind === "heading", last });
+      });
     });
     return rows;
-  }, [dated, shown, now]);
+  }, [parts, shown, now]);
 
   const listRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
@@ -100,7 +126,7 @@ export function LatestList({
     estimateSize: (i) => ESTIMATE[rows[i].kind],
     getItemKey: (i) => {
       const row = rows[i];
-      return row.kind === "heading" ? `h:${row.label}` : row.item.link;
+      return row.kind === "section" ? `s:${row.label}` : row.kind === "heading" ? `h:${row.part}:${row.label}` : row.item.link;
     },
     overscan: 8,
     scrollMargin,
@@ -123,7 +149,13 @@ export function LatestList({
             const row = rows[v.index];
             return (
               <div key={v.key} data-index={v.index} ref={virtualizer.measureElement}>
-                {row.kind === "heading" ? (
+                {row.kind === "section" ? (
+                  <h2 className={`flex items-center gap-2 px-1 pb-3 font-display text-xl ${row.first ? "" : "pt-10"}`}>
+                    {row.first && <StarIcon filled className="h-[18px] w-[18px] text-gold" />}
+                    {row.label}
+                    <span className="font-sans text-sm tabular-nums text-muted">{formatCount(row.count)}</span>
+                  </h2>
+                ) : row.kind === "heading" ? (
                   <h2
                     className={`flex items-center gap-3 px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted ${row.first ? "" : "pt-6"}`}
                   >
@@ -146,7 +178,7 @@ export function LatestList({
           })}
         </div>
       </div>
-      {dated.length === 0 && (
+      {dated === 0 && (
         <p className="rounded-2xl border border-dashed border-line px-4 py-12 text-center text-sm text-muted">
           No headlines match.
         </p>

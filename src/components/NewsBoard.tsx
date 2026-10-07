@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   lazy,
   startTransition,
   Suspense,
@@ -27,6 +28,8 @@ import { CategoryTabs } from "./CategoryTabs";
 import { useLastVisit } from "./last-visit";
 import { byNewest, LatestList } from "./LatestList";
 import { Logo } from "./Logo";
+import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
+import { PinButton, PinPicker } from "./PinPicker";
 import { useSaved, useSavedVideos } from "./saved";
 import { SavedList } from "./SavedList";
 import { AT_TOP_PX, PUBLISH_LAG_MS, RETRY_MS, UPDATE_EVERY_MS } from "./schedule";
@@ -46,8 +49,10 @@ import {
   RefreshIcon,
   SearchIcon,
   Segmented,
+  Sheet,
   SlidersIcon,
   NewspaperIcon,
+  StarIcon,
   SunIcon,
   VideoIcon,
 } from "./ui";
@@ -251,6 +256,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const [onlyNew, setOnlyNew] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [pinsOpen, setPinsOpen] = useState(false);
   const [sharing, setSharing] = useState<Shareable | null>(null);
   // An automatic refresh that brought new headlines, held back until the reader asks for it.
   const [pending, setPending] = useState<Pending | null>(null);
@@ -270,6 +276,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const isPhone = useDeferredValue(useIsPhone());
   const [cardPrefsNow, updateCardPrefs] = useCardPrefs();
   const cardPrefs = useDeferredValue(cardPrefsNow);
+  const [pinsNow, updatePins] = usePinnedSources();
+  const pins = useDeferredValue(pinsNow);
 
   // A transition: React draws the thousands of headlines in short slices, between which the page
   // stays responsive, instead of in one long task.
@@ -446,6 +454,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const hasData = results.size > 0;
 
   const sourceById = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources]);
+  // The reader's own sources and their places; empty while "Pinned first" is off.
+  const sourceRank = useMemo(() => pinRanks(pins, new Set(sourceById.keys())), [pins, sourceById]);
   const statusById = results;
 
   // Headlines since the reader's last visit (none on a first visit).
@@ -455,6 +465,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
   // The search filters behind the typing: the box keeps up while the results catch up.
   const searchQuery = useDeferredValue(query);
+  const filtering = !!searchQuery.trim() || !!category || onlyNew;
 
   // Everything except the category filter, so the chips can show counts.
   const matching = useMemo(() => {
@@ -500,18 +511,33 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
   const fetchedCount = useMemo(() => sources.filter(isFetched).length, [sources]);
 
-  // Default: the configured source order. "Newest": the source with the most recent headline first.
-  // Either way, sources that are not fetched or failed go last.
+  // The reader's pinned sources first, in their order. Then by default the configured source order, or
+  // with "Newest" the source with the most recent headline first. Either way, sources that are not
+  // fetched or failed go last (among the pinned ones, and among the rest).
   const visibleSources = useMemo(() => {
     const latest = (id: string) => {
       const first = itemsBySource.get(id)?.[0];
       return (first && itemTime(first)) ?? "";
     };
+    const rank = (s: NewsSource) => sourceRank.get(s.id) ?? MAX_PINS;
     const broken = (s: NewsSource) => (sourceProblem(s, statusById.get(s.id)) ? 1 : 0);
+    const pinnedFirst = (a: NewsSource, b: NewsSource) =>
+      +sourceRank.has(b.id) - +sourceRank.has(a.id) || broken(a) - broken(b) || rank(a) - rank(b);
     return sources
       .filter((s) => (lang === "all" || s.lang === lang) && (!onlySource || s.id === onlySource))
-      .sort((a, b) => broken(a) - broken(b) || (order === "newest" ? newestFirst(latest(a.id), latest(b.id)) : 0));
-  }, [sources, lang, onlySource, itemsBySource, statusById, order]);
+      .sort(
+        (a, b) =>
+          pinnedFirst(a, b) || (order === "newest" ? newestFirst(latest(a.id), latest(b.id)) : 0),
+      );
+  }, [sources, lang, onlySource, itemsBySource, statusById, order, sourceRank]);
+  // Where the pinned cards end in visibleSources, when both they and others are on show (only cards that
+  // render count: a search or category leaves out cards with nothing matching); 0 for no headings.
+  const pinnedCards = useMemo(() => {
+    const shows = (s: NewsSource) => !filtering || !!itemsBySource.get(s.id)?.length;
+    const mine = visibleSources.filter((s) => sourceRank.has(s.id));
+    const others = visibleSources.filter((s) => !sourceRank.has(s.id));
+    return mine.some(shows) && others.some(shows) ? mine.length : 0;
+  }, [visibleSources, sourceRank, itemsBySource, filtering]);
 
   // Stories are grouped across all outlets in the chosen language (deferred: grouping takes a moment
   // and sources stream in one by one); the other filters then pick stories with a matching headline.
@@ -565,7 +591,6 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   // is an outage worth saying at the top. Judged once every source has reported.
   const failedCount = statuses.filter((s) => !s.ok).length;
   const outage = !loading && statuses.length >= fetchedCount && failedCount * 2 >= fetchedCount;
-  const filtering = !!searchQuery.trim() || !!category || onlyNew;
 
   // Filters that live in the sheet on phones; shown as removable pills so they are never hidden state.
   const activeFilters = [
@@ -600,6 +625,35 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     [updateCardPrefs, itemsBySource],
   );
   const toggleCard = useCallback((id: string, collapsed: boolean) => setCollapsed([id], collapsed), [setCollapsed]);
+
+  const pinnedIds = useMemo(() => new Set(pins.ids), [pins]);
+  /** A card's star. Pinning turns "Pinned first" back on; with no room left, the picker opens instead. */
+  const toggleSourcePin = useCallback(
+    (id: string) => {
+      if (!pinsNow.ids.includes(id) && pinsNow.ids.length >= MAX_PINS) return setPinsOpen(true);
+      updatePins((p) => {
+        const next = togglePin(p, id);
+        return next.ids.includes(id) ? { ...next, off: false } : next;
+      });
+    },
+    [pinsNow, updatePins],
+  );
+  /** Opens the picker, closing the Filters panel or sheet it was opened from. */
+  const openPins = () => {
+    document.querySelectorAll<HTMLElement>("[popover]:popover-open").forEach((el) => el.hidePopover());
+    setFiltersOpen(false);
+    setPinsOpen(true);
+  };
+  const pinOptions = useMemo(
+    () =>
+      sources.map((s) => ({
+        id: s.id,
+        name: s.name,
+        hint: `${s.kind} · ${s.lang === "bn" ? "বাংলা" : "English"}${isFetched(s) ? "" : " · unavailable"}`,
+      })),
+    [sources],
+  );
+  const pinControl = <PinButton noun="source" count={pinsNow.ids.length} onClick={openPins} />;
 
   // Labels follow the language filter: Bangla names when only Bangla sources are shown.
   const bn = lang === "bn";
@@ -913,6 +967,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               )}
               <div className="ml-auto hidden md:block">
                 <FilterPopover count={activeFilters.length}>
+                  {sectionOf(view) === "news" && <Field label="My sources">{pinControl}</Field>}
                   {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
                   <Field label="Language">{languageControl}</Field>
                   <Field label="Source">{sourceControl}</Field>
@@ -984,8 +1039,13 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
           {hasData && view === "latest" && (
             <LatestList
-              key={filtersToSearch({ view, lang, source: onlySource, category, query: searchQuery, order }) + onlyNew}
+              key={
+                filtersToSearch({ view, lang, source: onlySource, category, query: searchQuery, order }) +
+                onlyNew +
+                [...sourceRank.keys()].join()
+              }
               items={filtered}
+              pinned={sourceRank}
               sourceById={sourceById}
               now={now}
               isNew={isNew}
@@ -1017,24 +1077,29 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
           {hasData && view === "sources" && (
             <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-              {visibleSources.map((s) => (
-                <SourceCard
-                  key={s.id}
-                  source={s}
-                  status={statusById.get(s.id)}
-                  items={itemsBySource.get(s.id) ?? []}
-                  filtering={filtering}
-                  now={now}
-                  collapsible={isPhone}
-                  savedCollapsed={cardPrefs.collapsed[s.id]}
-                  seenLead={cardPrefs.seen[s.id]}
-                  onToggle={toggleCard}
-                  isNew={isNew}
-                  savedLinks={savedLinks}
-                  onToggleSave={toggleSaved}
-                  onShare={shareItem}
-                  total={cardTotals && (cardTotals[s.id] ?? 0)}
-                />
+              {visibleSources.map((s, i) => (
+                <Fragment key={s.id}>
+                  {pinnedCards > 0 && i === 0 && <GroupHeading pinned>Your sources</GroupHeading>}
+                  {pinnedCards > 0 && i === pinnedCards && <GroupHeading>All other sources</GroupHeading>}
+                  <SourceCard
+                    source={s}
+                    status={statusById.get(s.id)}
+                    items={itemsBySource.get(s.id) ?? []}
+                    filtering={filtering}
+                    now={now}
+                    collapsible={isPhone}
+                    savedCollapsed={cardPrefs.collapsed[s.id]}
+                    seenLead={cardPrefs.seen[s.id]}
+                    onToggle={toggleCard}
+                    isNew={isNew}
+                    savedLinks={savedLinks}
+                    onToggleSave={toggleSaved}
+                    onShare={shareItem}
+                    total={cardTotals && (cardTotals[s.id] ?? 0)}
+                    pinned={pinnedIds.has(s.id)}
+                    onTogglePin={toggleSourcePin}
+                  />
+                </Fragment>
               ))}
             </div>
           )}
@@ -1090,6 +1155,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
         <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
           <div className="space-y-6">
+            {sectionOf(view) === "news" && <Field label="My sources">{pinControl}</Field>}
             {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
             {view === "sources" && (
               <Field label="Source cards">
@@ -1143,6 +1209,10 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               {view === "videos" ? "Done" : `Show ${formatCount(filtered.length)} headlines`}
             </button>
           </div>
+        </Sheet>
+
+        <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title="My sources">
+          <PinPicker noun="source" options={pinOptions} pins={pinsNow} onChange={updatePins} />
         </Sheet>
 
         <Sheet open={!!sharing} onClose={() => setSharing(null)} title={sharing?.video ? "Share video" : "Share headline"}>
@@ -1307,53 +1377,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/** A modal bottom sheet built on <dialog>, so focus trapping and Escape come from the browser. */
-function Sheet({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
-
+/** Starts a group of cards: the reader's pinned sources, then everyone else. */
+function GroupHeading({ pinned = false, children }: { pinned?: boolean; children: React.ReactNode }) {
   return (
-    <dialog
-      ref={ref}
-      className="sheet"
-      onClose={onClose}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      aria-label={title}
-    >
-      <div className="pb-safe rounded-t-3xl border border-line bg-surface shadow-2xl sm:rounded-3xl">
-        <div className="px-5 pb-6 pt-3">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" aria-hidden />
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="font-display text-2xl font-semibold">{title}</h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-muted hover:text-foreground"
-            >
-              <CloseIcon className="h-5 w-5" />
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    </dialog>
+    <h2 className={`col-span-full flex items-center gap-2 px-1 font-display text-xl ${pinned ? "" : "pt-4"}`}>
+      {pinned && <StarIcon filled className="h-[18px] w-[18px] text-gold" />}
+      {children}
+    </h2>
   );
 }
 

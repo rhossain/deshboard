@@ -184,6 +184,22 @@ export const BookmarkIcon = ({ filled, className }: { filled?: boolean; classNam
   </Icon>
 );
 
+/** A pinned source or channel: one of the reader's own, shown first. */
+export const StarIcon = ({ filled, className }: { filled?: boolean; className?: string }) => (
+  <Icon className={className}>
+    <path
+      d="m12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8Z"
+      fill={filled ? "currentColor" : "none"}
+    />
+  </Icon>
+);
+
+export const ArrowUpIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <path d="M12 19V5M6 11l6-6 6 6" />
+  </Icon>
+);
+
 export const ShareIcon = (p: { className?: string }) => (
   <Icon {...p}>
     <path d="M12 15V4M8 7.5 12 3.5l4 4" />
@@ -209,8 +225,8 @@ export const DotsIcon = (p: { className?: string }) => (
   </Icon>
 );
 
-// Two rows of h-10 plus padding; used to flip the menu above the button near the bottom edge.
-const MENU_HEIGHT = 96;
+// A row is h-10, plus the menu's padding; used to flip the menu above the button near the bottom edge.
+const menuHeight = (rows: number) => rows * 40 + 16;
 
 /**
  * The ⋮ menu beside a headline (never inside its link) with Share and Save. The menu is a native
@@ -222,11 +238,14 @@ export function ItemMenu({
   saved,
   onToggleSave,
   onShare,
+  extra,
   className = "",
 }: {
   saved: boolean;
   onToggleSave: () => void;
   onShare: () => void;
+  /** One more item after Save, such as pinning the video's channel. */
+  extra?: { label: string; icon: ReactNode; onSelect: () => void };
   className?: string;
 }) {
   const id = useId();
@@ -255,7 +274,7 @@ export function ItemMenu({
     const r = button.current?.firstElementChild?.getBoundingClientRect();
     if (!el || !r) return;
     el.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
-    if (r.bottom + MENU_HEIGHT + 8 > window.innerHeight) {
+    if (r.bottom + menuHeight(extra ? 3 : 2) + 8 > window.innerHeight) {
       el.style.top = "auto";
       el.style.bottom = `${window.innerHeight - r.top + 6}px`;
     } else {
@@ -322,9 +341,65 @@ export function ItemMenu({
               <BookmarkIcon filled={saved} className={`h-[18px] w-[18px] ${saved ? "text-gold" : "text-muted"}`} />
               {saved ? "Remove from saved" : "Save for later"}
             </button>
+            {extra && (
+              <button type="button" role="menuitem" onClick={run(extra.onSelect)} className={row}>
+                {extra.icon}
+                {extra.label}
+              </button>
+            )}
           </>
         )}
       </div>
     </>
+  );
+}
+
+/** A modal bottom sheet built on <dialog>, so focus trapping and Escape come from the browser. */
+export function Sheet({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  return (
+    <dialog
+      ref={ref}
+      className="sheet"
+      onClose={onClose}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      aria-label={title}
+    >
+      <div className="pb-safe rounded-t-3xl border border-line bg-surface shadow-2xl sm:rounded-3xl">
+        <div className="px-5 pb-6 pt-3">
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" aria-hidden />
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="font-display text-2xl font-semibold">{title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-muted hover:text-foreground"
+            >
+              <CloseIcon className="h-5 w-5" />
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    </dialog>
   );
 }
