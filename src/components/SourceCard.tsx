@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, memo, useContext, useRef, useState, type ReactNode } from "react";
-import { sourceProblem } from "@/lib/problems";
+import { fallbackNote, sourceProblem } from "@/lib/problems";
 import type { NewsFeed, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot } from "./ui";
@@ -55,6 +55,8 @@ export const SourceCard = memo(function SourceCard({
   if (filtering && items.length === 0) return null;
 
   const problem = sourceProblem(source, status);
+  // Headlines from Google News, because the site refuses us: said where the method usually is.
+  const fallback = fallbackNote(status);
   const pending = !problem && !status;
   // Folded on phones. Until the board knows it's on one (the prerendered page, and hydration), CSS
   // folds the card at phone widths instead, so nothing folds, moves or animates when the board starts.
@@ -106,7 +108,16 @@ export const SourceCard = memo(function SourceCard({
           <SourceLogo source={source} link={!collapsible} />
           <p className="mt-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
             {source.kind} · {source.lang === "bn" ? "বাংলা" : "English"}
-            {METHOD_LABEL[source.method] && <> · {METHOD_LABEL[source.method]}</>}
+            {fallback ? (
+              <>
+                {" · "}
+                <span title={fallback.detail} className="underline decoration-dotted underline-offset-2">
+                  {fallback.message}
+                </span>
+              </>
+            ) : (
+              METHOD_LABEL[source.method] && <> · {METHOD_LABEL[source.method]}</>
+            )}
           </p>
           {(collapsed || phoneFolded) && problem && (
             <p className={`mt-1 truncate text-xs text-muted ${phoneFolded ? "md:hidden" : ""}`}>{problem.message}</p>

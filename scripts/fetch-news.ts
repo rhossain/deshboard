@@ -111,7 +111,12 @@ async function main() {
       `${Object.keys(logos).length} logos, ` +
       `${videos.channels.filter((c) => c.ok).length}/${videos.channels.length} channels with ${videos.videos.length} videos (${((Date.now() - started) / 1000).toFixed(1)} s)`,
   );
-  for (const s of news.statuses.filter((s) => !s.ok)) console.log(`  ✗ ${s.sourceName}: ${s.error}`);
+  for (const s of news.statuses.filter((s) => s.via)) {
+    console.log(`  ↻ ${s.sourceName}: ${s.count} via Google News (site: ${s.directError})`);
+  }
+  for (const s of news.statuses.filter((s) => !s.ok)) {
+    console.log(`  ✗ ${s.sourceName}: ${s.error}${s.fallbackError ? ` (Google News: ${s.fallbackError})` : ""}`);
+  }
   for (const c of videos.channels.filter((c) => !c.ok)) console.log(`  ✗ ${c.name} (YouTube): ${c.error}`);
   process.exit(ok > 0 ? 0 : 1);
 }

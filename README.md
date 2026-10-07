@@ -12,6 +12,17 @@ Sources were verified on 5 Oct 2026 (see `docs/bd-news-sources.xlsx`): 64 portal
 
 The other 16 (blocked, stale or JS-only) are kept in `src/lib/sources.ts` with method `unclear` / `unavailable` and are not fetched.
 
+**Google News fallback.** Many of these sites sit behind Cloudflare, which refuses automated requests: some from
+everywhere ("Just a moment…" checks), more from cloud servers such as GitHub's. When a source's own feed or page fails,
+its last day of articles is read from Google News instead (`site:` search, Bangladesh edition for Bangla sites, US
+edition for English ones; only items whose publisher is the site itself). Google's links are opaque ids, so each is
+turned into the article's real address (two requests to news.google.com) before it is shown: sections, sharing and
+duplicate checks then work as for any other source. Addresses are kept in `.data/google-news-links.json` for three
+days and looked up within a budget (180 per ten minutes, at most 10 per source per fetch, newest first; a pause if
+Google answers 429), so a card fills over a few fetches (up to 30 headlines) and steady-state fetches only look up
+what's new. Cards say "via Google News"; `/health` lists these sources separately with the site's own error and how
+long it has failed. Daily Sun is the exception: Google lists its articles days late, so it stays failing.
+
 Sources are fetched and shown in the order set by `PRIORITY` in `src/lib/sources.ts` (Prothom Alo, The Daily Star,
 Daily Sun, Jugantor, …), followed by the rest in list order. On the board, sources that are not fetched or whose fetch
 failed move to the end with a plain-language reason (`src/lib/problems.ts`); "Newest first" orders cards by their
@@ -49,8 +60,8 @@ npm test           # offline parser tests
   `logo`, then touch icon / favicon); sites that block us fall back to Google's favicon service. Resized to what the
   cards need and re-encoded as WebP (`.ico` files are served as they are). Without a logo the UI shows the name as
   text.
-- `.data/` — first-seen times, source health and the outlets' original logos (kept for a week), carried from run
-  to run; `/health` is built from it.
+- `.data/` — first-seen times, source health, Google News article addresses and the outlets' original logos (kept
+  for a week), carried from run to run; `/health` is built from it.
 
 It exits with an error when no source worked, so an outage never replaces the board with an empty one.
 
@@ -85,6 +96,8 @@ src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 de
 src/lib/fetchers/rss.ts    RSS/Atom/RDF parser
 src/lib/fetchers/sitemap.ts Google News sitemap parser
 src/lib/fetchers/html.ts   homepage headline extractor (cheerio)
+src/lib/fetchers/google-news.ts Google News site search feed, and turning its links into the articles' addresses
+src/lib/google-news.ts     the fallback for sites that refuse us: address cache and lookup budget
 src/components/NewsBoard.tsx  UI: top stories, Newsstand (cards by outlet), latest timeline, filters, search, "new" marks
 src/components/VideoBoard.tsx Videos view (its own chunk, loaded with videos.json only when Videos is opened)
 src/components/SharedHeadline.tsx  the page for shared headlines (and unknown addresses)
