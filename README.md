@@ -77,7 +77,7 @@ src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 de
 src/lib/fetchers/rss.ts    RSS/Atom/RDF parser
 src/lib/fetchers/sitemap.ts Google News sitemap parser
 src/lib/fetchers/html.ts   homepage headline extractor (cheerio)
-src/components/NewsBoard.tsx  UI: top stories, by-source cards, latest timeline, filters, search, "new" marks
+src/components/NewsBoard.tsx  UI: top stories, Newsstand (cards by outlet), latest timeline, filters, search, "new" marks
 src/components/VideoBoard.tsx Videos view (its own chunk, loaded with /api/videos only when Videos is opened)
 ```
 
