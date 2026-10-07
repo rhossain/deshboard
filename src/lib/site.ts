@@ -46,21 +46,36 @@ export function categoryDescription(category: Category): string {
   );
 }
 
-/** Headlines prerendered into the page per source: enough to fill each card before the full feed loads. */
+/** Headlines prerendered per card: a full card (as many as it shows) for the first few, a few after that. */
 const SEED_PER_SOURCE = 8;
+const SEED_FULL_CARDS = 6;
+const SEED_PER_LATER_SOURCE = 3;
 
 /**
- * A small slice of the results for the prerendered page, so it carries real headlines for search
+ * A small slice of the results for the server-rendered page, so it carries real headlines for search
  * engines and first paint without shipping the whole feed twice. Each source keeps its newest
- * headlines (in `category` only, when given).
+ * headlines (in `category` only, when given): enough to fill the cards in view on any screen, and a
+ * few for the cards further down, which hold placeholders for the rest until the feed loads.
  */
 export function seedResults(results: SourceResult[], category?: Category): SourceResult[] {
+  const newest = new Map(
+    results.map((r) => [
+      r.sourceId,
+      r.items
+        .filter((it) => !category || it.category === category)
+        .sort((a, b) => (itemTime(b) ?? "").localeCompare(itemTime(a) ?? "")),
+    ]),
+  );
+  // The first cards on the board: sources in display order, skipping failed ones (shown last).
+  const ok = new Set(results.filter((r) => r.ok).map((r) => r.sourceId));
+  const full = new Set(
+    ACTIVE_SOURCES.map((s) => s.id)
+      .filter((id) => ok.has(id) && newest.get(id)?.length)
+      .slice(0, SEED_FULL_CARDS),
+  );
   return results.map((r) => ({
     ...r,
-    items: r.items
-      .filter((it) => !category || it.category === category)
-      .sort((a, b) => (itemTime(b) ?? "").localeCompare(itemTime(a) ?? ""))
-      .slice(0, SEED_PER_SOURCE),
+    items: newest.get(r.sourceId)!.slice(0, full.has(r.sourceId) ? SEED_PER_SOURCE : SEED_PER_LATER_SOURCE),
   }));
 }
 

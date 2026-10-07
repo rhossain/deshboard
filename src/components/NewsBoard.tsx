@@ -148,6 +148,10 @@ export interface NewsSeed {
   results: SourceResult[];
   /** Headlines per section in the whole cache, so the section tabs start out with their final counts. */
   counts: Partial<Record<Category, number>>;
+  /** The section the page is for, if any: `totals` count only its headlines. */
+  category?: Category;
+  /** Source id → its headlines in the whole cache, so each card starts out at its final size. */
+  totals: Record<string, number>;
   logoShapes: Record<string, LogoShape | null>;
 }
 
@@ -332,6 +336,9 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     for (const it of matching) counts.set(it.category, (counts.get(it.category) ?? 0) + 1);
     return counts;
   }, [matching, seedCounts, unfiltered]);
+  // Each card's final size while it still shows the seed's headlines (counted with the default filters).
+  const seedResults = useMemo(() => new Map(seed?.results.map((r) => [r.sourceId, r])), [seed]);
+  const cardTotals = seedCounts && unfiltered && (category || undefined) === seed?.category ? seed?.totals : undefined;
   const matchingCount = useMemo(() => [...categoryCounts.values()].reduce((a, b) => a + b, 0), [categoryCounts]);
 
   const filtered = useMemo(
@@ -850,6 +857,9 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                   savedLinks={savedLinks}
                   onToggleSave={toggleSaved}
                   onShare={shareItem}
+                  total={
+                    cardTotals && results.get(s.id) === seedResults.get(s.id) ? (cardTotals[s.id] ?? 0) : undefined
+                  }
                 />
               ))}
             </div>
