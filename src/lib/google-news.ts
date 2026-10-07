@@ -17,8 +17,11 @@ const STORE = "google-news-links";
 const PER_SOURCE = 30;
 /** Address lookups per source per fetch, so one busy site can't use up the budget. */
 const LOOKUPS_PER_SOURCE = 10;
-/** Address lookups in any ten minutes, across all sources. */
-const BUDGET = 180;
+/**
+ * Address lookups in any ten minutes, across all sources: enough for every fallback source's first
+ * fetch (some 22 sites × LOOKUPS_PER_SOURCE), so none is left empty while the cache fills.
+ */
+const BUDGET = 300;
 const BUDGET_WINDOW_MS = 10 * 60_000;
 /** Lookups running at once. */
 const CONCURRENCY = 3;
