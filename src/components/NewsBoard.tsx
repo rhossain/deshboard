@@ -7,10 +7,10 @@ import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
 import { categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
-import { findStories, itemTime } from "@/lib/stories";
+import { findStories, itemTime, newestFirst } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
 import type { LogoShape, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
-import { useCardPrefs, useIsPhone } from "./card-prefs";
+import { PHONE, useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLastVisit } from "./last-visit";
 import { byNewest, LatestList } from "./LatestList";
@@ -21,7 +21,7 @@ import { ShareOptions, shareUrl } from "./ShareOptions";
 import { LogoShapes, SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
-import { fullTime, timeAgo } from "./time";
+import { dhakaDate, formatCount, fullTime, timeAgo } from "./time";
 import {
   AutoThemeIcon,
   BookmarkIcon,
@@ -81,13 +81,6 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ];
-
-const dhakaDate = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Asia/Dhaka",
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
 
 /**
  * Read /api/news/stream, calling `onSource` for each source as it arrives. Resolves with `generatedAt`.
@@ -192,8 +185,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   // With a seed, the clock starts at its render time so the server's HTML and hydration agree.
   const [now, setNow] = useState(() => (seed ? Date.parse(seed.generatedAt) : Date.now()));
   const controllerRef = useRef<AbortController | null>(null);
-  const isPhone = useIsPhone();
-  const [cardPrefs, updateCardPrefs] = useCardPrefs();
+  // These four come from the browser (screen width, local storage), so right after hydration they can
+  // differ from the prerendered page, and every card has to be drawn again. Deferred, that redraw runs
+  // in short slices like any other transition instead of one long task.
+  const isPhone = useDeferredValue(useIsPhone());
+  const [cardPrefsNow, updateCardPrefs] = useCardPrefs();
+  const cardPrefs = useDeferredValue(cardPrefsNow);
 
   /** Start streaming. State is only set from callbacks, so this is safe to call from an effect. */
   const start = useCallback((force: boolean, priority?: RequestPriority) => {
@@ -314,7 +311,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const statusById = results;
 
   // Headlines since the reader's last visit (none on a first visit).
-  const lastVisit = useLastVisit();
+  const lastVisit = useDeferredValue(useLastVisit());
   const isNew = useCallback((it: NewsItem) => !!lastVisit && (itemTime(it) ?? "") > lastVisit, [lastVisit]);
   const newCount = useMemo(() => allItems.filter(isNew).length, [allItems, isNew]);
 
@@ -376,7 +373,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     const broken = (s: NewsSource) => (sourceProblem(s, statusById.get(s.id)) ? 1 : 0);
     return sources
       .filter((s) => (lang === "all" || s.lang === lang) && (!onlySource || s.id === onlySource))
-      .sort((a, b) => broken(a) - broken(b) || (order === "newest" ? latest(b.id).localeCompare(latest(a.id)) : 0));
+      .sort((a, b) => broken(a) - broken(b) || (order === "newest" ? newestFirst(latest(a.id), latest(b.id)) : 0));
   }, [sources, lang, onlySource, itemsBySource, statusById, order]);
 
   // Stories are grouped across all outlets in the chosen language (deferred: grouping takes a moment
@@ -405,7 +402,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   }, [allStories, searchQuery, onlySource, category, onlyNew, isNew]);
 
   // Saved headlines go through the same filters, except "new".
-  const { saved, savedLinks, toggleSaved } = useSaved();
+  const { saved, savedLinks: savedLinksNow, toggleSaved } = useSaved();
+  const savedLinks = useDeferredValue(savedLinksNow);
   const savedMatching = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return saved.filter(
@@ -481,13 +479,13 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   // Phones get the system share menu straight away; elsewhere (or if it's unavailable), the share sheet.
   const shareItem = useCallback(
     (item: NewsItem) => {
-      if (isPhone && typeof navigator.share === "function") {
+      if (window.matchMedia(PHONE).matches && typeof navigator.share === "function") {
         navigator.share({ title: item.title, url: shareUrl(item) }).catch(() => {});
       } else {
         setSharing(item);
       }
     },
-    [isPhone],
+    [],
   );
 
   const changeView = useCallback((v: View) => {
@@ -569,7 +567,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold" suppressHydrationWarning>
-                {dhakaDate.format(now)}
+                {dhakaDate(now)}
               </p>
               <h1 className="mt-1.5 text-[32px] sm:text-5xl">
                 <Logo />
@@ -631,7 +629,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                     }`}
                   >
                     {!onlyNew && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />}
-                    {newCount.toLocaleString()} new
+                    {formatCount(newCount)} new
                     {onlyNew && <CloseIcon className="h-3 w-3" />}
                   </button>
                 )}
@@ -894,7 +892,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink shadow-card transition active:scale-95"
             >
               <ChevronIcon className="h-4 w-4 rotate-180" />
-              {pending.fresh.toLocaleString()} new headline{pending.fresh === 1 ? "" : "s"}
+              {formatCount(pending.fresh)} new headline{pending.fresh === 1 ? "" : "s"}
             </button>
           </div>
         )}
@@ -973,7 +971,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               onClick={() => setFiltersOpen(false)}
               className="h-12 flex-[2] rounded-xl bg-foreground text-sm font-semibold text-background transition active:scale-[0.98]"
             >
-              Show {filtered.length.toLocaleString()} headlines
+              Show {formatCount(filtered.length)} headlines
             </button>
           </div>
         </Sheet>

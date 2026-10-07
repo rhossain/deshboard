@@ -3,26 +3,25 @@
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES } from "@/lib/categories";
-import { itemTime } from "@/lib/stories";
+import { itemTime, newestFirst } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
+import { dhakaDay, formatCount } from "./time";
 import { ItemMenu, NewDot } from "./ui";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 
-const dhakaDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka" });
-
 /** ISO dates sort as strings; items without a time (publish or first seen) go last. */
 export function byNewest(a: NewsItem, b: NewsItem): number {
-  return (itemTime(b) ?? "").localeCompare(itemTime(a) ?? "");
+  return newestFirst(itemTime(a), itemTime(b));
 }
 
 function groupLabel(iso: string, now: number): string {
   const t = new Date(iso).getTime();
   if (now - t < 3600_000) return "Last hour";
-  const day = dhakaDay.format(t);
-  if (day === dhakaDay.format(now)) return "Earlier today";
-  if (day === dhakaDay.format(now - 86400_000)) return "Yesterday";
+  const day = dhakaDay(t);
+  if (day === dhakaDay(now)) return "Earlier today";
+  if (day === dhakaDay(now - 86400_000)) return "Yesterday";
   return "Older";
 }
 
@@ -154,7 +153,7 @@ export function LatestList({
       )}
       {!more && undated > 0 && (
         <p className="px-1 pt-6 text-center text-xs leading-relaxed text-muted">
-          {undated.toLocaleString()} headlines from homepage-scraped sources have no time yet — find them in “By
+          {formatCount(undated)} headlines from homepage-scraped sources have no time yet — find them in “By
           source”. New ones are timed from when they first appear on the homepage.
         </p>
       )}

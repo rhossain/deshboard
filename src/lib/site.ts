@@ -1,6 +1,6 @@
 import { CATEGORIES, type Category } from "./categories";
 import { ACTIVE_SOURCES } from "./sources";
-import { itemTime } from "./stories";
+import { itemTime, newestFirst } from "./stories";
 import type { SourceResult } from "./types";
 
 /** The public address, for absolute URLs (canonical, sitemap, share image). Set SITE_URL when deploying. */
@@ -63,7 +63,7 @@ export function seedResults(results: SourceResult[], category?: Category): Sourc
       r.sourceId,
       r.items
         .filter((it) => !category || it.category === category)
-        .sort((a, b) => (itemTime(b) ?? "").localeCompare(itemTime(a) ?? "")),
+        .sort((a, b) => newestFirst(itemTime(a), itemTime(b))),
     ]),
   );
   // The first cards on the board: sources in display order, skipping failed ones (shown last).

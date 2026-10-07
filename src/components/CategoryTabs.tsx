@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { compactCount } from "./time";
 import { ChevronIcon } from "./ui";
 
 export interface CategoryTab {
@@ -13,7 +14,6 @@ export interface CategoryTab {
   count: number;
 }
 
-const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 
 /**
  * An editorial section bar: text tabs on one scrolling row, with an accent underline that slides to
@@ -138,7 +138,7 @@ export function CategoryTabs({
                   active ? "bg-accent-soft text-accent" : "text-muted/80"
                 }`}
               >
-                {compact.format(t.count)}
+                {compactCount(t.count)}
               </span>
             </a>
           );

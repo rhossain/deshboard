@@ -3,7 +3,7 @@
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import type { SavedEntry } from "./saved";
-import { timeAgo } from "./time";
+import { formatCount, timeAgo } from "./time";
 import { BookmarkIcon, ItemMenu } from "./ui";
 
 /** Headlines the reader saved on this device, most recently saved first. */
@@ -39,7 +39,7 @@ export function SavedList({
   return (
     <section>
       <p className="mb-4 px-1 text-[13px] text-muted">
-        {total.toLocaleString()} saved on this device{entries.length < total && `, ${entries.length} match the filters`}
+        {formatCount(total)} saved on this device{entries.length < total && `, ${entries.length} match the filters`}
         .
       </p>
       {entries.length > 0 && (
