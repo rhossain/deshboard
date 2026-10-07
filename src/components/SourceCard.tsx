@@ -53,7 +53,11 @@ export const SourceCard = memo(function SourceCard({
 
   const problem = sourceProblem(source, status);
   const pending = !problem && !status;
-  const collapsed = collapsible && !filtering && (savedCollapsed ?? !!problem);
+  // Folded on phones. Until the board knows it's on one (the prerendered page, and hydration), CSS
+  // folds the card at phone widths instead, so nothing folds, moves or animates when the board starts.
+  const foldsOnPhone = !filtering && (savedCollapsed ?? !!problem);
+  const collapsed = collapsible && foldsOnPhone;
+  const phoneFolded = !collapsible && foldsOnPhone;
   const [lead, ...rest] = showAll ? items : items.slice(0, PER_CARD);
   const hasNew = collapsed && !!lead && !!seenLead && seenLead !== lead.link;
 
@@ -76,7 +80,11 @@ export const SourceCard = memo(function SourceCard({
         problem ? "" : "shadow-card"
       }`}
     >
-      <header className={`relative flex items-center justify-between gap-3 px-4 pt-4 ${collapsed ? "pb-4" : "pb-3"}`}>
+      <header
+        className={`relative flex items-center justify-between gap-3 px-4 pt-4 ${
+          collapsed ? "pb-4" : phoneFolded ? "pb-3 max-md:pb-4" : "pb-3"
+        }`}
+      >
         {collapsible && (
           <button
             type="button"
@@ -92,7 +100,9 @@ export const SourceCard = memo(function SourceCard({
             {source.kind} · {source.lang === "bn" ? "বাংলা" : "English"}
             {METHOD_LABEL[source.method] && <> · {METHOD_LABEL[source.method]}</>}
           </p>
-          {collapsed && problem && <p className="mt-1 truncate text-xs text-muted">{problem.message}</p>}
+          {(collapsed || phoneFolded) && problem && (
+            <p className={`mt-1 truncate text-xs text-muted ${phoneFolded ? "md:hidden" : ""}`}>{problem.message}</p>
+          )}
         </div>
         <div className="pointer-events-none relative flex shrink-0 items-center gap-2">
           {hasNew && (
@@ -105,14 +115,17 @@ export const SourceCard = memo(function SourceCard({
               {items.length}
             </span>
           )}
-          {collapsible && (
-            <ChevronIcon className={`h-5 w-5 text-muted transition duration-300 ${collapsed ? "" : "rotate-180"}`} />
-          )}
+          {/* Shown at phone widths even before the board knows it's on a phone (see phoneFolded). */}
+          <ChevronIcon
+            className={`h-5 w-5 text-muted transition duration-300 ${collapsible ? "" : "hidden max-md:block"} ${
+              collapsed || phoneFolded ? "" : "rotate-180"
+            }`}
+          />
         </div>
       </header>
 
       {problem ? (
-        <Fold open={!collapsed}>
+        <Fold open={!collapsed} phoneFolded={phoneFolded}>
           <div className="mx-4 mb-4 flex gap-3 rounded-xl bg-surface-2 p-3.5 text-sm">
             <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
             <div className="min-w-0">
@@ -131,7 +144,7 @@ export const SourceCard = memo(function SourceCard({
           </div>
         </Fold>
       ) : pending ? (
-        <Fold open={!collapsed}>
+        <Fold open={!collapsed} phoneFolded={phoneFolded}>
           <ul className="space-y-4 px-4 pb-5 pt-1" aria-busy aria-label="Loading headlines">
             {Array.from({ length: 4 }, (_, i) => (
               <li key={i} className="space-y-2">
@@ -142,7 +155,7 @@ export const SourceCard = memo(function SourceCard({
           </ul>
         </Fold>
       ) : (
-        <Fold open={!collapsed}>
+        <Fold open={!collapsed} phoneFolded={phoneFolded}>
           {lead && (
             <div className="border-t border-line">
               <Headline
@@ -190,13 +203,14 @@ export const SourceCard = memo(function SourceCard({
   );
 });
 
-/** Animates height open and closed; folded content is inert so it can't be tabbed into. */
-function Fold({ open, children }: { open: boolean; children: ReactNode }) {
+/**
+ * Animates height open and closed; folded content is inert so it can't be tabbed into. `phoneFolded`
+ * folds it at phone widths with CSS alone (see SourceCard).
+ */
+function Fold({ open, phoneFolded, children }: { open: boolean; phoneFolded: boolean; children: ReactNode }) {
+  const rows = !open ? "grid-rows-[0fr]" : phoneFolded ? "grid-rows-[1fr] max-md:grid-rows-[0fr]" : "grid-rows-[1fr]";
   return (
-    <div
-      className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-      inert={!open}
-    >
+    <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${rows}`} inert={!open}>
       <div className="min-h-0 overflow-hidden">{children}</div>
     </div>
   );

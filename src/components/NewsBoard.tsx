@@ -640,7 +640,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
           {/* Status */}
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted">
-            <span className="inline-flex items-center gap-1.5" aria-live="polite">
+            {/* A line of its own on phones: as "Updated just now" grows, nothing below moves. */}
+            <span className="inline-flex items-center gap-1.5 max-sm:basis-full" aria-live="polite">
               <span className="relative flex h-2 w-2">
                 {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
                 <span className="relative h-2 w-2 rounded-full bg-accent" />
