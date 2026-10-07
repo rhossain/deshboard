@@ -22,7 +22,7 @@ import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filte
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
-import { articleUrl, linkKey, SHARE_TARGETS, sharePath } from "../src/lib/share";
+import { articleUrl, linkKey, SHARE_TARGETS, sharedVideoId, sharePath, videoSharePath } from "../src/lib/share";
 import { findStories, keywords } from "../src/lib/stories";
 import type { NewsItem, NewsSource, SourceStatus, Video } from "../src/lib/types";
 import { mergeVideos } from "../src/lib/videos";
@@ -309,6 +309,14 @@ test("share: links to other sites are refused", () => {
     "",
   ]) {
     assert.equal(articleUrl(path ? path.split("/") : []), null, path);
+  }
+});
+
+test("share: videos go out as /s/youtu.be/<id>, and only video IDs are read back", () => {
+  assert.equal(videoSharePath("SX-I-Mx_a1b"), "/s/youtu.be/SX-I-Mx_a1b");
+  assert.equal(sharedVideoId(videoSharePath("SX-I-Mx_a1b").slice("/s/".length).split("/")), "SX-I-Mx_a1b");
+  for (const path of ["youtu.be", "youtu.be/short", "youtu.be/SX-I-Mx_a1b/x", "youtu.be/SX-I-Mx_a1!", "evil.test/SX-I-Mx_a1b"]) {
+    assert.equal(sharedVideoId(path.split("/")), null, path);
   }
 });
 

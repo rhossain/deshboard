@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CATEGORIES } from "@/lib/categories";
-import { articleUrl, linkKey } from "@/lib/share";
+import { articleUrl, linkKey, sharedVideoId } from "@/lib/share";
 import { findStories } from "@/lib/stories";
-import type { NewsFeed, NewsItem, NewsSource } from "@/lib/types";
+import type { NewsFeed, NewsItem, NewsSource, Video } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { Logo } from "./Logo";
 import { loadFeed } from "./NewsBoard";
+import { SharedVideo } from "./SharedVideo";
 import { Logos, SourceLogo } from "./SourceCard";
 import { ArrowUpRightIcon } from "./ui";
+import { loadVideos } from "./videos";
+import { watchUrl } from "./youtube";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 const RELATED_MAX = 6;
@@ -26,21 +29,46 @@ interface Shared {
   now: number;
 }
 
+interface SharedClip {
+  video: Video;
+  channelName: string;
+  now: number;
+}
+
 /**
- * The page for a shared headline (`/s/<host>/<path>`, see sharePath) and for any other unknown
- * address. The site is static, so the headline is looked up in the browser: links to an outlet on
- * the board show the headline, or go straight to the article once it has left the board; anything
- * else goes to the board.
+ * The page for a shared headline (`/s/<host>/<path>`, see sharePath) or video (`/s/youtu.be/<id>`,
+ * see videoSharePath), and for any other unknown address. The site is static, so the headline or
+ * video is looked up in the browser: links to an outlet on the board show the headline, or go
+ * straight to the article once it has left the board; videos likewise go to YouTube once they have
+ * left the Videos view; anything else goes to the board.
  */
 export function SharedHeadline() {
   // null while prerendering: the page is the same file for every address.
   const pathname = useSyncExternalStore(noSubscribe, () => window.location.pathname, () => null);
   const [shared, setShared] = useState<Shared | null>(null);
+  const [clip, setClip] = useState<SharedClip | null>(null);
   const isShare = pathname?.startsWith("/s/");
 
   useEffect(() => {
     if (!pathname?.startsWith("/s/")) return;
-    const found = articleUrl(pathname.slice(3).replace(/\/$/, "").split("/"));
+    const segments = pathname.slice(3).replace(/\/$/, "").split("/");
+    const videoId = sharedVideoId(segments);
+    if (videoId) {
+      let cancelled = false;
+      const toYouTube = () => !cancelled && window.location.replace(watchUrl(videoId));
+      loadVideos().then((feed) => {
+        if (cancelled) return;
+        const video = feed.videos.find((v) => v.id === videoId);
+        if (!video) return toYouTube();
+        const channelName = feed.channels.find((c) => c.id === video.channel)?.name ?? video.channel;
+        document.title = `${video.title} · ${channelName}`;
+        setClip({ video, channelName, now: Date.now() });
+      }, toYouTube);
+      return () => {
+        cancelled = true;
+      };
+    }
+    const found = articleUrl(segments);
     if (!found) {
       window.location.replace("/");
       return;
@@ -74,7 +102,9 @@ export function SharedHeadline() {
       </header>
 
       <main className="mt-8 flex-1">
-        {shared ? (
+        {clip ? (
+          <SharedVideo video={clip.video} channelName={clip.channelName} now={clip.now} />
+        ) : shared ? (
           <Logos value={shared.logos}>
             <Headline shared={shared} />
           </Logos>

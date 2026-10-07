@@ -4,9 +4,7 @@ import { memo, useEffect, useRef } from "react";
 import type { Video } from "@/lib/types";
 import { compactCount, fullTime, timeAgo } from "./time";
 import { ArrowUpRightIcon, CloseIcon, ItemMenu } from "./ui";
-
-export const watchUrl = (id: string) => `https://www.youtube.com/watch?v=${id}`;
-const thumb = (id: string, size: "mqdefault" | "hqdefault") => `https://i.ytimg.com/vi/${id}/${size}.jpg`;
+import { thumb, watchUrl } from "./youtube";
 
 /**
  * One video: a row (thumbnail beside the title) on phones, a card in a grid on larger screens. A
@@ -103,7 +101,7 @@ export const VideoCard = memo(function VideoCard({
   );
 });
 
-function PlayGlyph() {
+export function PlayGlyph() {
   return (
     <svg viewBox="0 0 24 24" className="ml-0.5 h-5 w-5" fill="currentColor" aria-hidden>
       <path d="M8 5.5v13l10.5-6.5z" />

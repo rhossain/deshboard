@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SHARE_TARGETS, sharePath } from "@/lib/share";
+import { SHARE_TARGETS, sharePath, videoSharePath } from "@/lib/share";
 import type { NewsItem } from "@/lib/types";
 import { LinkIcon, ShareIcon } from "./ui";
 
@@ -21,7 +21,12 @@ export function shareUrl(item: NewsItem): string {
   return new URL(sharePath(item.link), window.location.origin).href;
 }
 
-/** What the share sheet shares: a headline (as its Deshboard link) or a video (as its YouTube link). */
+/** The Deshboard link for a video. */
+export function videoShareUrl(id: string): string {
+  return new URL(videoSharePath(id), window.location.origin).href;
+}
+
+/** What the share sheet shares: a headline or a video, each as its Deshboard link. */
 export interface Shareable {
   title: string;
   url: string;
@@ -98,7 +103,7 @@ export function ShareOptions({ shared }: { shared: Shareable }) {
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">
         {shared.video
-          ? "The link opens the video on YouTube."
+          ? "The link opens a Deshboard page for this video, with a button to watch it on YouTube."
           : `The link opens a Deshboard page for this headline, with a button to the article on ${sourceName}.`}
       </p>
     </div>
