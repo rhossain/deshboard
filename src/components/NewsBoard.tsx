@@ -40,15 +40,13 @@ import {
   AutoThemeIcon,
   BookmarkIcon,
   ChevronIcon,
-  ClockIcon,
   CloseIcon,
-  GridIcon,
   MoonIcon,
   RefreshIcon,
   SearchIcon,
   Segmented,
   SlidersIcon,
-  StackIcon,
+  NewspaperIcon,
   SunIcon,
   VideoIcon,
 } from "./ui";
@@ -59,28 +57,28 @@ const VideoBoard = lazy(loadVideoBoard);
 /** Top stories need this many outlets, unless no story has that many. */
 const TOP_MIN_OUTLETS = 3;
 
-const VIEW_OPTIONS: { value: View; label: string }[] = [
+/** The site's sections. News holds three views of the headlines; the others are one view each. */
+type Section = "news" | "videos" | "saved";
+const sectionOf = (v: View): Section => (v === "videos" || v === "saved" ? v : "news");
+const SECTIONS: { value: Section; label: string; Icon: typeof VideoIcon }[] = [
+  { value: "news", label: "News", Icon: NewspaperIcon },
+  { value: "videos", label: "Videos", Icon: VideoIcon },
+  { value: "saved", label: "Saved", Icon: BookmarkIcon },
+];
+/** The switch at the top of News. */
+const NEWS_VIEWS: { value: View; label: string }[] = [
   { value: "sources", label: "Newsstand" },
   { value: "top", label: "Top stories" },
   { value: "latest", label: "Latest" },
-  { value: "saved", label: "Saved" },
-  { value: "videos", label: "Videos" },
 ];
-const VIEW_ICON: Record<View, typeof GridIcon> = {
-  sources: GridIcon,
-  top: StackIcon,
-  latest: ClockIcon,
-  saved: BookmarkIcon,
-  videos: VideoIcon,
-};
-const VIEW_KEYS: Record<string, View> = { "1": "sources", "2": "top", "3": "latest", "4": "saved", "5": "videos" };
+const VIEW_KEYS: Record<string, View> = { "1": "sources", "2": "top", "3": "latest", "4": "videos", "5": "saved" };
 
 const SHORTCUTS: [string, string][] = [
   ["/", "Search headlines"],
   ["j / k", "Next / previous headline"],
   ["Enter", "Open the headline"],
   ["s", "Save or unsave the headline"],
-  ["1 – 5", "Newsstand, Top stories, Latest, Saved, Videos"],
+  ["1 – 5", "Newsstand, Top stories, Latest, Videos, Saved"],
   ["r", "Refresh"],
   ["Esc", "Clear the search, close a panel"],
   ["?", "Show these shortcuts"],
@@ -529,10 +527,14 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   // Hovering, pressing or tabbing to Videos starts its download, ahead of the click.
   const videoIntent = { onPointerEnter: prefetchVideos, onPointerDown: prefetchVideos, onFocus: prefetchVideos };
 
+  // News reopens on whichever of its views the reader last had.
+  const [lastNewsView, setLastNewsView] = useState<View>(sectionOf(initial.view) === "news" ? initial.view : "sources");
   const changeView = useCallback((v: View) => {
     setView(v);
+    if (sectionOf(v) === "news") setLastNewsView(v);
     window.scrollTo({ top: 0 });
   }, []);
+  const openSection = (section: Section) => changeView(section === "news" ? lastNewsView : section);
 
   // Keyboard shortcuts (see SHORTCUTS). Ignored while typing or while a panel is open.
   useEffect(() => {
@@ -690,24 +692,23 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         >
           <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 pt-3 sm:px-6 md:h-16 md:pt-0">
             {/* Views and filters live in the bottom bar and filter sheet on phones. */}
-            <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label="View">
-              {VIEW_OPTIONS.map((o) => {
-                const Icon = VIEW_ICON[o.value];
-                const active = view === o.value;
+            <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label="Sections">
+              {SECTIONS.map(({ value, label, Icon }) => {
+                const active = sectionOf(view) === value;
                 return (
                   <button
-                    key={o.value}
+                    key={value}
                     type="button"
-                    onClick={() => changeView(o.value)}
-                    {...(o.value === "videos" ? videoIntent : {})}
+                    onClick={() => openSection(value)}
+                    {...(value === "videos" ? videoIntent : {})}
                     aria-current={active ? "page" : undefined}
                     className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition active:scale-[0.97] ${
                       active ? "bg-foreground text-background" : "text-muted hover:bg-surface-2 hover:text-foreground"
                     }`}
                   >
                     <Icon className="hidden h-4 w-4 lg:block" />
-                    {o.label}
-                    {o.value === "saved" && saved.length > 0 && (
+                    {label}
+                    {value === "saved" && saved.length > 0 && (
                       <span className={`text-xs tabular-nums ${active ? "opacity-60" : "text-muted/80"}`}>
                         {saved.length}
                       </span>
@@ -783,6 +784,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         </div>
 
         <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
+          {sectionOf(view) === "news" && (
+            <div className="mb-4 sm:mb-5 sm:w-fit">
+              <Segmented label="News view" value={view} onChange={changeView} options={NEWS_VIEWS} full />
+            </div>
+          )}
+
           {view !== "videos" && activeFilters.length > 0 && (
             <div className="mb-4 flex flex-wrap items-center gap-2">
               {activeFilters.map((f) => (
@@ -925,21 +932,15 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
           className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
           aria-label="View"
         >
-          <div className="mx-auto grid h-16 max-w-md grid-cols-6">
-            <NavButton active={view === "sources"} onClick={() => changeView("sources")} label="News">
-              <GridIcon />
+          <div className="mx-auto grid h-16 max-w-md grid-cols-4">
+            <NavButton active={sectionOf(view) === "news"} onClick={() => openSection("news")} label="News">
+              <NewspaperIcon />
             </NavButton>
-            <NavButton active={view === "top"} onClick={() => changeView("top")} label="Top">
-              <StackIcon />
-            </NavButton>
-            <NavButton active={view === "latest"} onClick={() => changeView("latest")} label="Latest">
-              <ClockIcon />
-            </NavButton>
-            <NavButton active={view === "saved"} onClick={() => changeView("saved")} label="Saved">
-              <BookmarkIcon />
-            </NavButton>
-            <NavButton active={view === "videos"} onClick={() => changeView("videos")} label="Videos" {...videoIntent}>
+            <NavButton active={view === "videos"} onClick={() => openSection("videos")} label="Videos" {...videoIntent}>
               <VideoIcon />
+            </NavButton>
+            <NavButton active={view === "saved"} onClick={() => openSection("saved")} label="Saved">
+              <BookmarkIcon />
             </NavButton>
             <NavButton active={false} onClick={() => setFiltersOpen(true)} label="Filters" badge={activeFilters.length}>
               <SlidersIcon />

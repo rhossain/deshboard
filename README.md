@@ -117,6 +117,9 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 
 ## Features
 
+- **Sections** — News, Videos and Saved. News has three views, switched at the top of the page: Newsstand (a card
+  per outlet), Top stories and Latest; it reopens on the last one used. On phones the bottom bar is News · Videos ·
+  Saved · Filters.
 - **Top stories** — headlines are reduced to weighted keywords (Bangla suffixes stripped, rare words count more) and
   linked when two outlets share most of them; the stories covered by the most outlets rank first. Runs in the browser.
 - **New since your last visit** — headlines newer than the end of the reader's previous visit get a gold dot, with a
@@ -130,7 +133,7 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 - **Videos** — the latest videos from 31 TV news channels on YouTube, filtered by channel or search, played over the
   page. Its code and data load only when Videos is opened (started on hover or press, just before the click); a page
   opened on Videos leaves the headlines until the reader leaves it.
-- **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`5` views, `r` refresh, `?` help.
+- **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`5` Newsstand, Top stories, Latest, Videos, Saved, `r` refresh, `?` help.
 - **Share image** — `src/app/opengraph-image.tsx`, rendered at build time with the site's fonts.
 - **Source health** — `/health` lists every source from the server cache (never triggers a fetch): failing ones first
   with how long they have failed, then working ones with the section names whose headlines land in "Other" (add those
