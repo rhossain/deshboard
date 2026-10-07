@@ -5,7 +5,8 @@
  *   npm run check -- prothomalo   # one or more source ids
  *   npm run check -- --json       # machine-readable output
  *
- * Exits with code 1 if any source fails.
+ * A source whose own site fails but whose headlines came from Google News shows as GOOGLE, with the
+ * site's error. Exits with code 1 if any source fails outright.
  */
 import { getNews } from "../src/lib/news";
 
@@ -24,13 +25,21 @@ async function main() {
     console.log(`${pad("SOURCE", 26)}${pad("METHOD", 9)}${pad("STATUS", 8)}${pad("ITEMS", 7)}${pad("MS", 7)}DETAIL`);
     for (const s of statuses) {
       const first = items.find((i) => i.sourceId === s.sourceId);
-      const detail = s.ok ? (first?.title ?? "") : (s.error ?? "");
+      const detail = s.via
+        ? `site: ${s.directError} · ${first?.title ?? ""}`
+        : s.ok
+          ? (first?.title ?? "")
+          : [s.error, s.fallbackError && `Google News: ${s.fallbackError}`].filter(Boolean).join(" · ");
+      const status = s.via ? "GOOGLE" : s.ok ? "OK" : "FAIL";
       console.log(
-        `${pad(s.sourceName, 26)}${pad(s.method, 9)}${pad(s.ok ? "OK" : "FAIL", 8)}${pad(String(s.count), 7)}${pad(String(s.durationMs), 7)}${pad(detail, 70)}`,
+        `${pad(s.sourceName, 26)}${pad(s.method, 9)}${pad(status, 8)}${pad(String(s.count), 7)}${pad(String(s.durationMs), 7)}${pad(detail, 70)}`,
       );
     }
     const ok = statuses.filter((s) => s.ok).length;
-    console.log(`\n${ok}/${statuses.length} sources OK, ${items.length} headlines`);
+    const viaGoogle = statuses.filter((s) => s.via).length;
+    console.log(
+      `\n${ok}/${statuses.length} sources OK${viaGoogle ? ` (${viaGoogle} via Google News)` : ""}, ${items.length} headlines`,
+    );
   }
 
   process.exit(statuses.every((s) => s.ok) ? 0 : 1);

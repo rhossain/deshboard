@@ -8,6 +8,13 @@ import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
 import { cleanVideoTitle, parseYouTubeFeed } from "../src/lib/fetchers/youtube";
+import {
+  articleSignature,
+  googleNewsFeedUrl,
+  parseGoogleNewsFeed,
+  parseResolvedUrl,
+  siteHost,
+} from "../src/lib/fetchers/google-news";
 import { fullTime, timeAgo } from "../src/components/time";
 import { articleUrl } from "../src/lib/article";
 import { cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
@@ -15,7 +22,7 @@ import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filte
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
 import { newsQueryFrom } from "../src/lib/news";
-import { sourceProblem } from "../src/lib/problems";
+import { fallbackNote, sourceProblem } from "../src/lib/problems";
 import { SHARE_TARGETS, sharePath } from "../src/lib/share";
 import { findStories, keywords } from "../src/lib/stories";
 import type { NewsItem, NewsSource, SourceStatus, Video } from "../src/lib/types";
@@ -431,6 +438,51 @@ test("Videos build up across runs: the last day, at most 30 per channel", () => 
   const many = Array.from({ length: 40 }, (_, i) => v(`m${i}`, i / 10));
   assert.equal(mergeVideos(many, [], now).length, 30);
   assert.equal(mergeVideos(many, [], now)[0].id, "m0");
+});
+
+test("Google News: one site's last day, in its language's edition", () => {
+  assert.equal(siteHost("https://www.thedailystar.net"), "thedailystar.net");
+  assert.equal(siteHost("https://bangla.thedailystar.net/"), "bangla.thedailystar.net");
+  assert.equal(
+    googleNewsFeedUrl("https://bangla.thedailystar.net", "bn"),
+    "https://news.google.com/rss/search?q=site%3Abangla.thedailystar.net%20when%3A1d&hl=bn&gl=BD&ceid=BD:bn",
+  );
+  assert.match(googleNewsFeedUrl("https://www.bssnews.net", "en"), /q=site%3Abssnews\.net%20when%3A1d&hl=en-US&gl=US&ceid=US:en$/);
+});
+
+test("Google News feed: the site's own articles, without the publisher suffix", () => {
+  const item = (id: string, title: string, publisher: string, url: string, date = "Wed, 07 Oct 2026 08:31:19 GMT") =>
+    `<item><title>${title}</title><link>https://news.google.com/rss/articles/${id}?oc=5</link>
+     <pubDate>${date}</pubDate><source url="${url}">${publisher}</source></item>`;
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>site:kalbela.com</title>
+    ${item("CBMiAAA", "ম্যাজিস্ট্রেট নওশাদ বিমানবন্দরেই আছেন - কালবেলা", "কালবেলা", "https://www.kalbela.com")}
+    ${item("CBMiBBB", "ই-পেপার - কালবেলা", "কালবেলা", "https://epaper.kalbela.com")}
+    ${item("CBMiCCC", "A title - with a dash", "Other", "https://kalbela.com")}
+  </channel></rss>`;
+  assert.deepEqual(parseGoogleNewsFeed(xml, "kalbela.com"), [
+    { id: "CBMiAAA", title: "ম্যাজিস্ট্রেট নওশাদ বিমানবন্দরেই আছেন", publishedAt: "2026-10-07T08:31:19.000Z" },
+    { id: "CBMiCCC", title: "A title - with a dash", publishedAt: "2026-10-07T08:31:19.000Z" },
+  ]);
+  assert.throws(() => parseGoogleNewsFeed("<!doctype html><html></html>", "kalbela.com"), /web page/);
+});
+
+test("Google News article addresses: the page's signature, then the lookup's answer", () => {
+  assert.deepEqual(articleSignature('<c-wiz data-n-a-sg="AZ5r3e_sig" data-n-a-ts="1791360000">'), {
+    signature: "AZ5r3e_sig",
+    timestamp: 1791360000,
+  });
+  assert.equal(articleSignature("<html>consent</html>"), undefined);
+  const body = `)]}'\n\n[["wrb.fr","Fbv4je","[\\"garturlres\\",\\"https://www.kalbela.com/national/229473\\",1]",null,null,null,"generic"]]`;
+  assert.equal(parseResolvedUrl(body), "https://www.kalbela.com/national/229473");
+  assert.equal(parseResolvedUrl(`)]}'\n[["er",null,null,null,null,429]]`), undefined);
+});
+
+test("Fallback note: why a source's headlines come from Google News", () => {
+  const base: SourceStatus = { sourceId: "kalbela", sourceName: "Kalbela", method: "html", ok: true, count: 30, durationMs: 1, fetchedAt: "" };
+  assert.equal(fallbackNote(base), undefined);
+  const note = fallbackNote({ ...base, via: "google-news", directError: "HTTP 403" });
+  assert.equal(note?.message, "via Google News");
+  assert.match(note?.detail ?? "", /blocking automated access.*Google News instead/);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

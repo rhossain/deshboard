@@ -32,6 +32,19 @@ function explain(text: string): string | undefined {
 }
 
 /**
+ * For a source whose headlines came from Google News: a short label, and why, for a tooltip. Its
+ * own site refused us (usually a bot check), and Google lists articles a little after they appear.
+ */
+export function fallbackNote(status?: SourceStatus): Problem | undefined {
+  if (status?.via !== "google-news") return undefined;
+  const why = explain(status.directError ?? "") ?? "The site's own feed couldn't be read.";
+  return {
+    message: "via Google News",
+    detail: `${why} These headlines come from Google News instead, and may appear a little later than on the site.`,
+  };
+}
+
+/**
  * Why a source has no headlines: it is not fetched at all, or its last fetch
  * failed. Returns undefined while it is loading or when it is fine.
  */

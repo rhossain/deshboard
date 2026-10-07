@@ -4,7 +4,7 @@ import { Logo } from "@/components/Logo";
 import { fullTime, timeAgo } from "@/components/time";
 import { getHealth } from "@/lib/health";
 import { cachedResult } from "@/lib/news";
-import { sourceProblem } from "@/lib/problems";
+import { fallbackNote, sourceProblem } from "@/lib/problems";
 import { isFetched, SOURCES } from "@/lib/sources";
 import type { NewsSource } from "@/lib/types";
 
@@ -17,17 +17,19 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-type State = "failing" | "waiting" | "ok" | "off";
+type State = "failing" | "fallback" | "waiting" | "ok" | "off";
 
-const STATE_ORDER: State[] = ["failing", "waiting", "ok", "off"];
+const STATE_ORDER: State[] = ["failing", "fallback", "waiting", "ok", "off"];
 const STATE_LABEL: Record<State, string> = {
   failing: "Failing",
+  fallback: "Via Google News",
   waiting: "Not fetched yet",
   ok: "Working",
   off: "Not fetched",
 };
 const STATE_STYLE: Record<State, string> = {
   failing: "bg-danger-soft text-danger",
+  fallback: "bg-gold/15 text-gold",
   waiting: "bg-surface-2 text-muted",
   ok: "bg-accent-soft text-accent",
   off: "bg-surface-2 text-muted",
@@ -45,12 +47,23 @@ interface Row {
 function report(): { rows: Row[]; now: number } {
   const rows: Row[] = SOURCES.map((source) => {
     const result = cachedResult(source.id);
-    const state: State = !isFetched(source) ? "off" : !result ? "waiting" : result.ok ? "ok" : "failing";
+    const state: State = !isFetched(source)
+      ? "off"
+      : !result
+        ? "waiting"
+        : !result.ok
+          ? "failing"
+          : result.via
+            ? "fallback"
+            : "ok";
     return { source, state, result, health: getHealth(source.id) };
   }).sort(
     (a, b) =>
       STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state) ||
-      (a.state === "failing" ? (a.health.failingSince ?? "").localeCompare(b.health.failingSince ?? "") : 0),
+      (a.state === "failing" ? (a.health.failingSince ?? "").localeCompare(b.health.failingSince ?? "") : 0) ||
+      (a.state === "fallback"
+        ? (a.health.directFailingSince ?? "").localeCompare(b.health.directFailingSince ?? "")
+        : 0),
   );
   return { rows, now: Date.now() };
 }
@@ -73,15 +86,16 @@ export default function HealthPage() {
         <h1 className="mt-6 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Source health</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
           Each source&rsquo;s latest fetch, from the server&rsquo;s cache. Failing sources come first, longest-failing
-          at the top. Working sources list the section names whose headlines land in &ldquo;Other&rdquo;; adding them to{" "}
+          at the top, then sites that refuse us and are read through Google News instead. Working sources list the
+          section names whose headlines land in &ldquo;Other&rdquo;; adding them to{" "}
           <code className="rounded bg-surface-2 px-1 text-xs">src/lib/categories.ts</code> files them properly.
         </p>
         <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold">
-          {(["ok", "failing", "waiting", "off"] as State[])
+          {(["ok", "fallback", "failing", "waiting", "off"] as State[])
             .filter((s) => count(s) > 0)
             .map((s) => (
               <span key={s} className={`rounded-full px-3 py-1 ${STATE_STYLE[s]}`}>
-                {count(s)} {STATE_LABEL[s].toLowerCase()}
+                {count(s)} {s === "fallback" ? STATE_LABEL[s] : STATE_LABEL[s].toLowerCase()}
               </span>
             ))}
           {otherTotal > 0 && (
@@ -108,11 +122,26 @@ export default function HealthPage() {
 }
 
 function SourceRow({ row: { source, state, result, health }, now }: { row: Row; now: number }) {
-  const problem = sourceProblem(source, result);
-  const unmapped = state === "ok" ? Object.entries(health.unmapped ?? {}) : [];
+  const failed = sourceProblem(source, result);
+  const fallback = fallbackNote(result);
+  // Why the site itself failed; for a failing source, also why Google News couldn't stand in.
+  const problem = fallback
+    ? { message: fallback.detail, detail: result?.directError }
+    : failed && {
+        ...failed,
+        detail: [failed.detail, result?.fallbackError && `Google News: ${result.fallbackError}`].filter(Boolean).join(" · "),
+      };
+  const working = state === "ok" || state === "fallback";
+  const unmapped = working ? Object.entries(health.unmapped ?? {}) : [];
   const facts: string[] = [];
-  if (state === "ok" && result) {
-    facts.push(`${result.count.toLocaleString()} headlines`, `${(result.durationMs / 1000).toFixed(1)} s`);
+  if (working && result) {
+    facts.push(
+      `${result.count.toLocaleString()} headlines${state === "fallback" ? " from Google News" : ""}`,
+      `${(result.durationMs / 1000).toFixed(1)} s`,
+    );
+  }
+  if (state === "fallback" && health.directFailingSince) {
+    facts.push(`site failing since ${timeAgo(health.directFailingSince, now)}`);
   }
   if (state === "failing") {
     if (health.failingSince) facts.push(`failing since ${timeAgo(health.failingSince, now)}`);

@@ -1,5 +1,6 @@
 import { categorize, unmappedSection } from "./categories";
 import { stampFirstSeen } from "./first-seen";
+import { googleNewsFallback } from "./google-news";
 import { recordHealth } from "./health";
 import { extractHeadlines } from "./fetchers/html";
 import { fetchText } from "./fetchers/http";
@@ -67,6 +68,27 @@ async function fetchRaw(source: NewsSource): Promise<{ items: RawItem[]; url: st
   }
 }
 
+const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/**
+ * The source's own feed or page; when that fails (most often a site blocking automated requests),
+ * its articles from Google News instead.
+ */
+async function fetchWithFallback(
+  source: NewsSource,
+): Promise<{ items: RawItem[]; url: string; via?: "google-news"; directError?: string }> {
+  try {
+    return await fetchRaw(source);
+  } catch (err) {
+    const directError = message(err);
+    try {
+      return { ...(await googleNewsFallback(source)), via: "google-news", directError };
+    } catch (fallbackErr) {
+      throw Object.assign(new Error(directError), { fallbackError: message(fallbackErr) });
+    }
+  }
+}
+
 async function load(source: NewsSource): Promise<SourceResult> {
   const started = Date.now();
   const base = {
@@ -76,7 +98,7 @@ async function load(source: NewsSource): Promise<SourceResult> {
     fetchedAt: new Date().toISOString(),
   };
   try {
-    const { items, url } = await fetchRaw(source);
+    const { items, url, via, directError } = await fetchWithFallback(source);
     const unmapped = new Map<string, number>();
     const news: NewsItem[] = dedupeByLink(items).map(({ tags, ...it }) => {
       const category = categorize(it.link, tags);
@@ -86,7 +108,8 @@ async function load(source: NewsSource): Promise<SourceResult> {
       }
       return {
         ...it,
-        publishedAt: source.dhakaTimeAsUtc ? shiftDhakaAsUtc(it.publishedAt) : it.publishedAt,
+        // Google's dates are right; only the site's own feed has the Dhaka-time quirk.
+        publishedAt: source.dhakaTimeAsUtc && !via ? shiftDhakaAsUtc(it.publishedAt) : it.publishedAt,
         sourceId: source.id,
         sourceName: source.name,
         lang: source.lang,
@@ -98,6 +121,7 @@ async function load(source: NewsSource): Promise<SourceResult> {
       ...base,
       ok: true,
       count: news.length,
+      ...(via ? { via, directError } : {}),
       fetchedUrl: url,
       durationMs: Date.now() - started,
       items: news,
@@ -109,7 +133,8 @@ async function load(source: NewsSource): Promise<SourceResult> {
       ...base,
       ok: false,
       count: 0,
-      error: err instanceof Error ? err.message : String(err),
+      error: message(err),
+      ...(err instanceof Error && "fallbackError" in err ? { fallbackError: String(err.fallbackError) } : {}),
       durationMs: Date.now() - started,
       items: [],
     };

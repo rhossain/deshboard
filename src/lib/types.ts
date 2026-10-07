@@ -44,6 +44,12 @@ export interface SourceResult {
   ok: boolean;
   count: number;
   error?: string;
+  /** "google-news": the site refused us (`directError`), so its headlines came from Google News. */
+  via?: "google-news";
+  /** Why the site's own feed or page failed, when its headlines came from elsewhere. */
+  directError?: string;
+  /** Why the Google News fallback failed too, when it did (`error` is then the site's own failure). */
+  fallbackError?: string;
   fetchedUrl?: string;
   durationMs: number;
   fetchedAt: string;

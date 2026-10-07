@@ -8,6 +8,11 @@ export interface SourceHealth {
   /** First failure of the current run of failures (ISO); unset while the source works. */
   failingSince?: string;
   /**
+   * While its headlines come from Google News: when the site's own feed or page started failing
+   * (ISO). Unset once the site works again.
+   */
+  directFailingSince?: string;
+  /**
    * From the latest successful fetch: section names of headlines that landed in "Other", with
    * counts. Candidates for a synonym in src/lib/categories.ts.
    */
@@ -27,8 +32,11 @@ export function recordHealth(result: SourceResult, unmapped: Map<string, number>
     ? {
         lastOkAt: result.fetchedAt,
         unmapped: Object.fromEntries([...unmapped].sort((a, b) => b[1] - a[1]).slice(0, MAX_UNMAPPED)),
+        ...(result.via
+          ? { directFailingSince: prev.directFailingSince ?? prev.failingSince ?? result.fetchedAt }
+          : {}),
       }
-    : { ...prev, failingSince: prev.failingSince ?? result.fetchedAt };
+    : { ...prev, failingSince: prev.failingSince ?? prev.directFailingSince ?? result.fetchedAt };
   writeStoreSoon(NAME, () => data);
 }
 
