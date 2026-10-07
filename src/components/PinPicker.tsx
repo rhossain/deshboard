@@ -18,7 +18,7 @@ const PIN_OPTIONS: { value: "on" | "off"; label: string }[] = [
 
 /**
  * Picks and ranks the reader's own sources (or channels): up to MAX_PINS, moved up and down with the
- * arrows. Goes in a Sheet. `noun` is "source" or "channel".
+ * arrows. Goes in a Sheet. `noun` is "news site" or "channel".
  */
 export function PinPicker({
   noun,
@@ -159,7 +159,7 @@ export function PinPicker({
   );
 }
 
-/** The button that opens the picker: "My sources · 5". */
+/** The button that opens the picker: "5 pinned". */
 export function PinButton({ noun, count, onClick }: { noun: string; count: number; onClick: () => void }) {
   return (
     <button

@@ -653,7 +653,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
       })),
     [sources],
   );
-  const pinControl = <PinButton noun="source" count={pinsNow.ids.length} onClick={openPins} />;
+  const pinControl = <PinButton noun="news site" count={pinsNow.ids.length} onClick={openPins} />;
 
   // Labels follow the language filter: Bangla names when only Bangla sources are shown.
   const bn = lang === "bn";
@@ -967,7 +967,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               )}
               <div className="ml-auto hidden md:block">
                 <FilterPopover count={activeFilters.length}>
-                  {sectionOf(view) === "news" && <Field label="My sources">{pinControl}</Field>}
+                  {sectionOf(view) === "news" && <Field label="My news">{pinControl}</Field>}
                   {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
                   <Field label="Language">{languageControl}</Field>
                   <Field label="Source">{sourceControl}</Field>
@@ -1079,8 +1079,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
             <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
               {visibleSources.map((s, i) => (
                 <Fragment key={s.id}>
-                  {pinnedCards > 0 && i === 0 && <GroupHeading pinned>Your sources</GroupHeading>}
-                  {pinnedCards > 0 && i === pinnedCards && <GroupHeading>All other sources</GroupHeading>}
+                  {pinnedCards > 0 && i === 0 && <GroupHeading pinned>Your news</GroupHeading>}
+                  {pinnedCards > 0 && i === pinnedCards && <GroupHeading>Other news</GroupHeading>}
                   <SourceCard
                     source={s}
                     status={statusById.get(s.id)}
@@ -1155,7 +1155,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
         <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
           <div className="space-y-6">
-            {sectionOf(view) === "news" && <Field label="My sources">{pinControl}</Field>}
+            {sectionOf(view) === "news" && <Field label="My news">{pinControl}</Field>}
             {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
             {view === "sources" && (
               <Field label="Source cards">
@@ -1211,8 +1211,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
           </div>
         </Sheet>
 
-        <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title="My sources">
-          <PinPicker noun="source" options={pinOptions} pins={pinsNow} onChange={updatePins} />
+        <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title="My news">
+          <PinPicker noun="news site" options={pinOptions} pins={pinsNow} onChange={updatePins} />
         </Sheet>
 
         <Sheet open={!!sharing} onClose={() => setSharing(null)} title={sharing?.video ? "Share video" : "Share headline"}>

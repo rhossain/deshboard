@@ -135,7 +135,7 @@ export const SourceCard = memo(function SourceCard({
               onClick={() => onTogglePin(source.id)}
               aria-pressed={pinned}
               aria-label={pinned ? `Unpin ${source.name}` : `Pin ${source.name}: show it first`}
-              title={pinned ? "Pinned: shown first. Click to unpin." : "Pin: show this source first"}
+              title={pinned ? "Pinned: shown first. Click to unpin." : "Pin: show this site first"}
               className={`pointer-events-auto -my-2 flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-surface-2 active:scale-90 ${
                 pinned ? "text-gold" : "text-muted/60 hover:text-foreground"
               }`}
