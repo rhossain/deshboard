@@ -21,9 +21,18 @@ AddType application/manifest+json .webmanifest
 
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
-  # Each visit checks for newer headlines.
-  <FilesMatch "\.json$">
+  # Each visit checks for newer headlines, and for pages built with them.
+  <FilesMatch "\.(json|html|txt)$">
     Header set Cache-Control "no-cache"
+  </FilesMatch>
+  # Scripts, styles and fonts all live under /_next/static/, named after their contents, so a file
+  # never changes at its address. (Keep it that way: an unhashed .js or .css in public/ would be cached too.)
+  <FilesMatch "\.(js|css|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # Outlets' logos keep their address when they change (at most weekly, see scripts/fetch-news.ts).
+  <FilesMatch "\.(png|jpe?g|gif|webp|avif|ico|svg)$">
+    Header set Cache-Control "public, max-age=86400"
   </FilesMatch>
   # Outlets' logos are third-party files served from this site: an SVG opened directly must not run scripts.
   <FilesMatch "\.svg$">
