@@ -79,3 +79,31 @@ export interface LogoShape {
   height: number;
   light: boolean;
 }
+
+/** A news channel on YouTube, for the Videos view (see src/lib/channels.ts). */
+export interface VideoChannel {
+  id: string;
+  name: string;
+  /** The YouTube channel ID ("UC…"): its feed is youtube.com/feeds/videos.xml?channel_id=… */
+  youtubeId: string;
+}
+
+export interface Video {
+  /** The YouTube video ID: the thumbnail, player and watch page are all built from it. */
+  id: string;
+  /** VideoChannel id. */
+  channel: string;
+  title: string;
+  /** ISO string. */
+  publishedAt: string;
+  views?: number;
+}
+
+/** `/data/videos.json`: the Videos view, written by `npm run fetch` and only loaded when it is opened. */
+export interface VideoFeed {
+  generatedAt: string;
+  /** Every channel in display order, with how its latest fetch went. */
+  channels: (Pick<VideoChannel, "id" | "name"> & { ok: boolean; error?: string })[];
+  /** The last day's videos, newest first, Shorts left out. */
+  videos: Video[];
+}

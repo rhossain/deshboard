@@ -40,6 +40,11 @@ npm test           # offline parser tests
   plus its `items`), each source's logo path, and each logo's size and whether it is light on transparent (so cards
   draw it at its final size and on the right plate from the first paint). The board loads it and checks it again
   every 10 minutes.
+- `public/data/videos.json` — `{ generatedAt, channels, videos }`: the Videos view, 31 TV news channels' YouTube
+  videos from the last day (at most 30 per channel), newest first, without Shorts. Each channel's feed only has its
+  latest 15, so each run adds to what earlier runs kept in `.data/videos.json`. Thumbnails and the player come
+  straight from YouTube by video ID. The page fetches this file, and the view's code, only when Videos is opened
+  (or hovered or pressed, just before).
 - `public/logos/<id>.webp` — each source's logo, found on its homepage (header `<img>` marked as the logo, JSON-LD
   `logo`, then touch icon / favicon); sites that block us fall back to Google's favicon service. Resized to what the
   cards need and re-encoded as WebP (`.ico` files are served as they are). Without a logo the UI shows the name as
@@ -65,6 +70,9 @@ feeds have no tags (e.g. Manab Zamin, BSS, Daily Observer) always end up in `oth
 
 ```
 src/lib/sources.ts         source list (edit here to add/fix a portal)
+src/lib/channels.ts        TV news channels on YouTube for the Videos view (edit here to add/fix a channel)
+src/lib/videos.ts          fetches the channels' feeds, keeps the last day's videos between runs
+src/lib/fetchers/youtube.ts YouTube channel feed parser (Shorts left out, titles trimmed to their Bangla parts)
 src/lib/categories.ts      section-name synonyms → main categories
 src/lib/problems.ts        reader-facing explanations for unavailable / failed sources
 src/lib/logos.ts           logo discovery from homepages
@@ -78,6 +86,7 @@ src/lib/fetchers/rss.ts    RSS/Atom/RDF parser
 src/lib/fetchers/sitemap.ts Google News sitemap parser
 src/lib/fetchers/html.ts   homepage headline extractor (cheerio)
 src/components/NewsBoard.tsx  UI: top stories, by-source cards, latest timeline, filters, search, "new" marks
+src/components/VideoBoard.tsx Videos view (its own chunk, loaded with videos.json only when Videos is opened)
 src/components/SharedHeadline.tsx  the page for shared headlines (and unknown addresses)
 scripts/fetch-news.ts      collects public/data/news.json and logos before a build
 public/.htaccess           Apache / LiteSpeed rules: share links, 404 page, headers

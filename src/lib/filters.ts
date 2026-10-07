@@ -5,7 +5,7 @@ import type { Lang } from "./types";
  * The board's view and filters, mirrored in the URL (`/?view=latest&lang=bn&cat=sports`) so a
  * filtered view can be bookmarked or shared. Defaults are left out of the URL.
  */
-export type View = "sources" | "top" | "latest" | "saved";
+export type View = "sources" | "top" | "latest" | "saved" | "videos";
 export type LangFilter = "all" | Lang;
 export type Order = "default" | "newest";
 
@@ -28,7 +28,7 @@ export const DEFAULT_FILTERS: Filters = {
   order: "default",
 };
 
-const VIEWS: View[] = ["sources", "top", "latest", "saved"];
+const VIEWS: View[] = ["sources", "top", "latest", "saved", "videos"];
 const CATEGORY_IDS = new Set<string>(CATEGORIES.map((c) => c.id));
 
 type Params = Record<string, string | string[] | undefined>;

@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  lazy,
   startTransition,
+  Suspense,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -27,10 +29,13 @@ import { byNewest, LatestList } from "./LatestList";
 import { Logo } from "./Logo";
 import { useSaved } from "./saved";
 import { SavedList } from "./SavedList";
+import { AT_TOP_PX, PUBLISH_LAG_MS, RETRY_MS, UPDATE_EVERY_MS } from "./schedule";
 import { ShareOptions, shareUrl } from "./ShareOptions";
 import { Logos, SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
+import { loadVideoBoard, prefetchVideos } from "./videos";
+import { VideoSkeleton } from "./VideoSkeleton";
 import { dhakaClock, dhakaDate, formatCount, fullTime, timeAgo } from "./time";
 import {
   AutoThemeIcon,
@@ -46,16 +51,12 @@ import {
   SlidersIcon,
   StackIcon,
   SunIcon,
+  VideoIcon,
 } from "./ui";
 
-/** How often new headlines are published (the timer that starts .github/workflows/deploy.yml). */
-const UPDATE_EVERY_MS = 15 * 60 * 1000;
-/** The build takes about a minute and Hostinger then copies it, so look for it this long after it's due. */
-const PUBLISH_LAG_MS = 2 * 60 * 1000;
-/** While an update is overdue, look again this often. */
-const RETRY_MS = 60 * 1000;
-/** Scrolled less than this, new headlines replace the board at once: nothing the reader is on moves. */
-const AT_TOP_PX = 200;
+/** The Videos view is a separate download, fetched only when the reader heads for it. */
+const VideoBoard = lazy(loadVideoBoard);
+
 /** How long a Refresh result stays in the status line. */
 const NOTICE_MS = 6000;
 /** Top stories need this many outlets, unless no story has that many. */
@@ -66,21 +67,23 @@ const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "top", label: "Top stories" },
   { value: "latest", label: "Latest" },
   { value: "saved", label: "Saved" },
+  { value: "videos", label: "Videos" },
 ];
 const VIEW_ICON: Record<View, typeof GridIcon> = {
   sources: GridIcon,
   top: StackIcon,
   latest: ClockIcon,
   saved: BookmarkIcon,
+  videos: VideoIcon,
 };
-const VIEW_KEYS: Record<string, View> = { "1": "sources", "2": "top", "3": "latest", "4": "saved" };
+const VIEW_KEYS: Record<string, View> = { "1": "sources", "2": "top", "3": "latest", "4": "saved", "5": "videos" };
 
 const SHORTCUTS: [string, string][] = [
   ["/", "Search headlines"],
   ["j / k", "Next / previous headline"],
   ["Enter", "Open the headline"],
   ["s", "Save or unsave the headline"],
-  ["1 – 4", "By source, Top stories, Latest, Saved"],
+  ["1 – 5", "By source, Top stories, Latest, Saved, Videos"],
   ["r", "Refresh"],
   ["Esc", "Clear the search, close a panel"],
   ["?", "Show these shortcuts"],
@@ -234,6 +237,14 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const [seedTotals, setSeedTotals] = useState(seed?.totals);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>(initial.view);
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+  // Bumped by Refresh in the Videos view, which then looks for new videos instead of headlines.
+  const [videoRefresh, setVideoRefresh] = useState(0);
+  // The toolbar's place for the Videos view's channel rail.
+  const [videoRail, setVideoRail] = useState<HTMLDivElement | null>(null);
   const [order, setOrder] = useState<Order>(initial.order);
   const [lang, setLang] = useState<LangFilter>(initial.lang);
   const [query, setQuery] = useState(initial.query);
@@ -314,6 +325,10 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
   /** The Refresh button and `r`. */
   const load = useCallback(() => {
+    if (viewRef.current === "videos") {
+      setVideoRefresh((n) => n + 1);
+      return;
+    }
     quietRef.current?.abort();
     setPending(null);
     setLoading(true);
@@ -367,10 +382,17 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     !initial.source &&
     initial.view === "sources" &&
     (initial.category || undefined) === seed?.category;
+  // A page opened on Videos doesn't need the headlines (a large file to read on a slow phone) until
+  // the reader leaves it.
+  const videosFirst = initial.view === "videos";
   useEffect(() => {
     // (Unless Refresh got there first.)
     const load = () => controllerRef.current || start();
-    const cancel = seeded ? (seedFits ? whenNeeded : whenSettled)(load) : (start(), undefined);
+    const cancel = videosFirst
+      ? undefined
+      : seeded
+        ? (seedFits ? whenNeeded : whenSettled)(load)
+        : (start(), undefined);
     const tick = setInterval(() => setNow(Date.now()), 60_000);
     return () => {
       cancel?.();
@@ -379,7 +401,10 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
       clearInterval(tick);
       clearTimeout(noticeTimer.current);
     };
-  }, [start, seeded, seedFits]);
+  }, [start, seeded, seedFits, videosFirst]);
+  useEffect(() => {
+    if (videosFirst && view !== "videos" && !controllerRef.current) start();
+  }, [videosFirst, view, start]);
 
   // Look for the next build when it should have landed, then every minute until it has. Browsers
   // pause timers in background tabs, so also look when the page comes back into view or online.
@@ -390,7 +415,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     let timer: ReturnType<typeof setTimeout>;
     const check = () => {
       clearTimeout(timer);
-      refreshQuietly();
+      // The Videos view looks for its own updates; the headlines wait until the reader is back.
+      if (viewRef.current !== "videos") refreshQuietly();
       timer = setTimeout(check, RETRY_MS);
     };
     const checkIfDue = () => {
@@ -602,6 +628,9 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     [],
   );
 
+  // Hovering, pressing or tabbing to Videos starts its download, ahead of the click.
+  const videoIntent = { onPointerEnter: prefetchVideos, onPointerDown: prefetchVideos, onFocus: prefetchVideos };
+
   const changeView = useCallback((v: View) => {
     setView(v);
     window.scrollTo({ top: 0 });
@@ -805,6 +834,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                     key={o.value}
                     type="button"
                     onClick={() => changeView(o.value)}
+                    {...(o.value === "videos" ? videoIntent : {})}
                     aria-current={active ? "page" : undefined}
                     className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition active:scale-[0.97] ${
                       active ? "bg-foreground text-background" : "text-muted hover:bg-surface-2 hover:text-foreground"
@@ -823,7 +853,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
             </nav>
 
             <label className="relative min-w-0 flex-1 md:ml-auto md:max-w-xs">
-              <span className="sr-only">Search headlines</span>
+              <span className="sr-only">{view === "videos" ? "Search videos" : "Search headlines"}</span>
               <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
               <input
                 ref={searchRef}
@@ -835,7 +865,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                   setQuery("");
                   e.currentTarget.blur();
                 }}
-                placeholder="Search headlines / শিরোনাম খুঁজুন"
+                placeholder={view === "videos" ? "Search videos / ভিডিও খুঁজুন" : "Search headlines / শিরোনাম খুঁজুন"}
                 enterKeyHint="search"
                 className="peer h-11 w-full rounded-full border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
               />
@@ -858,22 +888,27 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               )}
             </label>
 
-            <FilterPopover count={activeFilters.length}>
-              {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
-              <Field label="Language">{languageControl}</Field>
-              <Field label="Source">{sourceControl}</Field>
-              <button
-                type="button"
-                onClick={resetFilters}
-                disabled={activeFilters.length === 0}
-                className="h-10 w-full rounded-xl border border-line text-sm font-semibold transition hover:bg-surface-2 disabled:opacity-40"
-              >
-                Reset filters
-              </button>
-            </FilterPopover>
+            {view !== "videos" && (
+              <FilterPopover count={activeFilters.length}>
+                {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
+                <Field label="Language">{languageControl}</Field>
+                <Field label="Source">{sourceControl}</Field>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  disabled={activeFilters.length === 0}
+                  className="h-10 w-full rounded-xl border border-line text-sm font-semibold transition hover:bg-surface-2 disabled:opacity-40"
+                >
+                  Reset filters
+                </button>
+              </FilterPopover>
+            )}
           </div>
 
-          {hasData ? (
+          {view === "videos" ? (
+            // The channel rail, from the Videos view; its height is kept while that loads.
+            <div ref={setVideoRail} className="relative mx-auto -mb-px min-h-12 max-w-7xl md:-mt-1" />
+          ) : hasData ? (
             <div className="relative mx-auto -mb-px max-w-7xl md:-mt-1">
               <CategoryTabs tabs={categoryTabs} value={category} onChange={(id) => pickCategory(id as Category | "")} />
             </div>
@@ -883,7 +918,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         </div>
 
         <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
-          {activeFilters.length > 0 && (
+          {view !== "videos" && activeFilters.length > 0 && (
             <div className="mb-4 flex flex-wrap items-center gap-2">
               {activeFilters.map((f) => (
                 <button
@@ -900,15 +935,15 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
             </div>
           )}
 
-          {error && (
+          {view !== "videos" && error && (
             <p className="mb-4 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
               Could not load news: {error}
             </p>
           )}
 
-          {!hasData && loading && <SkeletonGrid />}
+          {view !== "videos" && !hasData && loading && <SkeletonGrid />}
 
-          {hasData && view !== "saved" && filtering && filtered.length === 0 && (
+          {hasData && view !== "saved" && view !== "videos" && filtering && filtered.length === 0 && (
             <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
               <p className="font-display text-xl">Nothing found</p>
               <p className="mt-1 text-sm text-muted">Try another word or category.</p>
@@ -960,6 +995,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
             />
           )}
 
+          {view === "videos" && (
+            <Suspense fallback={<VideoSkeleton />}>
+              <VideoBoard query={searchQuery} rail={videoRail} refreshSignal={videoRefresh} />
+            </Suspense>
+          )}
+
           {hasData && view === "sources" && (
             <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
               {visibleSources.map((s) => (
@@ -999,7 +1040,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         </main>
 
         {/* New headlines from the automatic refresh, held back so nothing moves while reading. */}
-        {pending && (
+        {pending && view !== "videos" && (
           <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
             <button
               type="button"
@@ -1017,7 +1058,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
           className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
           aria-label="View"
         >
-          <div className="mx-auto grid h-16 max-w-md grid-cols-5">
+          <div className="mx-auto grid h-16 max-w-md grid-cols-6">
             <NavButton active={view === "sources"} onClick={() => changeView("sources")} label="Sources">
               <GridIcon />
             </NavButton>
@@ -1029,6 +1070,9 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
             </NavButton>
             <NavButton active={view === "saved"} onClick={() => changeView("saved")} label="Saved">
               <BookmarkIcon />
+            </NavButton>
+            <NavButton active={view === "videos"} onClick={() => changeView("videos")} label="Videos" {...videoIntent}>
+              <VideoIcon />
             </NavButton>
             <NavButton active={false} onClick={() => setFiltersOpen(true)} label="Filters" badge={activeFilters.length}>
               <SlidersIcon />
@@ -1066,27 +1110,29 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                 </p>
               </Field>
             )}
-            <Field label="Language">{languageControl}</Field>
-            <Field label="Source">{sourceControl}</Field>
+            {view !== "videos" && <Field label="Language">{languageControl}</Field>}
+            {view !== "videos" && <Field label="Source">{sourceControl}</Field>}
             <Field label="Appearance">
               <ThemeSetting />
             </Field>
           </div>
           <div className="mt-8 flex gap-3">
-            <button
-              type="button"
-              onClick={resetFilters}
-              disabled={activeFilters.length === 0}
-              className="h-12 flex-1 rounded-xl border border-line text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40"
-            >
-              Reset
-            </button>
+            {view !== "videos" && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={activeFilters.length === 0}
+                className="h-12 flex-1 rounded-xl border border-line text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40"
+              >
+                Reset
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setFiltersOpen(false)}
               className="h-12 flex-[2] rounded-xl bg-foreground text-sm font-semibold text-background transition active:scale-[0.98]"
             >
-              Show {formatCount(filtered.length)} headlines
+              {view === "videos" ? "Done" : `Show ${formatCount(filtered.length)} headlines`}
             </button>
           </div>
         </Sheet>
@@ -1147,17 +1193,22 @@ function NavButton({
   label,
   badge = 0,
   children,
+  ...intent
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
   badge?: number;
   children: React.ReactNode;
+  onPointerEnter?: () => void;
+  onPointerDown?: () => void;
+  onFocus?: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      {...intent}
       aria-current={active ? "page" : undefined}
       className={`relative flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition active:scale-95 ${
         active ? "text-accent" : "text-muted"

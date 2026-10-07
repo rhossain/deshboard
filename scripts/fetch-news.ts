@@ -3,6 +3,7 @@
  *
  * Fetches every active source and each outlet's logo, then writes what the static site serves:
  *   public/data/news.json   the board's headlines (see NewsFeed)
+ *   public/data/videos.json the Videos view: TV channels' latest YouTube videos (see VideoFeed)
  *   public/logos/<id>.<ext> logos, resized for the cards (see prepareLogo)
  * and updates `.data/` (first-seen times, source health, which `next build` reads for /health, and
  * the outlets' original logos, kept for a week between runs).
@@ -13,6 +14,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import path from "node:path";
 import { getLogo, prepareLogo } from "../src/lib/logos";
 import { getNews } from "../src/lib/news";
+import { getVideos } from "../src/lib/videos";
 import { SOURCES } from "../src/lib/sources";
 import { flushStores } from "../src/lib/store";
 import type { LogoShape, NewsFeed, SourceResult } from "../src/lib/types";
@@ -90,7 +92,7 @@ async function publishLogos(originals: Record<string, string>): Promise<Pick<New
 
 async function main() {
   const started = Date.now();
-  const [news, originals] = await Promise.all([getNews({ force: true }), updateLogos()]);
+  const [news, originals, videos] = await Promise.all([getNews({ force: true }), updateLogos(), getVideos()]);
   const { logos, logoShapes } = await publishLogos(originals);
 
   const bySource = new Map<string, SourceResult>();
@@ -100,14 +102,17 @@ async function main() {
   const feed: NewsFeed = { generatedAt: news.generatedAt, results: [...bySource.values()], logos, logoShapes };
   mkdirSync(path.join(PUBLIC, "data"), { recursive: true });
   writeFileSync(path.join(PUBLIC, "data", "news.json"), JSON.stringify(feed));
+  writeFileSync(path.join(PUBLIC, "data", "videos.json"), JSON.stringify(videos));
   flushStores();
 
   const ok = news.statuses.filter((s) => s.ok).length;
   console.log(
     `${ok}/${news.statuses.length} sources OK, ${news.items.length} headlines, ` +
-      `${Object.keys(logos).length} logos (${((Date.now() - started) / 1000).toFixed(1)} s)`,
+      `${Object.keys(logos).length} logos, ` +
+      `${videos.channels.filter((c) => c.ok).length}/${videos.channels.length} channels with ${videos.videos.length} videos (${((Date.now() - started) / 1000).toFixed(1)} s)`,
   );
   for (const s of news.statuses.filter((s) => !s.ok)) console.log(`  ✗ ${s.sourceName}: ${s.error}`);
+  for (const c of videos.channels.filter((c) => !c.ok)) console.log(`  ✗ ${c.name} (YouTube): ${c.error}`);
   process.exit(ok > 0 ? 0 : 1);
 }
 

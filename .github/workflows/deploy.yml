@@ -11,7 +11,7 @@ on:
   # Started every 15 minutes by an outside timer (cron-job.org) through GitHub's API:
   #   POST /repos/rhossain/deshboard/actions/workflows/deploy.yml/dispatches  {"ref":"main"}
   # with a fine-grained token limited to this repo's Actions. GitHub's own `schedule` never fired
-  # here, and runs late even when it works. Keep UPDATE_EVERY_MS in NewsBoard.tsx in step.
+  # here, and runs late even when it works. Keep UPDATE_EVERY_MS in src/components/schedule.ts in step.
   workflow_dispatch:
   push:
     branches: [static-export]
