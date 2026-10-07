@@ -22,7 +22,7 @@ import { cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from
 import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filters";
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
-import { newsQueryFrom } from "../src/lib/news";
+import { mergeNews, newsQueryFrom } from "../src/lib/news";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
 import { SHARE_TARGETS, sharedVideoId, sharePath, videoSharePath } from "../src/lib/share";
 import { findStories, keywords } from "../src/lib/stories";
@@ -447,6 +447,32 @@ test("Videos build up across runs: the last day, at most 30 per channel", () => 
   const many = Array.from({ length: 40 }, (_, i) => v(`m${i}`, i / 10));
   assert.equal(mergeVideos(many, [], now).length, 30);
   assert.equal(mergeVideos(many, [], now)[0].id, "m0");
+});
+
+test("Headlines build up across runs: the last 72 hours, at most 150 per source", () => {
+  const now = Date.parse("2026-10-07T12:00:00Z");
+  const at = (hoursAgo: number) => new Date(now - hoursAgo * 3600_000).toISOString();
+  const it = (link: string, hoursAgo?: number, title = link, seen = false): NewsItem => ({
+    title,
+    link: `https://example.com/${link}`,
+    ...(hoursAgo === undefined ? {} : seen ? { seenAt: at(hoursAgo) } : { publishedAt: at(hoursAgo) }),
+    sourceId: "x",
+    sourceName: "X",
+    lang: "en",
+    category: "national",
+  });
+  const kept = [it("old", 80), it("b", 2, "old title"), it("c", 50), it("d", 5, "d", true), it("undated")];
+  assert.deepEqual(
+    mergeNews([it("a", 1), it("b", 2, "new title"), it("stale", 100), it("e")], kept, now).map(
+      (x) => `${x.link.slice(20)}:${x.title}`,
+    ),
+    // Undated ones last, and only while this fetch still has them.
+    ["a:a", "b:new title", "d:d", "c:c", "e:e"],
+  );
+  assert.deepEqual(mergeNews([], kept, now).map((x) => x.title), ["old title", "d", "c"]);
+  const many = Array.from({ length: 200 }, (_, i) => it(`m${i}`, i / 10));
+  assert.equal(mergeNews(many, [], now).length, 150);
+  assert.equal(mergeNews(many, [], now)[0].title, "m0");
 });
 
 test("Google News: one site's last day, in its language's edition", () => {
