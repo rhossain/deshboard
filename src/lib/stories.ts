@@ -49,6 +49,16 @@ export function itemTime(it: NewsItem): string | undefined {
   return it.publishedAt ?? it.seenAt;
 }
 
+/**
+ * ISO times compared as plain strings, newest first; no time ("" or undefined) goes last. Not
+ * localeCompare: the first call loads the browser's collation data, a pause on a slow phone.
+ */
+export function newestFirst(a: string | undefined, b: string | undefined): number {
+  const x = a ?? "";
+  const y = b ?? "";
+  return x < y ? 1 : x > y ? -1 : 0;
+}
+
 // prettier-ignore
 const STOPWORDS = new Set([
   // English
@@ -221,12 +231,12 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
     const rest = picked
       .filter((i) => i !== leadIdx)
       .map((i) => docs[i].item)
-      .sort((a, b) => (itemTime(b) ?? "").localeCompare(itemTime(a) ?? ""));
+      .sort((a, b) => newestFirst(itemTime(a), itemTime(b)));
     const latest = picked
       .map((i) => itemTime(docs[i].item))
       .reduce<string | undefined>((a, b) => (b && (!a || b > a) ? b : a), undefined);
     stories.push({ id: lead.link, lead, items: [lead, ...rest], outlets: byOutlet.size, latest });
   }
 
-  return stories.sort((a, b) => b.outlets - a.outlets || (b.latest ?? "").localeCompare(a.latest ?? ""));
+  return stories.sort((a, b) => b.outlets - a.outlets || newestFirst(a.latest, b.latest));
 }

@@ -71,7 +71,7 @@ export function useCardPrefs(): [CardPrefs, (change: (draft: CardPrefs) => void)
   return [prefs, update];
 }
 
-const PHONE = "(max-width: 767px)";
+export const PHONE = "(max-width: 767px)";
 
 /** True on phone-width screens, where cards can be collapsed. False during server rendering. */
 export function useIsPhone(): boolean {

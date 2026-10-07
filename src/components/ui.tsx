@@ -183,11 +183,14 @@ export const LinkIcon = (p: { className?: string }) => (
   </Icon>
 );
 
+// The three dots as one path: every headline has these, so each element saved counts hundreds of times.
 export const DotsIcon = (p: { className?: string }) => (
   <Icon {...p}>
-    <circle cx="12" cy="5.5" r="1.4" fill="currentColor" stroke="none" />
-    <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-    <circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none" />
+    <path
+      d="M12 4.1a1.4 1.4 0 1 0 0 2.8a1.4 1.4 0 1 0 0-2.8ZM12 10.6a1.4 1.4 0 1 0 0 2.8a1.4 1.4 0 1 0 0-2.8ZM12 17.1a1.4 1.4 0 1 0 0 2.8a1.4 1.4 0 1 0 0-2.8Z"
+      fill="currentColor"
+      stroke="none"
+    />
   </Icon>
 );
 
