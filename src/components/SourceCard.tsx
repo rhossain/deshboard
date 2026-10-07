@@ -60,12 +60,14 @@ export const SourceCard = memo(function SourceCard({
   if (filtering && items.length === 0) return null;
 
   const problem = sourceProblem(source, status);
+  // The last fetch failed but earlier ones' headlines are kept: those, with the reason in a note.
+  const stale = !!problem && items.length > 0;
   // Headlines from Google News, because the site refuses us: said where the method usually is.
   const fallback = fallbackNote(status);
   const pending = !problem && !status;
   // Folded on phones. Until the board knows it's on one (the prerendered page, and hydration), CSS
   // folds the card at phone widths instead, so nothing folds, moves or animates when the board starts.
-  const foldsOnPhone = !filtering && (savedCollapsed ?? !!problem);
+  const foldsOnPhone = !filtering && (savedCollapsed ?? (!!problem && !stale));
   const collapsed = collapsible && foldsOnPhone;
   const phoneFolded = !collapsible && foldsOnPhone;
   const [lead, ...rest] = showAll ? items : items.slice(0, PER_CARD);
@@ -148,7 +150,7 @@ export const SourceCard = memo(function SourceCard({
               New
             </span>
           )}
-          {!problem && !pending && items.length > 0 && (
+          {(!problem || stale) && !pending && items.length > 0 && (
             <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold tabular-nums text-accent">
               {count}
             </span>
@@ -162,7 +164,7 @@ export const SourceCard = memo(function SourceCard({
         </div>
       </header>
 
-      {problem ? (
+      {problem && !stale ? (
         <Fold open={!collapsed} phoneFolded={phoneFolded}>
           <div className="mx-4 mb-4 flex gap-3 rounded-xl bg-surface-2 p-3.5 text-sm">
             <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
@@ -194,6 +196,15 @@ export const SourceCard = memo(function SourceCard({
         </Fold>
       ) : (
         <Fold open={!collapsed} phoneFolded={phoneFolded}>
+          {stale && (
+            <p
+              title={[problem.message, problem.detail].filter(Boolean).join(" ")}
+              className="mx-4 mb-3 flex gap-2 rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted"
+            >
+              <AlertIcon className="mt-px h-3.5 w-3.5 shrink-0" />
+              Couldn&rsquo;t update just now. These are its earlier headlines.
+            </p>
+          )}
           {lead && (
             <div className="border-t border-line">
               <Headline

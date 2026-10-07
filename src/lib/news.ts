@@ -9,6 +9,7 @@ import { parseNewsSitemap } from "./fetchers/sitemap";
 import { dedupeByLink, dhakaDate, shiftDhakaAsUtc } from "./fetchers/utils";
 import { ACTIVE_SOURCES, getSource } from "./sources";
 import { readStore, writeStoreSoon } from "./store";
+import { itemTime, newestFirst } from "./stories";
 import type { NewsItem, NewsSource, SourceResult } from "./types";
 
 /** How long a source's result is reused before it is fetched again. */
@@ -16,6 +17,10 @@ const TTL_MS = Number(process.env.NEWS_CACHE_SECONDS ?? 600) * 1000;
 /** Failed sources are retried sooner. */
 const ERROR_TTL_MS = 60_000;
 const CONCURRENCY = 8;
+/** Headlines older than this drop off (as long as first-seen.ts remembers a link). */
+const MAX_AGE_MS = 72 * 3600_000;
+/** And each source keeps at most this many, newest first. */
+const PER_SOURCE = 150;
 
 type CacheEntry = { at: number; result: SourceResult };
 const CACHE_STORE = "news-cache";
@@ -67,6 +72,20 @@ async function fetchRaw(source: NewsSource): Promise<{ items: RawItem[]; url: st
   }
 }
 
+/**
+ * A source's headlines: this fetch's, then the ones kept from before, so a short feed (ten items, an
+ * hour's worth for some outlets) builds up between runs while a sitemap of a thousand is cut down.
+ * Headlines with no time stay only while they are on the page; the rest drop off at MAX_AGE_MS.
+ */
+export function mergeNews(fresh: NewsItem[], kept: NewsItem[], now = Date.now()): NewsItem[] {
+  const cutoff = new Date(now - MAX_AGE_MS).toISOString();
+  const recent = (it: NewsItem) => (itemTime(it) ?? "") >= cutoff;
+  // dedupeByLink keeps the first of each link, so this fetch's title and section win.
+  return dedupeByLink([...fresh.filter((it) => !itemTime(it) || recent(it)), ...kept.filter(recent)])
+    .sort((a, b) => newestFirst(itemTime(a), itemTime(b)))
+    .slice(0, PER_SOURCE);
+}
+
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /**
@@ -92,6 +111,7 @@ async function fetchWithFallback(
 
 async function load(source: NewsSource): Promise<SourceResult> {
   const started = Date.now();
+  const kept = cache.get(source.id)?.result.items ?? [];
   const base = {
     sourceId: source.id,
     sourceName: source.name,
@@ -121,11 +141,12 @@ async function load(source: NewsSource): Promise<SourceResult> {
     const result = {
       ...base,
       ok: true,
+      // What this fetch found; `items` also has the ones kept from before.
       count: news.length,
       ...(via ? { via, directError } : {}),
       fetchedUrl: url,
       durationMs: Date.now() - started,
-      items: news,
+      items: mergeNews(news, kept),
     };
     recordHealth(result, unmapped);
     return result;
@@ -137,7 +158,8 @@ async function load(source: NewsSource): Promise<SourceResult> {
       error: message(err),
       ...(err instanceof Error && "fallbackError" in err ? { fallbackError: String(err.fallbackError) } : {}),
       durationMs: Date.now() - started,
-      items: [],
+      // Keep what we have; it ages out on its own if the source stays unreachable.
+      items: mergeNews([], kept),
     };
     recordHealth(result, new Map());
     return result;
