@@ -76,8 +76,8 @@ export function LatestList({
     const parts: { label?: string; items: NewsItem[] }[] =
       mine.length && mine.length < dated.length
         ? [
-            { label: "From your sources", items: mine },
-            { label: "Everything else", items: dated.filter((it) => !pinned!.has(it.sourceId)) },
+            { label: "Your news", items: mine },
+            { label: "Other news", items: dated.filter((it) => !pinned!.has(it.sourceId)) },
           ]
         : [{ items: dated }];
     return { parts, dated: dated.length };
