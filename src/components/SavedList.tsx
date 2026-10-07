@@ -1,36 +1,52 @@
 "use client";
 
-import type { NewsItem, NewsSource } from "@/lib/types";
+import { useState } from "react";
+import { preconnect } from "react-dom";
+import type { NewsItem, NewsSource, Video } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import type { SavedEntry } from "./saved";
+import type { SavedEntry, SavedVideo } from "./saved";
 import { formatCount, timeAgo } from "./time";
 import { BookmarkIcon, ItemMenu } from "./ui";
+import { Player, VideoCard } from "./VideoCard";
 
-/** Headlines the reader saved on this device, most recently saved first. */
+/** Headlines and videos the reader saved on this device, most recently saved first. */
 export function SavedList({
   entries,
+  videos,
   total,
   sourceById,
   now,
   onToggleSave,
   onShare,
+  onToggleSaveVideo,
+  onShareVideo,
 }: {
   /** Saved headlines matching the current filters. */
   entries: SavedEntry[];
-  /** All saved headlines, to tell "nothing saved" from "nothing matches". */
+  /** Saved videos matching the current filters. */
+  videos: SavedVideo[];
+  /** All saved headlines and videos, to tell "nothing saved" from "nothing matches". */
   total: number;
   sourceById: Map<string, NewsSource>;
   now: number;
   onToggleSave: (item: NewsItem) => void;
   onShare: (item: NewsItem) => void;
+  onToggleSaveVideo: (video: Video, channelName: string) => void;
+  onShareVideo: (video: Video, channelName: string) => void;
 }) {
+  const [playing, setPlaying] = useState<SavedVideo | null>(null);
+  const matching = entries.length + videos.length;
+  // Headings only when there are both kinds to tell apart.
+  const both = entries.length > 0 && videos.length > 0;
+
   if (!total) {
     return (
       <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
         <BookmarkIcon className="mx-auto h-7 w-7 text-muted" />
         <p className="mt-3 font-display text-xl">Nothing saved yet</p>
         <p className="mx-auto mt-1 max-w-xs text-sm text-muted">
-          Tap the bookmark beside any headline to keep it here for later. Saved headlines stay on this device.
+          Choose Save for later in the ⋮ menu beside any headline or video to keep it here. Saved items stay on this
+          device.
         </p>
       </div>
     );
@@ -39,9 +55,9 @@ export function SavedList({
   return (
     <section>
       <p className="mb-4 px-1 text-[13px] text-muted">
-        {formatCount(total)} saved on this device{entries.length < total && `, ${entries.length} match the filters`}
-        .
+        {formatCount(total)} saved on this device{matching < total && `, ${matching} match the filters`}.
       </p>
+      {both && <h2 className="mb-3 px-1 font-display text-lg">Headlines</h2>}
       {entries.length > 0 && (
         <ol className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
           {entries.map(({ item: it, savedAt }) => (
@@ -67,6 +83,35 @@ export function SavedList({
             </li>
           ))}
         </ol>
+      )}
+      {both && <h2 className="mb-3 mt-8 px-1 font-display text-lg">Videos</h2>}
+      {videos.length > 0 && (
+        <ul className="grid gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-y-7 lg:grid-cols-3 xl:grid-cols-4">
+          {videos.map((e) => (
+            <VideoCard
+              key={e.video.id}
+              video={e.video}
+              channelName={e.channelName}
+              now={now}
+              eager={false}
+              saved
+              onPlay={() => {
+                preconnect("https://www.youtube-nocookie.com");
+                setPlaying(e);
+              }}
+              onToggleSave={onToggleSaveVideo}
+              onShare={onShareVideo}
+            />
+          ))}
+        </ul>
+      )}
+      {playing && (
+        <Player
+          key={playing.video.id}
+          video={playing.video}
+          channelName={playing.channelName}
+          onClose={() => setPlaying(null)}
+        />
       )}
     </section>
   );

@@ -20,20 +20,21 @@ import { categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime, newestFirst } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
-import type { LogoShape, NewsItem, NewsSource, NewsStreamMessage, SourceResult } from "@/lib/types";
+import type { LogoShape, NewsItem, NewsSource, NewsStreamMessage, SourceResult, Video } from "@/lib/types";
 import { PHONE, useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLastVisit } from "./last-visit";
 import { byNewest, LatestList } from "./LatestList";
 import { Logo } from "./Logo";
-import { useSaved } from "./saved";
+import { useSaved, useSavedVideos } from "./saved";
 import { SavedList } from "./SavedList";
 import { AUTO_REFRESH_MS } from "./schedule";
-import { ShareOptions, shareUrl } from "./ShareOptions";
+import { type Shareable, ShareOptions, shareUrl } from "./ShareOptions";
 import { LogoShapes, SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
-import { loadVideoBoard, prefetchVideos } from "./videos";
+import { watchUrl } from "./VideoCard";
+import { cachedVideos, loadVideoBoard, prefetchVideos } from "./videos";
 import { VideoSkeleton } from "./VideoSkeleton";
 import { dhakaDate, formatCount, fullTime, timeAgo } from "./time";
 import {
@@ -77,7 +78,7 @@ const SHORTCUTS: [string, string][] = [
   ["/", "Search headlines"],
   ["j / k", "Next / previous headline"],
   ["Enter", "Open the headline"],
-  ["s", "Save or unsave the headline"],
+  ["s", "Save or unsave the headline or video"],
   ["1 – 5", "Newsstand, Top stories, Latest, Videos, Saved"],
   ["r", "Refresh"],
   ["Esc", "Clear the search, close a panel"],
@@ -202,7 +203,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const [onlyNew, setOnlyNew] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [sharing, setSharing] = useState<NewsItem | null>(null);
+  const [sharing, setSharing] = useState<Shareable | null>(null);
   // An automatic refresh that brought new headlines, held back until the reader asks for it.
   const [pending, setPending] = useState<Pending | null>(null);
   const quietRef = useRef<AbortController | null>(null);
@@ -448,6 +449,15 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         (!q || it.title.toLowerCase().includes(q)),
     );
   }, [saved, lang, onlySource, category, searchQuery]);
+  // Saved videos only go through the search: they are TV channels' Bangla videos, with no source or
+  // category of the board's, so a source, category or English filter leaves them out.
+  const { savedVideos, toggleSavedVideo } = useSavedVideos();
+  const savedVideosMatching = useMemo(() => {
+    if (lang === "en" || onlySource || category) return [];
+    const q = searchQuery.trim().toLowerCase();
+    return q ? savedVideos.filter((e) => e.video.title.toLowerCase().includes(q)) : savedVideos;
+  }, [savedVideos, lang, onlySource, category, searchQuery]);
+  const savedCount = saved.length + savedVideos.length;
 
   // Single sources failing are explained on their cards (and on /health); half or more failing at once
   // is an outage worth saying at the top. Judged once every source has reported.
@@ -513,15 +523,26 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   };
 
   // Phones get the system share menu straight away; elsewhere (or if it's unavailable), the share sheet.
+  const share = useCallback((shared: Shareable) => {
+    if (window.matchMedia(PHONE).matches && typeof navigator.share === "function") {
+      navigator.share({ title: shared.title, url: shared.url }).catch(() => {});
+    } else {
+      setSharing(shared);
+    }
+  }, []);
   const shareItem = useCallback(
-    (item: NewsItem) => {
-      if (window.matchMedia(PHONE).matches && typeof navigator.share === "function") {
-        navigator.share({ title: item.title, url: shareUrl(item) }).catch(() => {});
-      } else {
-        setSharing(item);
-      }
-    },
-    [],
+    (item: NewsItem) =>
+      share({
+        title: item.title,
+        url: shareUrl(item),
+        sourceName: sourceById.get(item.sourceId)?.name ?? item.sourceName,
+      }),
+    [share, sourceById],
+  );
+  const shareVideo = useCallback(
+    (video: Video, channelName: string) =>
+      share({ title: video.title, url: watchUrl(video.id), sourceName: channelName, video: true }),
+    [share],
   );
 
   // Hovering, pressing or tabbing to Videos starts its download, ahead of the click.
@@ -555,6 +576,14 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         const link = focused?.href;
         const item = link && (allItems.find((it) => it.link === link) ?? saved.find((e) => e.item.link === link)?.item);
         if (item) toggleSaved(item);
+        else if (link) {
+          const id = new URL(link).searchParams.get("v");
+          const known = savedVideos.find((e) => e.video.id === id);
+          const feed = cachedVideos();
+          const video = known?.video ?? feed?.videos.find((v) => v.id === id);
+          const channelName = known?.channelName ?? feed?.channels.find((c) => c.id === video?.channel)?.name;
+          if (video) toggleSavedVideo(video, channelName ?? video.channel);
+        }
       } else if (key === "r") {
         load(true);
       } else if (key === "?") {
@@ -565,7 +594,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [allItems, saved, toggleSaved, load, changeView]);
+  }, [allItems, saved, toggleSaved, savedVideos, toggleSavedVideo, load, changeView]);
 
   const orderControl = <Segmented label="Order" value={order} onChange={setOrder} options={ORDER_OPTIONS} full />;
   const languageControl = <Segmented label="Language" value={lang} onChange={setLang} options={LANG_OPTIONS} full />;
@@ -708,9 +737,9 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                   >
                     <Icon className="hidden h-4 w-4 lg:block" />
                     {label}
-                    {value === "saved" && saved.length > 0 && (
+                    {value === "saved" && savedCount > 0 && (
                       <span className={`text-xs tabular-nums ${active ? "opacity-60" : "text-muted/80"}`}>
-                        {saved.length}
+                        {savedCount}
                       </span>
                     )}
                   </button>
@@ -864,17 +893,20 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
           {view === "saved" && (
             <SavedList
               entries={savedMatching}
-              total={saved.length}
+              videos={savedVideosMatching}
+              total={savedCount}
               sourceById={sourceById}
               now={now}
               onToggleSave={toggleSaved}
               onShare={shareItem}
+              onToggleSaveVideo={toggleSavedVideo}
+              onShareVideo={shareVideo}
             />
           )}
 
           {view === "videos" && (
             <Suspense fallback={<VideoSkeleton />}>
-              <VideoBoard query={searchQuery} rail={videoRail} refreshSignal={videoRefresh} />
+              <VideoBoard query={searchQuery} rail={videoRail} refreshSignal={videoRefresh} onShare={shareVideo} />
             </Suspense>
           )}
 
@@ -1010,10 +1042,8 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
           </div>
         </Sheet>
 
-        <Sheet open={!!sharing} onClose={() => setSharing(null)} title="Share headline">
-          {sharing && (
-            <ShareOptions item={sharing} sourceName={sourceById.get(sharing.sourceId)?.name ?? sharing.sourceName} />
-          )}
+        <Sheet open={!!sharing} onClose={() => setSharing(null)} title={sharing?.video ? "Share video" : "Share headline"}>
+          {sharing && <ShareOptions shared={sharing} />}
         </Sheet>
 
         <Sheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard shortcuts">
