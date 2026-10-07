@@ -2,26 +2,31 @@
 
 Headlines + links from Bangladeshi news portals, built with **Next.js 16** (App Router) and **Tailwind CSS v4**.
 
-Sources were verified on 5 Oct 2026 (see `docs/bd-news-sources.xlsx`): 64 portals checked, **48 active**:
+Sources were verified on 5 Oct 2026 (see `docs/bd-news-sources.xlsx`): 64 portals checked, **59 active**:
 
-| Method   | Portals | How it works                                                                 |
-| -------- | ------: | ---------------------------------------------------------------------------- |
-| RSS      |      16 | RSS 2.0 / Atom / RDF feed                                                    |
-| Sitemap  |      12 | Google News sitemap (`news:title` + `loc`), incl. one-file-per-day sitemaps  |
-| HTML     |      20 | Homepage links whose path matches a per-site `articlePattern` regex          |
+| Method      | Portals | How it works                                                                             |
+| ----------- | ------: | ---------------------------------------------------------------------------------------- |
+| RSS         |      16 | RSS 2.0 / Atom / RDF feed                                                                |
+| Sitemap     |      12 | Google News sitemap (`news:title` + `loc`), incl. one-file-per-day sitemaps              |
+| HTML        |      20 | Homepage links whose path matches a per-site `articlePattern` regex                      |
+| Google News |      11 | Sites that can't be read at all (blocked, JS-only, broken feeds), only via Google News   |
 
-The other 16 (blocked, stale or JS-only) are kept in `src/lib/sources.ts` with method `unclear` / `unavailable` and are not fetched.
+The other 5 (Janakantha, Somoy News, Shokaler Khobor, The Daily Messenger, Bangla Insider: stale, gone, or not on Google
+News either) are kept in `src/lib/sources.ts` with method `unclear` / `unavailable` and are not fetched.
 
 **Google News fallback.** Many of these sites sit behind Cloudflare, which refuses automated requests: some from
-everywhere ("Just a moment…" checks), more from cloud servers. When a source's own feed or page fails, its last day of
-articles is read from Google News instead (`site:` search, Bangladesh edition for Bangla sites, US edition for English
-ones; only items whose publisher is the site itself). Google's links are opaque ids, so each is turned into the
-article's real address (two requests to news.google.com) before it is shown: sections, sharing and duplicate checks
-then work as for any other source. Addresses are kept in memory and in `.data/google-news-links.json` for three days,
-and looked up within a budget (300 per ten minutes, at most 10 per source per fetch, newest first; a pause if Google
-answers 429), so a card fills over a few refreshes (up to 30 headlines) and later ones only look up what's new. Cards
-say "via Google News"; `/health` lists these sources separately with the site's own error and how long it has failed.
-Daily Sun is the exception: Google lists its articles days late, so it stays failing.
+everywhere ("Just a moment…" checks), more from cloud servers. When a source's own feed or page fails (or straight
+away, for the 11 with method `google-news`), its last day of articles is read from Google News instead (`site:`
+search, Bangladesh edition for Bangla sites, US edition for English ones; only items whose publisher is the site
+itself). Google's links are opaque ids, so each is turned into the article's real address (two requests to
+news.google.com) before it is shown: sections, sharing and duplicate checks then work as for any other source.
+Addresses are kept in memory and in `.data/google-news-links.json` for three days, and looked up within a budget (400
+per ten minutes, at most 10 per source per fetch, newest first; a pause if Google answers 429), so a card fills over a
+few refreshes (up to 30 headlines) and later ones only look up what's new. Google also lists pages that aren't
+articles (sections, author and tag pages, page templates); titles naming the publisher, of one or two words, or
+repeated three times in a feed, and addresses without an article path, are left out. Cards say "via Google News";
+`/health` lists these sources separately with the site's own error and how long it has failed. Daily Sun is the
+exception: Google lists its articles days late, so it stays failing.
 
 Sources are fetched and shown in the order set by `PRIORITY` in `src/lib/sources.ts` (Prothom Alo, The Daily Star,
 Daily Sun, Jugantor, …), followed by the rest in list order. On the board, sources that are not fetched or whose fetch

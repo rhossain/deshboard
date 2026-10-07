@@ -34,7 +34,7 @@ const STATE_STYLE: Record<State, string> = {
   ok: "bg-accent-soft text-accent",
   off: "bg-surface-2 text-muted",
 };
-const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", html: "Homepage" };
+const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", html: "Homepage", "google-news": "Google News" };
 
 interface Row {
   source: NewsSource;
