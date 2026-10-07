@@ -41,6 +41,10 @@ npm test           # offline parser tests
   logo when it starts and renders their sizes into the page, so cards draw them right from the first paint. 404 when
   nothing is found, and the UI shows the name as text.
 - `GET /api/sources` — all 64 portals with method, URL and notes
+- `GET /api/videos` — `{ generatedAt, channels, videos }`: the Videos view, 31 TV news channels' YouTube videos from
+  the last day (at most 30 per channel), newest first, without Shorts. `?refresh=1` fetches the channels now; otherwise
+  the cached videos come back at once, and stale ones are refreshed behind them. Each channel's feed only has its
+  latest 15, so each fetch adds to what earlier ones kept (`.data/videos.json`).
 
 Each item: `{ title, link, publishedAt?, seenAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no
 `publishedAt`; instead `seenAt` is when Deshboard first saw them on the homepage (`src/lib/first-seen.ts`). Headlines
@@ -58,6 +62,9 @@ feeds have no tags (e.g. Manab Zamin, BSS, Daily Observer) always end up in `oth
 
 ```
 src/lib/sources.ts         source list (edit here to add/fix a portal)
+src/lib/channels.ts        TV news channels on YouTube for the Videos view (edit here to add/fix a channel)
+src/lib/videos.ts          fetches the channels' feeds, caches them, keeps the last day's videos
+src/lib/fetchers/youtube.ts YouTube channel feed parser (Shorts left out, titles trimmed to their Bangla parts)
 src/lib/categories.ts      section-name synonyms → main categories
 src/lib/problems.ts        reader-facing explanations for unavailable / failed sources
 src/lib/logos.ts           logo discovery from homepages + in-memory image cache
@@ -71,6 +78,7 @@ src/lib/fetchers/rss.ts    RSS/Atom/RDF parser
 src/lib/fetchers/sitemap.ts Google News sitemap parser
 src/lib/fetchers/html.ts   homepage headline extractor (cheerio)
 src/components/NewsBoard.tsx  UI: top stories, by-source cards, latest timeline, filters, search, "new" marks
+src/components/VideoBoard.tsx Videos view (its own chunk, loaded with /api/videos only when Videos is opened)
 ```
 
 ### Fixing an HTML source
@@ -80,9 +88,9 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 
 ## Config
 
-- `NEWS_CACHE_SECONDS` (default `600`) — how long each source's result is reused.
+- `NEWS_CACHE_SECONDS` (default `600`) — how long each source's result (and the videos) is reused.
 - `NEWS_BACKGROUND_REFRESH` — set to `0` to fetch only when a reader asks. Otherwise the server refreshes stale
-  sources at startup and every half TTL, so readers get headlines from a warm cache.
+  sources and the videos at startup and every half TTL, so readers get headlines and videos from a warm cache.
 - `SITE_URL` (default `http://localhost:3000`) — the public address, used for canonical links, `sitemap.xml`,
   `robots.txt`, structured data and the share image.
 - `NEWS_DATA_DIR` (default `.data/`) — where the cache and first-seen times are saved; `NEWS_PERSIST=0` keeps them in
@@ -101,7 +109,10 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 - **Saved** — the bookmark beside each headline keeps it on this device (whole item, so it outlives the feed).
 - **Quiet auto-refresh** — every 10 minutes the board refetches in the background; new headlines wait behind a
   "N new headlines" button instead of moving the page (applied at once if nothing is new or the tab is hidden).
-- **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`4` views, `r` refresh, `?` help.
+- **Videos** — the latest videos from 31 TV news channels on YouTube, filtered by channel or search, played over the
+  page. Its code and data load only when Videos is opened (started on hover or press, just before the click); a page
+  opened on Videos leaves the headlines until the reader leaves it.
+- **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`5` views, `r` refresh, `?` help.
 - **Share image** — `src/app/opengraph-image.tsx`, rendered at build time with the site's fonts.
 - **Source health** — `/health` lists every source from the server cache (never triggers a fetch): failing ones first
   with how long they have failed, then working ones with the section names whose headlines land in "Other" (add those

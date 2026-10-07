@@ -96,6 +96,13 @@ export const GridIcon = (p: { className?: string }) => (
   </Icon>
 );
 
+export const VideoIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="3" />
+    <path d="M10.5 9.5v5l4-2.5z" />
+  </Icon>
+);
+
 export const ClockIcon = (p: { className?: string }) => (
   <Icon {...p}>
     <circle cx="12" cy="12" r="8" />

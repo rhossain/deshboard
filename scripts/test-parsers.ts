@@ -7,6 +7,7 @@ import { categorize } from "../src/lib/categories";
 import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
+import { cleanVideoTitle, parseYouTubeFeed } from "../src/lib/fetchers/youtube";
 import { fullTime, timeAgo } from "../src/components/time";
 import { articleUrl } from "../src/lib/article";
 import { cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
@@ -17,7 +18,8 @@ import { newsQueryFrom } from "../src/lib/news";
 import { sourceProblem } from "../src/lib/problems";
 import { SHARE_TARGETS, sharePath } from "../src/lib/share";
 import { findStories, keywords } from "../src/lib/stories";
-import type { NewsItem, NewsSource, SourceStatus } from "../src/lib/types";
+import type { NewsItem, NewsSource, SourceStatus, Video } from "../src/lib/types";
+import { mergeVideos } from "../src/lib/videos";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -376,6 +378,59 @@ test("utils: titles, URLs and dedupe", () => {
     deduped.map((d) => d.sourceId),
     ["tbs", "tbs-bn"],
   );
+});
+
+test("YouTube feed: videos with views, Shorts left out", () => {
+  const entry = (id: string, title: string, path: string, views: string) => `
+    <entry><id>yt:video:${id}</id><yt:videoId>${id}</yt:videoId><title>${title}</title>
+      <link rel="alternate" href="https://www.youtube.com/${path}"/>
+      <published>2026-10-07T10:16:50+00:00</published>
+      <media:group><media:community><media:statistics views="${views}"/></media:community></media:group></entry>`;
+  const xml = `<?xml version="1.0"?><feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+    xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom"><title>Jamuna TV</title>
+    ${entry("a1", "ডেঙ্গু পরিস্থিতি | Health | Jamuna TV", "watch?v=a1", "1520")}
+    ${entry("s1", "শর্টস ভিডিও", "shorts/s1", "90")}
+    ${entry("s2", "রেকর্ড ডাইভ #cyprusdive #shorts", "watch?v=s2", "90")}
+    ${entry("b2", "Live bulletin", "watch?v=b2", "0")}
+  </feed>`;
+  assert.deepEqual(parseYouTubeFeed(xml), [
+    { id: "a1", title: "ডেঙ্গু পরিস্থিতি", publishedAt: "2026-10-07T10:16:50.000Z", views: 1520 },
+    { id: "b2", title: "bulletin", publishedAt: "2026-10-07T10:16:50.000Z" },
+  ]);
+  assert.throws(() => parseYouTubeFeed("<!DOCTYPE html><html></html>"), /not XML/);
+});
+
+test("Video titles keep their Bangla parts", () => {
+  const cases: [string, string][] = [
+    ["🛑 LIVE: একনজরে বিশ্বের আলোচিত সব খবর | Jamuna i-Desk | 07 October 2026 | Jamuna TV", "একনজরে বিশ্বের আলোচিত সব খবর"],
+    ["প্রকাশ্যে চাঞ্চল্যকর তথ্য, মাটিতে মিশে গেছে যুক্তরাষ্ট্রের অহংকার। American Aircraft। ATN News", "প্রকাশ্যে চাঞ্চল্যকর তথ্য, মাটিতে মিশে গেছে যুক্তরাষ্ট্রের অহংকার"],
+    ["Deepto News l দীপ্ত দুপুরের সংবাদ l ৭ অক্টোবর ২০২৬ | Deepto News Today", "দীপ্ত দুপুরের সংবাদ · ৭ অক্টোবর ২০২৬"],
+    ["#Live |  দীপ্ত দুপুরের সংবাদ ( ৭ অক্টোবর ২০২৬ )", "দীপ্ত দুপুরের সংবাদ ( ৭ অক্টোবর ২০২৬ )"],
+    ["Live। সংবাদ সারাদেশ। Sangbad Saradesh। News Bulletin। Global TV News", "সংবাদ সারাদেশ"],
+    ["‘দুর্ভাগ্যজনকভাবে জন্মহার আগের চেয়ে বেড়েছে’ #ekattortv  #healthminister", "‘দুর্ভাগ্যজনকভাবে জন্মহার আগের চেয়ে বেড়েছে’"],
+    ["শারদীয় দুর্গোৎসবে ষড়যন্ত্র করছে: রাশেদ খাঁন |Channel 24", "শারদীয় দুর্গোৎসবে ষড়যন্ত্র করছে: রাশেদ খাঁন"],
+    ["ফ্যাক্টচেক: সত্য জানুন", "ফ্যাক্টচেক: সত্য জানুন"],
+    ["DW News | Germany", "DW News"],
+  ];
+  for (const [raw, clean] of cases) assert.equal(cleanVideoTitle(raw), clean);
+});
+
+test("Videos build up across runs: the last day, at most 30 per channel", () => {
+  const now = Date.parse("2026-10-07T12:00:00Z");
+  const v = (id: string, hoursAgo: number, title = id): Video => ({
+    id,
+    channel: "jamuna",
+    title,
+    publishedAt: new Date(now - hoursAgo * 3600_000).toISOString(),
+  });
+  const kept = [v("old", 30), v("b", 2, "old title"), v("c", 3)];
+  assert.deepEqual(
+    mergeVideos([v("a", 1), v("b", 2, "new title")], kept, now).map((x) => `${x.id}:${x.title}`),
+    ["a:a", "b:new title", "c:c"],
+  );
+  const many = Array.from({ length: 40 }, (_, i) => v(`m${i}`, i / 10));
+  assert.equal(mergeVideos(many, [], now).length, 30);
+  assert.equal(mergeVideos(many, [], now)[0].id, "m0");
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

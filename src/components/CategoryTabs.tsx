@@ -24,10 +24,12 @@ export function CategoryTabs({
   tabs,
   value,
   onChange,
+  label = "Filter by category",
 }: {
   tabs: CategoryTab[];
   value: string;
   onChange: (id: string) => void;
+  label?: string;
 }) {
   const rail = useRef<HTMLDivElement>(null);
   const indicator = useRef<HTMLSpanElement>(null);
@@ -101,7 +103,7 @@ export function CategoryTabs({
         className="no-scrollbar relative flex overflow-x-auto px-2 sm:px-4"
         style={{ maskImage: mask, WebkitMaskImage: mask }}
         role="group"
-        aria-label="Filter by category"
+        aria-label={label}
       >
         {tabs.map((t) => {
           const active = t.id === value;
