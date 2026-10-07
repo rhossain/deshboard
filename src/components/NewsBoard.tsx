@@ -860,21 +860,6 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               )}
             </label>
 
-            {view !== "videos" && (
-              <FilterPopover count={activeFilters.length}>
-                {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
-                <Field label="Language">{languageControl}</Field>
-                <Field label="Source">{sourceControl}</Field>
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  disabled={activeFilters.length === 0}
-                  className="h-10 w-full rounded-xl border border-line text-sm font-semibold transition hover:bg-surface-2 disabled:opacity-40"
-                >
-                  Reset filters
-                </button>
-              </FilterPopover>
-            )}
           </div>
 
           {view === "videos" ? (
@@ -890,9 +875,29 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
         </div>
 
         <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
-          {sectionOf(view) === "news" && (
-            <div className="mb-4 sm:mb-5 sm:w-fit">
-              <Segmented label="News view" value={view} onChange={changeView} options={NEWS_VIEWS} full />
+          {/* News's views on the left; on larger screens, Filters on the right (also in Saved). Videos has neither. */}
+          {view !== "videos" && (
+            <div className={`mb-4 items-center gap-3 sm:mb-5 ${sectionOf(view) === "news" ? "flex" : "hidden md:flex"}`}>
+              {sectionOf(view) === "news" && (
+                <div className="min-w-0 flex-1 sm:flex-none">
+                  <Segmented label="News view" value={view} onChange={changeView} options={NEWS_VIEWS} full />
+                </div>
+              )}
+              <div className="ml-auto hidden md:block">
+                <FilterPopover count={activeFilters.length}>
+                  {view === "sources" && <Field label="Order sources">{orderControl}</Field>}
+                  <Field label="Language">{languageControl}</Field>
+                  <Field label="Source">{sourceControl}</Field>
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    disabled={activeFilters.length === 0}
+                    className="h-10 w-full rounded-xl border border-line text-sm font-semibold transition hover:bg-surface-2 disabled:opacity-40"
+                  >
+                    Reset filters
+                  </button>
+                </FilterPopover>
+              </div>
             </div>
           )}
 
@@ -1214,7 +1219,8 @@ function FilterPopover({ count, children }: { count: number; children: React.Rea
     const el = panel.current;
     if (!r || !el) return;
     el.style.top = `${r.bottom + 8}px`;
-    el.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+    // From the viewport's right edge, which a fixed panel is placed against: not counting the scrollbar.
+    el.style.right = `${Math.max(8, document.documentElement.clientWidth - r.right)}px`;
   }, []);
 
   useEffect(() => {
