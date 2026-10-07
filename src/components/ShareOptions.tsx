@@ -21,9 +21,18 @@ export function shareUrl(item: NewsItem): string {
   return new URL(sharePath(item.link), window.location.origin).href;
 }
 
-/** Inside the share sheet: the headline, each social site, copy link, and the system share menu. */
-export function ShareOptions({ item, sourceName }: { item: NewsItem; sourceName: string }) {
-  const url = shareUrl(item);
+/** What the share sheet shares: a headline (as its Deshboard link) or a video (as its YouTube link). */
+export interface Shareable {
+  title: string;
+  url: string;
+  /** The outlet or channel. */
+  sourceName: string;
+  video?: boolean;
+}
+
+/** Inside the share sheet: the headline or video, each social site, copy link, and the system share menu. */
+export function ShareOptions({ shared }: { shared: Shareable }) {
+  const { title, url, sourceName } = shared;
   const [copied, setCopied] = useState(false);
   // Only rendered after a tap on Share, never on the server.
   const canNativeShare = typeof navigator.share === "function";
@@ -46,12 +55,12 @@ export function ShareOptions({ item, sourceName }: { item: NewsItem; sourceName:
     <div>
       <div className="rounded-2xl bg-surface-2 px-4 py-3">
         <p className="text-xs font-semibold text-accent">{sourceName}</p>
-        <p className="mt-0.5 line-clamp-3 text-[15px] font-medium leading-[1.5]">{item.title}</p>
+        <p className="mt-0.5 line-clamp-3 text-[15px] font-medium leading-[1.5]">{title}</p>
       </div>
 
       <div className="mt-4 grid grid-cols-4 gap-1 sm:grid-cols-5">
         {SHARE_TARGETS.map((t) => (
-          <a key={t.id} href={t.href(url, item.title)} target="_blank" rel="noopener noreferrer" className={tile}>
+          <a key={t.id} href={t.href(url, title)} target="_blank" rel="noopener noreferrer" className={tile}>
             <span className={disc}>
               <svg viewBox="0 0 24 24" className="h-6 w-6" fill={t.color} aria-hidden>
                 <path d={BRAND_PATHS[t.id]} />
@@ -61,11 +70,7 @@ export function ShareOptions({ item, sourceName }: { item: NewsItem; sourceName:
           </a>
         ))}
         {canNativeShare && (
-          <button
-            type="button"
-            className={tile}
-            onClick={() => navigator.share({ title: item.title, url }).catch(() => {})}
-          >
+          <button type="button" className={tile} onClick={() => navigator.share({ title, url }).catch(() => {})}>
             <span className={disc}>
               <ShareIcon className="h-6 w-6" />
             </span>
@@ -92,7 +97,9 @@ export function ShareOptions({ item, sourceName }: { item: NewsItem; sourceName:
         </button>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        The link opens a Deshboard page for this headline, with a button to the article on {sourceName}.
+        {shared.video
+          ? "The link opens the video on YouTube."
+          : `The link opens a Deshboard page for this headline, with a button to the article on ${sourceName}.`}
       </p>
     </div>
   );
