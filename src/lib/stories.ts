@@ -44,7 +44,7 @@ const MIN_SHARED = 2;
 /** Words in more than this share of headlines are too common to link two headlines on their own. */
 const MAX_DF_SHARE = 0.02;
 
-/** The time used for ordering: the publish time, or when Deshboard first saw the headline. */
+/** The time used for ordering: the publish time, or when Bartaboard first saw the headline. */
 export function itemTime(it: NewsItem): string | undefined {
   return it.publishedAt ?? it.seenAt;
 }

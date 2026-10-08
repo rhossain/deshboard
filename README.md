@@ -1,4 +1,4 @@
-# Deshboard
+# Bartaboard
 
 Headlines + links from Bangladeshi news portals, built with **Next.js 16** (App Router) and **Tailwind CSS v4**.
 
@@ -71,7 +71,7 @@ npm test           # offline parser tests
 It exits with an error when no source worked, so an outage never replaces the board with an empty one.
 
 Each item: `{ title, link, publishedAt?, seenAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no
-`publishedAt`; instead `seenAt` is when Deshboard first saw them on the homepage (`src/lib/first-seen.ts`). Headlines
+`publishedAt`; instead `seenAt` is when Bartaboard first saw them on the homepage (`src/lib/first-seen.ts`). Headlines
 already there on a source's very first fetch get neither, since their age is unknown. The UI shows `seenAt` as `~12
 minutes ago`.
 
@@ -136,7 +136,7 @@ The workflow does nothing until the `SITE_URL` repository variable is set (GitHu
 → Actions), e.g. `https://example.com`; it is the address used in the share image link.
 
 The headlines are as fresh as the last run. For a one-off manual upload instead, `npm run package` builds
-`deshboard.zip`; extract it into `public_html` (it includes `.htaccess`).
+`bartaboard.zip`; extract it into `public_html` (it includes `.htaccess`).
 
 ## Features
 
@@ -156,7 +156,7 @@ The headlines are as fresh as the last run. For a one-off manual upload instead,
 - **Share image** — `src/app/opengraph-image.tsx`, rendered at build time with the site's fonts.
 - **Share links** — `/s/<article address>` shows the headline with a button to the article, looked up in the browser
   (`src/components/SharedHeadline.tsx`); once it has left the board the link goes straight to the article. Links
-  to sites that aren't on the board go to the board. Previews on social sites show the Deshboard card.
+  to sites that aren't on the board go to the board. Previews on social sites show the Bartaboard card.
 - **Source health** — `/health` lists every source as of the last fetch: failing ones first
   with how long they have failed, then working ones with the section names whose headlines land in "Other" (add those
   to `src/lib/categories.ts`).

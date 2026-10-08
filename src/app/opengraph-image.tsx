@@ -4,7 +4,7 @@ import { ImageResponse } from "next/og";
 import { BARTA_GREEN } from "@/components/BartaboardLogo";
 import { ACTIVE_SOURCES } from "@/lib/sources";
 
-export const alt = "Deshboard: every Bangladeshi headline on one board";
+export const alt = "Bartaboard: every Bangladeshi headline on one board";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 // Rendered once at build time (static export).
@@ -22,7 +22,7 @@ async function loadFont(file: string): Promise<ArrayBuffer | null> {
   }
 }
 
-// The preview shown when a Deshboard link is shared (Facebook, WhatsApp, X, Slack…), rendered at
+// The preview shown when a Bartaboard link is shared (Facebook, WhatsApp, X, Slack…), rendered at
 // build time. Without the fonts it falls back to the renderer's built-in one. Latin text only:
 // these fonts have no Bangla glyphs.
 export default async function OpengraphImage() {

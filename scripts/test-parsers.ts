@@ -322,7 +322,7 @@ test("share: videos go out as /s/youtu.be/<id>, and only video IDs are read back
 });
 
 test("share targets put the link and title in the URL", () => {
-  const url = "https://deshboard.test/s/www.prothomalo.com/a?b=1&c";
+  const url = "https://bartaboard.test/s/www.prothomalo.com/a?b=1&c";
   for (const t of SHARE_TARGETS) {
     const href = t.href(url, "শিরোনাম & title");
     assert.ok(href.startsWith("https://"), t.id);

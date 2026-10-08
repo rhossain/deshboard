@@ -116,7 +116,7 @@ export function SharedHeadline() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-4 pb-12 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-8">
       <header>
-        <Link href="/" className="inline-block text-[24px]" aria-label="Deshboard home">
+        <Link href="/" className="inline-block text-[24px]" aria-label="Bartaboard home">
           <BartaboardLogo />
         </Link>
       </header>
@@ -144,7 +144,7 @@ export function SharedHeadline() {
           href="/"
           className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
         >
-          See today&rsquo;s headlines on Deshboard
+          See today&rsquo;s headlines on Bartaboard
         </Link>
       </footer>
     </div>

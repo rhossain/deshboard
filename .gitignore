@@ -48,4 +48,4 @@ next-env.d.ts
 /public/logos/
 
 # upload zip (`npm run package`)
-/deshboard.zip
+/bartaboard.zip

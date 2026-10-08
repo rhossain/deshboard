@@ -1,11 +1,11 @@
 # Subscriptions: plans, keyword alerts and accounts
 
-A proposal, not a build. It covers what Deshboard could charge for, and how keyword alerts and accounts would fit into
+A proposal, not a build. It covers what Bartaboard could charge for, and how keyword alerts and accounts would fit into
 the current setup: a static site on Hostinger, rebuilt every 15 minutes by GitHub Actions, with no backend.
 
 ## 1. Ground rules
 
-1. **Don't charge for the headlines.** They belong to the publishers, who give them away. Charge for what Deshboard
+1. **Don't charge for the headlines.** They belong to the publishers, who give them away. Charge for what Bartaboard
    adds on top: alerts, search, sync, summaries and reports.
 2. **Keep the free board as it is.** It brings in visitors through SEO and shared links. Don't take features away
    from it.
@@ -20,7 +20,7 @@ the current setup: a static site on Hostinger, rebuilt every 15 minutes by GitHu
 - The board, Videos, Saved, pinned sources, sharing: unchanged, no account needed
 - With a free account: **1 keyword alert, as a daily digest**, plus sync of saved and pinned items across devices
 
-### Deshboard Plus, for readers: ৳79–99/month or ৳699–799/year
+### Bartaboard Plus, for readers: ৳79–99/month or ৳699–799/year
 
 | Feature | Why people would pay | Cost to run |
 | --- | --- | --- |
@@ -32,10 +32,10 @@ the current setup: a static site on Hostinger, rebuilt every 15 minutes by GitHu
 
 Not realistic: per-user faster refresh. The site is rebuilt for everyone every 15 minutes.
 
-### Deshboard Monitor, for businesses: ৳3,000–15,000/month. This is the stronger bet.
+### Bartaboard Monitor, for businesses: ৳3,000–15,000/month. This is the stronger bet.
 
 PR agencies, banks, telecoms, NGOs, embassies, political offices and corporate communications teams pay for media
-monitoring, and much of it is still done by hand. Deshboard already scrapes the sources this work needs.
+monitoring, and much of it is still done by hand. Bartaboard already scrapes the sources this work needs.
 
 - Many keywords and brands across every portal and TV channel, with Bangla and English variants
 - A daily or weekly report as PDF or Excel: mentions per outlet, per day, Bangla and English coverage
@@ -185,7 +185,7 @@ It runs in `deploy.yml` right after `npm run fetch` and before `npm run build`, 
 9. **Prune** `seen_links` older than 7 days and `deliveries` older than 30 days (90 days for Monitor, which reports
    on them).
 
-Links in messages point to Deshboard's own share pages (`sharePath` / `videoSharePath` in `src/lib/share.ts`), not
+Links in messages point to Bartaboard's own share pages (`sharePath` / `videoSharePath` in `src/lib/share.ts`), not
 straight to the outlet. That brings readers back to the site, and the links work after the headline leaves the board.
 
 **Latency:** at most about 15 minutes plus the job's run time. That's fine for news alerts, and it's also the most
@@ -205,7 +205,7 @@ we can promise without our own server.
 ### Delivery channels, in the order to build them
 
 1. **Telegram bot**: free, instant and reliable. To connect, `/account/` opens
-   `t.me/DeshboardBot?start=<one-time token>`. The bot's webhook (an Edge Function) matches the token to the user and
+   `t.me/BartaboardBot?start=<one-time token>`. The bot's webhook (an Edge Function) matches the token to the user and
    saves the chat id.
 2. **Email** through Resend (3,000/month free) or Amazon SES: needed for digests and for Monitor reports. Ask the user
    to confirm the address first.
