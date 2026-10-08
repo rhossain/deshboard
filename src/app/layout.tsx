@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter, Noto_Sans_Bengali } from "next/font/google";
+import { Fraunces, Inter, Montserrat, Noto_Sans_Bengali } from "next/font/google";
 import { KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -12,6 +12,15 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   weight: "600",
   variable: "--font-fraunces",
+  display: "swap",
+  preload: false,
+});
+
+// Bartaboard wordmark only: Black for the name, Light for the tagline. Not preloaded for the same reason.
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["300", "900"],
+  variable: "--font-montserrat",
   display: "swap",
   preload: false,
 });
@@ -50,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // English interface; Bangla headlines carry lang="bn" themselves.
     <html
       lang="en"
-      className={`h-full antialiased ${inter.variable} ${bengali.variable} ${fraunces.variable}`}
+      className={`h-full antialiased ${inter.variable} ${bengali.variable} ${fraunces.variable} ${montserrat.variable}`}
       suppressHydrationWarning
     >
       <head>
