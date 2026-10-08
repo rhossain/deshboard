@@ -78,6 +78,7 @@
     var(--font-inter), var(--font-bengali), ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Kohinoor Bangla",
     "Nirmala UI", "Noto Sans Bengali", Roboto, Helvetica, Arial, sans-serif;
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-brand: var(--font-montserrat), Montserrat, "Gotham", "Proxima Nova", Arial, sans-serif;
 }
 
 html {
