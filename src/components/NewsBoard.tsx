@@ -27,7 +27,7 @@ import { PHONE, useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLastVisit } from "./last-visit";
 import { byNewest, LatestList } from "./LatestList";
-import { Logo } from "./Logo";
+import { BartaboardLogo } from "./BartaboardLogo";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinButton, PinPicker } from "./PinPicker";
 import { useSaved, useSavedVideos } from "./saved";
@@ -798,7 +798,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                 {dhakaDate(now)}
               </p>
               <h1 className="mt-1.5 text-[32px] sm:text-5xl">
-                <Logo />
+                <BartaboardLogo />
                 <span className="sr-only">
                   : {(categoryPath(category) && CATEGORIES.find((c) => c.id === category)?.label) || "Latest"} news
                   from Bangladesh

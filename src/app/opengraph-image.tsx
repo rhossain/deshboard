@@ -1,5 +1,7 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
-import { BRAND_GREEN, LogoMark } from "@/components/Logo";
+import { BARTA_GREEN } from "@/components/BartaboardLogo";
 import { ACTIVE_SOURCES } from "@/lib/sources";
 
 export const alt = "Deshboard: every Bangladeshi headline on one board";
@@ -24,13 +26,14 @@ async function loadFont(file: string): Promise<ArrayBuffer | null> {
 // build time. Without the fonts it falls back to the renderer's built-in one. Latin text only:
 // these fonts have no Bangla glyphs.
 export default async function OpengraphImage() {
-  const [fraunces, inter, interMedium] = await Promise.all([
-    loadFont("fraunces@latest/latin-600-normal.ttf"),
+  const [icon, montserrat, inter, interMedium] = await Promise.all([
+    readFile(path.join(process.cwd(), "public/brand/bartaboard-icon-512.png")),
+    loadFont("montserrat@latest/latin-900-normal.ttf"),
     loadFont("inter@latest/latin-700-normal.ttf"),
     loadFont("inter@latest/latin-500-normal.ttf"),
   ]);
   const fonts = [
-    fraunces && { name: "Fraunces", data: fraunces, weight: 600 as const },
+    montserrat && { name: "Montserrat", data: montserrat, weight: 900 as const },
     inter && { name: "Inter", data: inter, weight: 700 as const },
     interMedium && { name: "Inter", data: interMedium, weight: 500 as const },
   ].filter((f) => !!f);
@@ -49,11 +52,13 @@ export default async function OpengraphImage() {
         fontFamily: "Inter",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-        <LogoMark size={128} />
-        <div style={{ display: "flex", alignItems: "baseline", fontSize: 128, lineHeight: 1 }}>
-          <span style={{ fontFamily: "Fraunces", fontWeight: 600, letterSpacing: -3, color: BRAND_GREEN }}>Desh</span>
-          <span style={{ fontWeight: 700, letterSpacing: -6 }}>board</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        <img src={`data:image/png;base64,${icon.toString("base64")}`} width={168} height={168} alt="" />
+        <div
+          style={{ display: "flex", fontFamily: "Montserrat", fontWeight: 900, fontSize: 132, letterSpacing: -6, lineHeight: 1 }}
+        >
+          <span style={{ color: BARTA_GREEN }}>Barta</span>
+          <span>board</span>
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
@@ -64,7 +69,7 @@ export default async function OpengraphImage() {
           {[`${ACTIVE_SOURCES.length} news portals`, "Bangla & English", "Top stories across outlets"].map((t) => (
             <span
               key={t}
-              style={{ padding: "10px 22px", borderRadius: 999, background: "#e5f1eb", color: BRAND_GREEN }}
+              style={{ padding: "10px 22px", borderRadius: 999, background: "#e3f6ea", color: "#13803f" }}
             >
               {t}
             </span>

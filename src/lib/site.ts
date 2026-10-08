@@ -128,7 +128,7 @@ export function siteJsonLd(): string {
         "@id": `${SITE_URL}/#organization`,
         name: SITE_NAME,
         url: `${SITE_URL}/`,
-        logo: `${SITE_URL}/icon.svg`,
+        logo: `${SITE_URL}/brand/bartaboard-icon-512.png`,
       },
     ],
   });

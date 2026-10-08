@@ -7,7 +7,7 @@ import { articleUrl, linkKey, sharedVideoId } from "@/lib/share";
 import { findStories, itemTime } from "@/lib/stories";
 import type { NewsDay, NewsFeed, NewsItem, NewsSource, Video } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import { Logo } from "./Logo";
+import { BartaboardLogo } from "./BartaboardLogo";
 import { loadFeed } from "./NewsBoard";
 import { SharedVideo } from "./SharedVideo";
 import { dhakaDay } from "./time";
@@ -117,7 +117,7 @@ export function SharedHeadline() {
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-4 pb-12 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-8">
       <header>
         <Link href="/" className="inline-block text-[24px]" aria-label="Deshboard home">
-          <Logo />
+          <BartaboardLogo />
         </Link>
       </header>
 
