@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
+import { BartaboardLogo } from "@/components/BartaboardLogo";
 import { fullTime, timeAgo } from "@/components/time";
 import { getHealth } from "@/lib/health";
 import { cachedResult } from "@/lib/news";
@@ -81,7 +81,7 @@ export default function HealthPage() {
     <div className="mx-auto min-h-dvh max-w-4xl px-4 pb-16 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-8">
       <header>
         <Link href="/" className="inline-block text-[26px]" aria-label="Deshboard home">
-          <Logo />
+          <BartaboardLogo />
         </Link>
         <h1 className="mt-6 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Source health</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">

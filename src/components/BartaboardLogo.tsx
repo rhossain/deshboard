@@ -1,13 +1,15 @@
-// Bartaboard lockup: the pinned-card mark (a raster, public/brand/bartaboard-icon.png) beside live text,
-// so the name and tagline stay crisp at any size and follow the theme. Set in Montserrat (next/font, see
-// layout.tsx): Black for the name, Light with wide tracking for the tagline. Everything is sized from the
-// surrounding font-size, so `<BartaboardLogo className="text-2xl" />` scales the whole lockup.
+// Bartaboard lockup: the pinned-card mark (a raster: public/brand/bartaboard-icon.webp, 192px, resized from the
+// 585px bartaboard-icon.png) beside live text, so the name and tagline stay crisp at any size and follow the
+// theme. Set in Montserrat (next/font, see layout.tsx): Black for the name, Light with wide tracking for the
+// tagline. Everything is sized from the surrounding font-size, so `<BartaboardLogo className="text-2xl" />`
+// scales the whole lockup. The favicon (src/app/icon.png), home-screen icon (src/app/apple-icon.png) and the
+// manifest/structured-data icons (public/brand/bartaboard-icon-192.png, -512.png) are resized from it too.
 
 export const BARTA_GREEN = "#26be60";
 
 export function BartaboardIcon({ className = "" }: { className?: string }) {
-  // eslint-disable-next-line @next/next/no-img-element -- static export, no image optimizer
-  return <img src="/brand/bartaboard-icon.png" alt="" aria-hidden className={`select-none ${className}`} />;
+  // eslint-disable-next-line @next/next/no-img-element -- already a small WebP, sized by CSS
+  return <img src="/brand/bartaboard-icon.webp" width={192} height={192} alt="" aria-hidden className={`select-none ${className}`} />;
 }
 
 export function BartaboardWordmark({ className = "" }: { className?: string }) {

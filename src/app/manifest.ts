@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { BRAND_GREEN } from "@/components/Logo";
+import { BARTA_GREEN } from "@/components/BartaboardLogo";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
 
 export default function manifest(): MetadataRoute.Manifest {
@@ -10,12 +10,12 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     background_color: "#f6f4ef",
-    theme_color: BRAND_GREEN,
+    theme_color: BARTA_GREEN,
     lang: "en",
     categories: ["news"],
     icons: [
-      { src: "/icon.svg", sizes: "any", type: "image/svg+xml" },
-      { src: "/apple-icon", sizes: "180x180", type: "image/png" },
+      { src: "/brand/bartaboard-icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/brand/bartaboard-icon-512.png", sizes: "512x512", type: "image/png" },
     ],
   };
 }
