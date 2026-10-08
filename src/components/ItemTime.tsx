@@ -2,7 +2,7 @@ import type { NewsItem } from "@/lib/types";
 import { fullTime, timeAgo } from "./time";
 
 /**
- * A headline's age. Without a publish time, falls back to when Deshboard first saw it on the
+ * A headline's age. Without a publish time, falls back to when Bartaboard first saw it on the
  * homepage, marked with "~" since the story may be a little older.
  */
 export function ItemTime({ item, now, className }: { item: NewsItem; now: number; className?: string }) {

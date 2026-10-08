@@ -88,6 +88,8 @@ function createStore<T>(key: string, idOf: (entry: T) => string | undefined) {
   return { toggle, useEntries };
 }
 
+// Storage keys keep the old "deshboard:" prefix (as do pinned.ts and last-visit.ts), so renaming the site to
+// Bartaboard didn't lose anyone's saved or pinned items.
 const headlines = createStore<SavedEntry>("deshboard:saved", (e) => e.item?.link);
 const videos = createStore<SavedVideo>("deshboard:saved-videos", (e) => e.video?.id);
 

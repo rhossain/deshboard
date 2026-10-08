@@ -1,5 +1,5 @@
 /**
- * Shared headlines go out as Deshboard links: `/s/www.prothomalo.com/bangladesh/abc123` opens a
+ * Shared headlines go out as Bartaboard links: `/s/www.prothomalo.com/bangladesh/abc123` opens a
  * page with the headline, its outlet and a button to the article, and gives social sites a preview
  * card. The article URL is the path minus the scheme, so the link stays readable and needs no
  * database.

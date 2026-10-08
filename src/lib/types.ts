@@ -30,7 +30,7 @@ export interface NewsItem {
   /** ISO string, when the source provides a date. */
   publishedAt?: string;
   /**
-   * ISO string: when Deshboard first saw the headline, for items the source gives no date. Unset for
+   * ISO string: when Bartaboard first saw the headline, for items the source gives no date. Unset for
    * headlines that were already on the page when the source was first fetched (their age is unknown).
    */
   seenAt?: string;

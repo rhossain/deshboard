@@ -1,4 +1,4 @@
-# Deshboard
+# Bartaboard
 
 Headlines + links from Bangladeshi news portals, built with **Next.js 16** (App Router) and **Tailwind CSS v4**.
 
@@ -63,7 +63,7 @@ npm test           # offline parser tests
   latest 15, so each fetch adds to what earlier ones kept (`.data/videos.json`).
 
 Each item: `{ title, link, publishedAt?, seenAt?, sourceId, sourceName, lang, category }`. HTML-scraped items have no
-`publishedAt`; instead `seenAt` is when Deshboard first saw them on the homepage (`src/lib/first-seen.ts`). Headlines
+`publishedAt`; instead `seenAt` is when Bartaboard first saw them on the homepage (`src/lib/first-seen.ts`). Headlines
 already there on a source's very first fetch get neither, since their age is unknown. The UI shows `seenAt` as `~12
 minutes ago`.
 

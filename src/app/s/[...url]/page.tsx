@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const shared = await getSharedVideo(videoId);
     if (!shared) return { robots: { index: false, follow: true } };
     const { video, channelName } = shared;
-    const summary = `${channelName} · via Deshboard`;
+    const summary = `${channelName} · via Bartaboard`;
     const image = { url: thumb(video.id, "hqdefault"), width: 480, height: 360 };
     return {
       title: { absolute: `${video.title} · ${channelName}` },
@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         title: video.title,
         description: summary,
         url: videoSharePath(video.id),
-        siteName: `Deshboard · ${channelName}`,
+        siteName: `Bartaboard · ${channelName}`,
         type: "video.other",
         images: [image],
       },
@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!article) return { robots: { index: false, follow: true } };
 
   const { title, source, description, image } = article;
-  const summary = description ?? `${source.name} · via Deshboard`;
+  const summary = description ?? `${source.name} · via Bartaboard`;
   return {
     title: { absolute: `${title} · ${source.name}` },
     description: summary,
@@ -74,7 +74,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description: summary,
       url: sharePath(article.link),
-      siteName: `Deshboard · ${source.name}`,
+      siteName: `Bartaboard · ${source.name}`,
       type: "article",
       ...(image && { images: [{ url: image }] }),
     },
@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-/** A headline or video shared from Deshboard: the outlet, the headline, a way to the article and back to the board. */
+/** A headline or video shared from Bartaboard: the outlet, the headline, a way to the article and back to the board. */
 export default async function SharePage({ params }: Props) {
   const { url } = await params;
   const videoId = sharedVideoId(url);
@@ -183,7 +183,7 @@ function SharePageShell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-4 pb-12 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-8">
       <header>
-        <Link href="/" className="inline-block text-[24px]" aria-label="Deshboard home">
+        <Link href="/" className="inline-block text-[24px]" aria-label="Bartaboard home">
           <BartaboardLogo />
         </Link>
       </header>
@@ -198,7 +198,7 @@ function SharePageShell({ children }: { children: ReactNode }) {
           href="/"
           className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
         >
-          See today&rsquo;s headlines on Deshboard
+          See today&rsquo;s headlines on Bartaboard
         </Link>
       </footer>
     </div>

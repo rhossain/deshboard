@@ -5,8 +5,8 @@ import type { SourceResult } from "./types";
 
 /** The public address, for absolute URLs (canonical, sitemap, share image). Set SITE_URL when deploying. */
 export const SITE_URL = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
-export const SITE_NAME = "Deshboard";
-export const SITE_TITLE = "Deshboard: Latest Bangladesh News Headlines in Bangla & English";
+export const SITE_NAME = "Bartaboard";
+export const SITE_TITLE = "Bartaboard: Latest Bangladesh News Headlines in Bangla & English";
 export const SITE_DESCRIPTION =
   `Latest Bangladesh news from ${ACTIVE_SOURCES.length} portals on one board: Bangla and English headlines from ` +
   "Prothom Alo, The Daily Star, bdnews24, Dhaka Tribune and more, with the top stories across outlets.";

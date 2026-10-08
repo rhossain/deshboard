@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Source health",
-  description: "Which news portals Deshboard can read right now, which are failing, and since when.",
+  description: "Which news portals Bartaboard can read right now, which are failing, and since when.",
   // A status page for whoever runs the site, not something to find in search.
   robots: { index: false, follow: true },
 };
@@ -80,7 +80,7 @@ export default function HealthPage() {
   return (
     <div className="mx-auto min-h-dvh max-w-4xl px-4 pb-16 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-8">
       <header>
-        <Link href="/" className="inline-block text-[26px]" aria-label="Deshboard home">
+        <Link href="/" className="inline-block text-[26px]" aria-label="Bartaboard home">
           <BartaboardLogo />
         </Link>
         <h1 className="mt-6 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Source health</h1>

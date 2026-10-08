@@ -8,7 +8,7 @@ import { ArrowUpRightIcon } from "./ui";
 import { PlayGlyph } from "./VideoCard";
 import { thumb, watchUrl } from "./youtube";
 
-/** A video shared from Deshboard (`/s/youtu.be/<id>`): plays in place, with a way to YouTube and to the board's videos. */
+/** A video shared from Bartaboard (`/s/youtu.be/<id>`): plays in place, with a way to YouTube and to the board's videos. */
 export function SharedVideo({ video, channelName, now }: { video: Video; channelName: string; now: number }) {
   const [playing, setPlaying] = useState(false);
 
