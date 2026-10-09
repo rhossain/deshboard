@@ -15,7 +15,7 @@ AddType application/manifest+json .webmanifest
   # The site moved to bartaboard.com (Cloudflare Pages): the old address sends each page to its new home.
   # The path comes from the raw request line, so a shared link's encoded article address stays as sent.
   RewriteCond %{HTTP_HOST} ^deshboard\.rshossain\.me$ [NC]
-  RewriteCond %{THE_REQUEST} ^\S+\s+(/\S*)
+  RewriteCond %{THE_REQUEST} ^\S+\s+(/[^?\s]*)
   RewriteRule ^ https://bartaboard.com%1 [R=301,NE,L]
   # Deployed with git (Hostinger's Git deployment): never serve the repository folder.
   RewriteRule (^|/)\.git(/|$) - [R=404,L]
