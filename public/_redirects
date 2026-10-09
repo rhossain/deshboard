@@ -1,0 +1,3 @@
+# Cloudflare Pages: shared headlines (/s/<article address>) all get the one page that reads the
+# headline from the address, with a 200 (see src/app/not-found.tsx and public/.htaccess).
+/s/*  /404  200
