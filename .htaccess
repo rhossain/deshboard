@@ -12,6 +12,9 @@ AddType application/manifest+json .webmanifest
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # The site moved to bartaboard.com (Cloudflare Pages): the old address sends each page to its new home.
+  RewriteCond %{HTTP_HOST} ^deshboard\.rshossain\.me$ [NC]
+  RewriteRule ^ https://bartaboard.com%{REQUEST_URI} [R=301,L]
   # Deployed with git (Hostinger's Git deployment): never serve the repository folder.
   RewriteRule (^|/)\.git(/|$) - [R=404,L]
   # Shared headlines (/s/<article address>): one page that reads the headline from the address.
