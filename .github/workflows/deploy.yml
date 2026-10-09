@@ -4,6 +4,8 @@ name: Deploy
 # `deploy` branch. Hostinger's Git deployment (hPanel → Advanced → GIT, connected with GitHub, branch
 # `deploy`, auto-deployment on) copies the branch into the site's web folder on each new commit, so
 # the site's files sit at the top of the branch. Turned on by setting the SITE_URL repository variable.
+# The same build also goes to Cloudflare Pages (project `bartaboard`, serving bartaboard.com) once the
+# CLOUDFLARE_ACCOUNT_ID variable and the CLOUDFLARE_API_TOKEN secret (Pages: Edit) are set.
 #
 # This same file also lives on main (the outside timer dispatches it there): from either branch it
 # builds static-export.
@@ -70,3 +72,15 @@ jobs:
           git -c user.name="github-actions[bot]" -c user.email="41898099+github-actions[bot]@users.noreply.github.com" \
             commit --quiet -m "Deploy $(date -u +%Y-%m-%dT%H:%MZ)"
           git push --quiet origin deploy
+      # Uploads straight from here: Pages' own Git builds would run out at 500 a month. The first run
+      # creates the project.
+      - name: Upload the site to Cloudflare Pages
+        if: vars.CLOUDFLARE_ACCOUNT_ID != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          WRANGLER="npx --yes wrangler@4.20.0"
+          $WRANGLER pages project list | grep -qw bartaboard \
+            || $WRANGLER pages project create bartaboard --production-branch=main
+          $WRANGLER pages deploy out --project-name=bartaboard --branch=main --commit-dirty=true
