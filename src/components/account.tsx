@@ -51,8 +51,8 @@ export function useAccount(): AccountSummary | null {
 export function Avatar({ email, src, className = "" }: { email: string; src?: string; className?: string }) {
   const [broken, setBroken] = useState(false);
   if (src && !broken) {
-    // eslint-disable-next-line @next/next/no-img-element -- a remote photo on a static site, no image optimizer
     return (
+      // eslint-disable-next-line @next/next/no-img-element -- a small remote photo; not worth the image optimizer
       <img
         src={src}
         alt=""
