@@ -138,6 +138,9 @@ The workflow does nothing until the `SITE_URL` repository variable is set (GitHu
 The headlines are as fresh as the last run. For a one-off manual upload instead, `npm run package` builds
 `bartaboard.zip`; extract it into `public_html` (it includes `.htaccess`).
 
+bartaboard.com itself is served by Cloudflare Pages, which the same workflow uploads to. `docs/services.md` lists every
+hosted service (Cloudflare, Supabase, Google sign-in, Resend email) and what is set in each dashboard.
+
 ## Features
 
 - **Sections** — News, Videos and Saved. News has three views, switched at the top of the page: Newsstand (a card
