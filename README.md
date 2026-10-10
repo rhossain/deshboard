@@ -115,6 +115,9 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
   memory only. On serverless hosts the filesystem is throwaway and timers don't run between requests, so both features
   quietly do nothing there; run on a long-lived Node server (VPS, container) to get them.
 
+bartaboard.com itself is served by Cloudflare Pages, which the same workflow uploads to. `docs/services.md` lists every
+hosted service (Cloudflare, Supabase, Google sign-in, Resend email) and what is set in each dashboard.
+
 ## Features
 
 - **Sections** — News, Videos and Saved. News has three views, switched at the top of the page: Newsstand (a card
