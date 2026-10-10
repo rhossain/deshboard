@@ -53,6 +53,9 @@ jobs:
       - run: npm run build
         env:
           SITE_URL: ${{ vars.SITE_URL }}
+          # Paid plans stay hidden until PLANS is `on`; BKASH_NUMBER is the account readers pay to (src/lib/plans.ts).
+          NEXT_PUBLIC_PLANS: ${{ vars.PLANS }}
+          NEXT_PUBLIC_BKASH_NUMBER: ${{ vars.BKASH_NUMBER }}
       # One new commit on top of the last, so the host can always fast-forward.
       - name: Commit the site to the deploy branch
         env:

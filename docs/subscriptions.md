@@ -235,6 +235,25 @@ sources; ask each provider for its current rate card in writing before signing u
   upfront and shows whether anyone will pay. It is fine for the first 10–50 subscribers and becomes a chore after that.
   Don't collect on a personal bKash account: bKash's rules don't allow business payments on it, and the PRA exists for
   this.
+
+#### The manual bKash flow (built, hidden)
+
+- **Hidden switch.** Plans show only when the `PLANS` repository variable is `on`; `BKASH_NUMBER` is the PRA number
+  readers pay to (both read in `src/lib/plans.ts`, passed to the build by `deploy.yml`). Until then,
+  `/account/?plans=preview` shows them on that one device and `/account/?plans=off` hides them again.
+- **Reader** (`src/components/PlanPanel.tsx`): on `/account/`, picks 1, 6 or 12 months, pays that amount with bKash
+  Payment, then enters the bKash number paid from and the TrxID. The payment shows as "Being checked".
+- **Admin**: accounts with `profiles.is_admin` see "Payments to check" on `/account/`. Find the TrxID in the bKash
+  app, compare the amount, then Approve (adds the months to `plan_until`, counted from today or from the current end
+  date) or Not found (the reader sees why).
+- **Database** (`supabase/migrations/20261011000000_bkash_payments.sql`): `plan_prices` (edit prices there, no build
+  needed), `payments` (readers can only insert pending rows with their own number and TrxID; the price is filled in
+  from `plan_prices`; a TrxID can be used once; at most 3 pending per reader), and the `pending_payments` and
+  `review_payment` functions, which only admins can call.
+- A paid plan counts until `plan_until`; after that the account is treated as free (`activePlan`).
+- **Before switching it on**: open the PRA, set `BKASH_NUMBER`, update the terms (prices, what Plus includes,
+  refunds), and build at least one Plus feature. Nobody is told about a new payment yet, so check `/account/` daily or
+  add a Telegram or email notice to admins.
 - **Move to a gateway** (SSLCommerz or aamarPay) once checking by hand is tedious. The payment's IPN/callback goes to
   the `payment-callback` Edge Function, which checks it with the gateway's validation API, then sets `profiles.plan`
   and `plan_until`. Supabase's free tier covers the function, so the provider's fees are the only new cost.
