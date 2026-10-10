@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.1",
     "@tanstack/react-virtual": "^3.14.13",
     "cheerio": "^1.2.0",
     "fast-xml-parser": "^5.11.2",

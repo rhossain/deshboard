@@ -158,6 +158,14 @@ export const AutoThemeIcon = (p: { className?: string }) => (
   </Icon>
 );
 
+/** A person: the account button. */
+export const UserIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <circle cx="12" cy="8.5" r="3.5" />
+    <path d="M5 20a7 7 0 0 1 14 0" />
+  </Icon>
+);
+
 /** Stacked pages: one story told by several outlets. */
 export const StackIcon = (p: { className?: string }) => (
   <Icon {...p}>

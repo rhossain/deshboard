@@ -42,3 +42,6 @@ next-env.d.ts
 
 # cached headlines and first-seen times (src/lib/store.ts)
 /.data/
+
+# wrangler pages dev
+.wrangler/
