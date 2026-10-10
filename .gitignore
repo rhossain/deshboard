@@ -49,3 +49,6 @@ next-env.d.ts
 
 # upload zip (`npm run package`)
 /bartaboard.zip
+
+# wrangler pages dev
+.wrangler/

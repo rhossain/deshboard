@@ -27,6 +27,7 @@ import { PHONE, useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLastVisit } from "./last-visit";
 import { byNewest, LatestList } from "./LatestList";
+import { Avatar, useAccount } from "./account";
 import { BartaboardLogo } from "./BartaboardLogo";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinButton, PinPicker } from "./PinPicker";
@@ -54,6 +55,7 @@ import {
   NewspaperIcon,
   StarIcon,
   SunIcon,
+  UserIcon,
   VideoIcon,
 } from "./ui";
 
@@ -806,6 +808,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               </h1>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <AccountButton />
               <ThemeButton />
               <button
                 type="button"
@@ -1108,6 +1111,12 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
             <a href="/health" className="hover:text-foreground">
               Source health
             </a>
+            <a href="/privacy/" className="hover:text-foreground">
+              Privacy
+            </a>
+            <a href="/terms/" className="hover:text-foreground">
+              Terms
+            </a>
             <button
               type="button"
               onClick={() => setShortcutsOpen(true)}
@@ -1240,6 +1249,26 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
 const THEME_ICON: Record<Theme, typeof SunIcon> = { system: AutoThemeIcon, light: SunIcon, dark: MoonIcon };
 const NEXT_THEME: Record<Theme, Theme> = { system: "light", light: "dark", dark: "system" };
+
+/** Links to /account/: the signed-in person's photo or initial, or an outline when signed out. */
+function AccountButton() {
+  const account = useAccount();
+  const label = account ? `Your account (${account.email})` : "Sign in";
+  return (
+    <a
+      href="/account/"
+      aria-label={label}
+      title={label}
+      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-foreground shadow-card transition active:scale-95"
+    >
+      {account ? (
+        <Avatar email={account.email} src={account.avatar} className="h-8 w-8 text-sm" />
+      ) : (
+        <UserIcon className="h-[18px] w-[18px]" />
+      )}
+    </a>
+  );
+}
 
 /** Cycles Auto → Light → Dark. The icon shows the current setting. */
 function ThemeButton() {
