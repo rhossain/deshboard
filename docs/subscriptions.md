@@ -215,8 +215,38 @@ we can promise without our own server.
 
 ### Payments and plans
 
-- Payments go through SSLCommerz or aamarPay checkout. The payment's IPN/callback goes to the `payment-callback` Edge
-  Function, which checks it with the gateway's validation API, then sets `profiles.plan` and `plan_until`.
+#### Payment options
+
+No option is free. Every way of collecting money automatically takes a cut of each payment, and the Bangladeshi
+gateways also seem to charge a setup fee. These figures were found on 10 October 2026 from partly dated or third-party
+sources; ask each provider for its current rate card in writing before signing up.
+
+| Option | Setup | Per payment | Needs | Automatic? |
+| --- | --- | --- | --- | --- |
+| **bKash Personal Retail Account (PRA)** | ৳0 | Not published; a 2026 third-party guide says 1.5–2%, an older bKash table says free. Cash-out and transfers cost extra | NID, an unused SIM registered to that NID, proof of SIM ownership. No trade license | No |
+| **SSLCommerz** | about ৳15,000 (older source) | about 2.5% cards, 1.85–2.1% mobile wallets | Trade license, business bank account | Yes |
+| **aamarPay** | ৳4,000–15,000 depending on plan (older source) | Not published | Trade license, business bank account | Yes |
+| **ShurjoPay** | Not found | Not found | Trade license, business bank account | Yes |
+| **bKash Payment Gateway** (merchant) | Ask bKash | about 1.5–2% (third-party guide) | Trade license, bank account, website | Yes |
+| **Paddle / Lemon Squeezy** | ৳0 | about 5% + 50¢ | Charges in US dollars, which most Bangladeshi readers can't pay | Yes |
+
+- **Start with the bKash PRA.** Customers pay by scanning its QR code or typing its number, then enter the
+  transaction ID on `/account/`; the plan is set by hand in Supabase after checking the bKash app. It costs nothing
+  upfront and shows whether anyone will pay. It is fine for the first 10–50 subscribers and becomes a chore after that.
+  Don't collect on a personal bKash account: bKash's rules don't allow business payments on it, and the PRA exists for
+  this.
+- **Move to a gateway** (SSLCommerz or aamarPay) once checking by hand is tedious. The payment's IPN/callback goes to
+  the `payment-callback` Edge Function, which checks it with the gateway's validation API, then sets `profiles.plan`
+  and `plan_until`. Supabase's free tier covers the function, so the provider's fees are the only new cost.
+- Paddle or Lemon Squeezy only make sense for foreign Monitor clients.
+
+Sources: [bKash PRA](https://www.bkash.com/en/page/personal-retail-account),
+[bKash online business](https://www.bkash.com/index.php/en/business/online-business),
+[PhotonPay: payment methods in Bangladesh](https://www.photonpay.com/hk/blog/article/payment-methods-in-Bangladesh),
+[UNB: online payment gateway](https://unb.com.bd/news/tag/83231),
+[USAID bKash document](https://pdf.usaid.gov/pdf_docs/PA00N3SK.pdf).
+
+#### Plans
 - Most Bangladeshi payers prefer to pay up front for a period. Sell 1, 6 or 12 months instead of automatic monthly
   charges, and send a renewal reminder by email or Telegram 3 days before `plan_until`.
 - When a plan runs out, the account drops back to free: instant alerts become a digest, and alerts past the limit are
@@ -231,7 +261,7 @@ we can promise without our own server.
 | Resend free tier | ৳0 up to 3,000 emails |
 | Telegram Bot API | ৳0 |
 | GitHub Actions | ৳0 (public repo) or within the private-repo minutes, since alerts add a few seconds per run |
-| Payment gateway | about 2–3.5% per payment |
+| Payments | ৳0 setup with a bKash PRA; a gateway adds a setup fee (up to about ৳15,000) and about 2–2.5% per payment |
 
 ### Privacy
 
