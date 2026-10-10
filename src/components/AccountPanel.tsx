@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { activePlan, formatDate, readPlansPreview, usePlansVisible } from "@/lib/plans";
 import { googleEnabled, supabase } from "@/lib/supabase";
 import { Avatar } from "./account";
+import { AdminPayments, PlanPanel } from "./PlanPanel";
 
 type Step = { name: "email" } | { name: "code"; email: string; sentAt: number };
 
@@ -11,6 +13,7 @@ interface Profile {
   plan: string;
   plan_until: string | null;
   created_at: string;
+  is_admin: boolean;
 }
 
 const PLAN_LABEL: Record<string, string> = { free: "Free", plus: "Bartaboard Plus", monitor: "Monitor" };
@@ -28,7 +31,7 @@ function cleanUrl() {
   if (location.search || location.hash) history.replaceState(null, "", location.pathname);
 }
 
-/** Sign in (Google, or an emailed code and link), and the signed-in account: plan, sign out, delete. */
+/** Sign in (Google, or an emailed code and link), and the signed-in account: plan, payments, sign out, delete. */
 export function AccountPanel() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +40,7 @@ export function AccountPanel() {
     const auth = supabase().auth;
     const hadCode = new URLSearchParams(location.search).has("code");
     const fromUrl = urlError();
+    readPlansPreview();
     // getSession waits for the client to finish any sign-in in the address (?code=).
     auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -289,11 +293,13 @@ function SignedIn({ session }: { session: Session }) {
   const name = (user.user_metadata.full_name ?? user.user_metadata.name) as string | undefined;
   const avatar = user.user_metadata.avatar_url as string | undefined;
   const via = user.app_metadata.provider === "google" ? "Google" : "email";
+  const plansVisible = usePlansVisible();
+  const plan = activePlan(profile);
 
   useEffect(() => {
     supabase()
       .from("profiles")
-      .select("plan, plan_until, created_at")
+      .select("plan, plan_until, created_at, is_admin")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => setProfile(data as Profile | null));
@@ -316,83 +322,88 @@ function SignedIn({ session }: { session: Session }) {
     await supabase().auth.signOut({ scope: "local" });
   }
 
-  const since = new Date(profile?.created_at ?? user.created_at).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const since = formatDate(profile?.created_at ?? user.created_at);
 
   return (
-    <section className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-6">
-      <div className="flex items-center gap-4">
-        <Avatar email={user.email ?? ""} src={avatar} className="h-14 w-14 text-xl" />
-        <div className="min-w-0">
-          {name && <p className="truncate font-display text-xl font-semibold">{name}</p>}
-          <p className={`truncate ${name ? "text-sm text-muted" : "font-display text-xl font-semibold"}`}>{user.email}</p>
+    <>
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-6">
+        <div className="flex items-center gap-4">
+          <Avatar email={user.email ?? ""} src={avatar} className="h-14 w-14 text-xl" />
+          <div className="min-w-0">
+            {name && <p className="truncate font-display text-xl font-semibold">{name}</p>}
+            <p className={`truncate ${name ? "text-sm text-muted" : "font-display text-xl font-semibold"}`}>{user.email}</p>
+          </div>
         </div>
-      </div>
 
-      <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
-        <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Plan</dt>
-          <dd className="mt-1 font-semibold">{PLAN_LABEL[profile?.plan ?? "free"] ?? profile?.plan}</dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Signed in with</dt>
-          <dd className="mt-1 font-semibold">{via}</dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Member since</dt>
-          <dd className="mt-1 font-semibold">{since}</dd>
-        </div>
-      </dl>
+        <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Plan</dt>
+            <dd className="mt-1 font-semibold">
+              {PLAN_LABEL[plan] ?? plan}
+              {plan !== "free" && profile?.plan_until && (
+                <span className="block text-xs font-normal text-muted">until {formatDate(profile.plan_until)}</span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Signed in with</dt>
+            <dd className="mt-1 font-semibold">{via}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Member since</dt>
+            <dd className="mt-1 font-semibold">{since}</dd>
+          </div>
+        </dl>
 
-      <p className="mt-6 rounded-xl bg-surface-2 p-3 text-sm leading-relaxed text-muted">
-        Keyword alerts and syncing your saved headlines across devices are coming next. Saved and pinned items stay on
-        this device as before.
-      </p>
-
-      {error && (
-        <p role="alert" className="mt-4 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
-          {error}
+        <p className="mt-6 rounded-xl bg-surface-2 p-3 text-sm leading-relaxed text-muted">
+          Keyword alerts and syncing your saved headlines across devices are coming next. Saved and pinned items stay on
+          this device as before.
         </p>
-      )}
 
-      <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-5">
-        <button
-          type="button"
-          onClick={signOut}
-          disabled={busy}
-          className="inline-flex h-11 items-center rounded-full bg-foreground px-5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-60"
-        >
-          Sign out
-        </button>
-        {confirming ? (
-          <span className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="text-danger">Delete your account and everything in it?</span>
-            <button
-              type="button"
-              onClick={deleteAccount}
-              disabled={busy}
-              className="inline-flex h-11 items-center rounded-full bg-danger px-5 font-semibold text-white transition active:scale-95 disabled:opacity-60"
-            >
-              Delete
-            </button>
-            <button type="button" onClick={() => setConfirming(false)} className="font-semibold text-accent hover:underline">
-              Keep it
-            </button>
-          </span>
-        ) : (
+        {error && (
+          <p role="alert" className="mt-4 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-5">
           <button
             type="button"
-            onClick={() => setConfirming(true)}
-            className="ml-auto text-sm font-semibold text-danger hover:underline"
+            onClick={signOut}
+            disabled={busy}
+            className="inline-flex h-11 items-center rounded-full bg-foreground px-5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-60"
           >
-            Delete my account
+            Sign out
           </button>
-        )}
-      </div>
-    </section>
+          {confirming ? (
+            <span className="flex flex-wrap items-center gap-3 text-sm">
+              <span className="text-danger">Delete your account and everything in it?</span>
+              <button
+                type="button"
+                onClick={deleteAccount}
+                disabled={busy}
+                className="inline-flex h-11 items-center rounded-full bg-danger px-5 font-semibold text-white transition active:scale-95 disabled:opacity-60"
+              >
+                Delete
+              </button>
+              <button type="button" onClick={() => setConfirming(false)} className="font-semibold text-accent hover:underline">
+                Keep it
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="ml-auto text-sm font-semibold text-danger hover:underline"
+            >
+              Delete my account
+            </button>
+          )}
+        </div>
+      </section>
+      {plansVisible && <PlanPanel profile={profile} />}
+      {profile?.is_admin && <AdminPayments />}
+    </>
   );
 }
 

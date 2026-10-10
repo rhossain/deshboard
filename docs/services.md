@@ -39,6 +39,8 @@ the `deploy` branch for Hostinger, then runs `wrangler pages deploy out --projec
 
 - Repository variables: `SITE_URL` = `https://bartaboard.com`, `CLOUDFLARE_ACCOUNT_ID`. The Cloudflare upload step is
   skipped without the latter.
+- Paid plans: repository variables `PLANS` (`on` shows them to everyone; unset keeps them hidden) and `BKASH_NUMBER`
+  (the bKash account readers pay to). Both take effect on the next build.
 - Repository secret: `CLOUDFLARE_API_TOKEN`, the Cloudflare API token Wrangler uploads with (made in Cloudflare →
   My Profile → API Tokens).
 - cron-job.org calls `POST /repos/rhossain/deshboard/actions/workflows/deploy.yml/dispatches` with
@@ -53,6 +55,9 @@ Project `bartaboard`, ref `errwyvuguelgifuusbky`, region Singapore (ap-southeast
   the site.
 - **Database**: `supabase/migrations/` holds the schema. It is applied by pasting it into the SQL editor; there is no
   CLI link. New tables aren't exposed to the API until granted, and row-level security is on by default.
+- **Payments**: prices are rows in the `plan_prices` table (Table Editor). Admins are `profiles` rows with
+  `is_admin` = true; they approve bKash payments on `/account/`. Set one with
+  `update public.profiles set is_admin = true where id = (select id from auth.users where email = '…');`
 - **Authentication → URL Configuration**
   - Site URL: `https://bartaboard.com/account/`. Supabase falls back to it when a sign-in fails, for example "OAuth
     state has expired" after more than about 10 minutes on Google's screen.
