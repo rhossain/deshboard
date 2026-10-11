@@ -14,6 +14,9 @@
   --danger: #b42318;
   --danger-soft: #fdeceb;
   --shadow: 0 1px 2px rgb(23 25 28 / 0.04), 0 4px 16px -6px rgb(23 25 28 / 0.08);
+  /* Which logo image shows (src/components/BartaboardLogo.tsx). */
+  --logo-on-light: block;
+  --logo-on-dark: none;
   color-scheme: light;
 }
 
@@ -38,6 +41,8 @@
     --danger: #f97066;
     --danger-soft: #2a1414;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -10px rgb(0 0 0 / 0.5);
+    --logo-on-light: none;
+    --logo-on-dark: block;
     color-scheme: dark;
   }
 }
@@ -56,7 +61,16 @@
   --danger: #f97066;
   --danger-soft: #2a1414;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -10px rgb(0 0 0 / 0.5);
+  --logo-on-light: none;
+  --logo-on-dark: block;
   color-scheme: dark;
+}
+
+.logo-on-light {
+  display: var(--logo-on-light);
+}
+.logo-on-dark {
+  display: var(--logo-on-dark);
 }
 
 @theme inline {
@@ -78,7 +92,6 @@
     var(--font-inter), var(--font-bengali), ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Kohinoor Bangla",
     "Nirmala UI", "Noto Sans Bengali", Roboto, Helvetica, Arial, sans-serif;
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
-  --font-brand: var(--font-montserrat), Montserrat, "Gotham", "Proxima Nova", Arial, sans-serif;
 }
 
 html {
