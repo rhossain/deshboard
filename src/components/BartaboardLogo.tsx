@@ -24,7 +24,9 @@ export function BartaboardLogo({ className = "" }: { className?: string }) {
         src="/brand/bartaboard-logo-dark.webp"
         width={746}
         height={160}
-        alt="Bartaboard"
+        // Only one of the two shows; the other is hidden from screen readers so the name isn't read twice.
+        alt=""
+        aria-hidden
         className="logo-on-dark h-[1.5em] w-auto max-w-none select-none"
       />
     </span>

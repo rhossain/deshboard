@@ -391,23 +391,26 @@ export function Sheet({
       onClick={(e) => e.target === e.currentTarget && onClose()}
       aria-label={title}
     >
-      <div className="pb-safe rounded-t-3xl border border-line bg-surface shadow-2xl sm:rounded-3xl">
-        <div className="px-5 pb-6 pt-3">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" aria-hidden />
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="font-display text-2xl font-semibold">{title}</h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-muted hover:text-foreground"
-            >
-              <CloseIcon className="h-5 w-5" />
-            </button>
+      {/* Rendered only while open, so a closed sheet's title and controls aren't part of the page's outline. */}
+      {open && (
+        <div className="pb-safe rounded-t-3xl border border-line bg-surface shadow-2xl sm:rounded-3xl">
+          <div className="px-5 pb-6 pt-3">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" aria-hidden />
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="font-display text-2xl font-semibold">{title}</h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-muted hover:text-foreground"
+              >
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+            {children}
           </div>
-          {children}
         </div>
-      </div>
+      )}
     </dialog>
   );
 }

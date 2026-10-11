@@ -44,6 +44,7 @@ export function TopStories({
 
   return (
     <section>
+      <h2 className="sr-only">Top stories</h2>
       <p className="mb-4 px-1 text-[13px] text-muted">
         The same event reported by several outlets, grouped by matching headlines. The more outlets, the higher it
         ranks.
