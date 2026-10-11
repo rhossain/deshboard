@@ -1,7 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { NewsBoardFromUrl } from "@/components/NewsBoard";
 import { readSeed } from "@/lib/feed";
-import { INDEXABLE, shareMetadata, SITE_DESCRIPTION, SITE_TITLE, siteJsonLd } from "@/lib/site";
+import { faqJsonLd, INDEXABLE, shareMetadata, SITE_DESCRIPTION, SITE_TITLE, siteJsonLd } from "@/lib/site";
 import { SOURCES } from "@/lib/sources";
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
@@ -18,6 +18,7 @@ export default function Home() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: siteJsonLd(seed?.generatedAt) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd() }} />
       <NewsBoardFromUrl sources={SOURCES} seed={seed} />
     </>
   );
