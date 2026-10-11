@@ -1,6 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { NewsBoard } from "@/components/NewsBoard";
 import { parseFilters } from "@/lib/filters";
+import { feedLink } from "@/lib/rss";
 import {
   INDEXABLE,
   shareMetadata,
@@ -18,7 +19,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return {
     title: { absolute: VIDEOS_TITLE },
     description: VIDEOS_DESCRIPTION,
-    alternates: { canonical: VIDEOS_PATH },
+    alternates: { canonical: VIDEOS_PATH, types: feedLink(VIDEOS_PATH, "Bangladesh TV news videos") },
     robots: INDEXABLE,
     ...(await shareMetadata(parent, { title: VIDEOS_TITLE, description: VIDEOS_DESCRIPTION, url: VIDEOS_PATH })),
   };
