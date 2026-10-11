@@ -1,5 +1,6 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { CATEGORIES, type Category } from "./categories";
+import { CHANNELS } from "./channels";
 import { ACTIVE_SOURCES } from "./sources";
 import { itemTime, newestFirst } from "./stories";
 import type { SourceResult } from "./types";
@@ -41,8 +42,16 @@ export function categoryTitle(category: Category): string {
   return `Bangladesh ${c.label} News Today (${c.bn}) | ${SITE_NAME}`;
 }
 
+/** The Videos view's own page: TV news channels' latest videos. */
+export const VIDEOS_PATH = "/videos/";
+export const VIDEOS_TITLE = `Bangla TV News Videos Today, ${CHANNELS.length} Channels | ${SITE_NAME}`;
+export const VIDEOS_DESCRIPTION =
+  `Latest Bangladesh TV news videos from ${CHANNELS.length} channels on YouTube, including Jamuna TV, Somoy TV, ` +
+  "Channel 24 and BBC News Bangla, newest first, free to watch.";
+
 /** The page's visible heading: what it holds, in the words people search for. */
-export function boardHeading(category?: Category | ""): string {
+export function boardHeading(category?: Category | "", videos = false): string {
+  if (videos) return "Bangladesh TV news videos today";
   const c = category ? PAGE_BY_ID.get(category) : undefined;
   return c
     ? `Bangladesh ${c.label.toLowerCase()} news today (${c.bn})`
@@ -143,6 +152,32 @@ export function categoryJsonLd(category: Category, updated?: string): string {
         itemListElement: [
           { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
           { "@type": "ListItem", position: 2, name: `${c.label} news`, item: url },
+        ],
+      },
+    ],
+  });
+}
+
+/** Structured data for the Videos page; `updated` is when the videos were last collected. */
+export function videosJsonLd(updated?: string): string {
+  const url = `${SITE_URL}${VIDEOS_PATH}`;
+  return jsonLd({
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": url,
+        url,
+        name: VIDEOS_TITLE,
+        description: VIDEOS_DESCRIPTION,
+        inLanguage: ["bn", "en"],
+        dateModified: updated,
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
+          { "@type": "ListItem", position: 2, name: "TV news videos", item: url },
         ],
       },
     ],

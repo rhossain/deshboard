@@ -4,7 +4,7 @@ import type { Category } from "./categories";
 import { dedupeByLink } from "./fetchers/utils";
 import { seedResults } from "./site";
 import { itemTime } from "./stories";
-import type { NewsFeed, NewsSeed } from "./types";
+import type { NewsFeed, NewsSeed, VideoFeed } from "./types";
 
 /**
  * The feed from `npm run fetch`, trimmed to a few headlines per source (in `category` only, when
@@ -45,4 +45,20 @@ export function newestByCategory(feed: NewsFeed): Partial<Record<Category, strin
     if (!newest[it.category] || at > newest[it.category]!) newest[it.category] = at;
   }
   return newest;
+}
+
+/** Videos prerendered into the Videos page: its first screenful (VideoBoard's first page). */
+const SEED_VIDEOS = 24;
+
+/**
+ * The videos feed from `npm run fetch`, trimmed to its newest few for prerendering into the Videos
+ * page. Undefined when nothing has been fetched yet.
+ */
+export function readVideoSeed(): VideoFeed | undefined {
+  try {
+    const feed = JSON.parse(readFileSync(path.join(process.cwd(), "public", "data", "videos.json"), "utf8")) as VideoFeed;
+    return { ...feed, videos: feed.videos.slice(0, SEED_VIDEOS) };
+  } catch {
+    return undefined;
+  }
 }

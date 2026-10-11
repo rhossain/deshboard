@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { newestByCategory, readFeed } from "@/lib/feed";
-import { CATEGORY_PAGES, categoryPath, SITE_URL } from "@/lib/site";
+import { newestByCategory, readFeed, readVideoSeed } from "@/lib/feed";
+import { CATEGORY_PAGES, categoryPath, SITE_URL, VIDEOS_PATH } from "@/lib/site";
 
 // Rendered once at build time (static export).
 export const dynamic = "force-static";
@@ -9,7 +9,7 @@ export const dynamic = "force-static";
 const LEGAL_UPDATED = new Date("2026-10-10");
 
 /**
- * The board and each section's page (their headlines change all day), then the privacy and terms
+ * The board, each section's page and Videos (they change all day), then the privacy and terms
  * pages. Each page's date is its newest headline's, so a quiet section doesn't claim a change.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -17,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const built = new Date();
   const fetched = feed ? new Date(feed.generatedAt) : built;
   const newest = feed ? newestByCategory(feed) : {};
+  const videos = readVideoSeed();
   return [
     { url: `${SITE_URL}/`, lastModified: fetched, changeFrequency: "always", priority: 1 },
     ...CATEGORY_PAGES.map((c) => ({
@@ -25,6 +26,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "hourly" as const,
       priority: 0.8,
     })),
+    {
+      url: `${SITE_URL}${VIDEOS_PATH}`,
+      lastModified: videos ? new Date(videos.videos[0]?.publishedAt ?? videos.generatedAt) : built,
+      changeFrequency: "hourly",
+      priority: 0.8,
+    },
     { url: `${SITE_URL}/privacy/`, lastModified: LEGAL_UPDATED, changeFrequency: "yearly", priority: 0.2 },
     { url: `${SITE_URL}/terms/`, lastModified: LEGAL_UPDATED, changeFrequency: "yearly", priority: 0.2 },
   ];
