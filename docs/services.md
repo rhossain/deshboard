@@ -105,12 +105,12 @@ Account rshossain.bd, Free plan (3,000 emails a month, 100 a day).
 
 See `docs/seo.md` for the plan these belong to.
 
-- **Google Search Console**: Domain property `bartaboard.com` (covers http/https and every subdomain), added
-  11 October 2026 under rshossain.bd@gmail.com. **Not verified yet.** Verification is the TXT record
-  `google-site-verification=0XSFGEdzQUgzTfQiL92D959vSRNMr2I2C1fpJIRvAy8` on `bartaboard.com` (name `@`) in
-  Cloudflare DNS; the record must stay, or the property loses verification. Once verified:
-  Sitemaps → `https://bartaboard.com/sitemap.xml`, and URL inspection → "Request indexing" for `/` and the 12 section
-  pages (about 10 a day).
+- **Google Search Console**: Domain property `bartaboard.com` (covers http/https and every subdomain) under
+  rshossain.bd@gmail.com, verified 11 October 2026 through Cloudflare's Domain Connect, which added the TXT record
+  `google-site-verification=0XSFGEdzQUgzTfQiL92D959vSRNMr2I2C1fpJIRvAy8` on `bartaboard.com`. Keep that record, or the
+  property loses verification. Sitemap `https://bartaboard.com/sitemap.xml` submitted the same day. The board was
+  already indexed; URL inspection → "Request indexing" was sent for 10 of the 12 sections. The daily quota ran out
+  before `/news/crime/` and `/news/opinion/`.
 - **Bing Webmaster Tools**: not set up. Sign in and choose "Import from Google Search Console" once Google is verified;
   it copies the site and sitemap and needs no record of its own. Record the account here.
 - **Cloudflare, for crawlers** (not on yet): Caching → Configuration → Crawler Hints (pings Bing and Yandex through
