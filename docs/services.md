@@ -14,7 +14,7 @@ those stay in the dashboards and in GitHub's encrypted secrets. Last checked 10 
 | Resend | rshossain.bd | Sends the sign-in emails |
 | Hostinger | — | Domain registrar; serves the old deshboard.rshossain.me address, which redirects here |
 | Google Search Console | rshossain.bd@gmail.com | Indexing, sitemap, search queries |
-| Bing Webmaster Tools | — (not set up yet) | Indexing on Bing, DuckDuckGo and the AI assistants' search |
+| Bing Webmaster Tools | rshossain.bd@gmail.com (signed in with Google) | Indexing on Bing, DuckDuckGo and the AI assistants' search |
 
 ## Cloudflare
 
@@ -111,8 +111,9 @@ See `docs/seo.md` for the plan these belong to.
   property loses verification. Sitemap `https://bartaboard.com/sitemap.xml` submitted the same day. The board was
   already indexed; URL inspection → "Request indexing" was sent for 10 of the 12 sections. The daily quota ran out
   before `/news/crime/` and `/news/opinion/`.
-- **Bing Webmaster Tools**: not set up. Sign in and choose "Import from Google Search Console" once Google is verified;
-  it copies the site and sitemap and needs no record of its own. Record the account here.
+- **Bing Webmaster Tools**: site `https://bartaboard.com/`, imported from Search Console on 11 October 2026 (signed in
+  with Google as rshossain.bd, read-only Search Console access), so it needs no record of its own. The import found no
+  sitemap, so `https://bartaboard.com/sitemap.xml` was submitted in Bing → Sitemaps by hand.
 - **Cloudflare, for crawlers** (not on yet): Caching → Configuration → Crawler Hints (pings Bing and Yandex through
   IndexNow when pages change; turning it on accepts Cloudflare's supplemental terms) and SSL/TLS → Edge Certificates →
   HSTS.
