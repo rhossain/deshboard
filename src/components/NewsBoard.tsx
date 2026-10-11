@@ -43,7 +43,7 @@ import { TopStories } from "./TopStories";
 import { setTheme, useTheme } from "./theme";
 import { cachedVideos, loadVideoBoard, prefetchVideos } from "./videos";
 import { VideoSkeleton } from "./VideoSkeleton";
-import { dhakaDate, formatCount, fullTime, timeAgo } from "./time";
+import { dhakaDate, dhakaShortDate, formatCount, fullTime, timeAgo } from "./time";
 import {
   AutoThemeIcon,
   BookmarkIcon,
@@ -714,23 +714,15 @@ export function NewsBoard({
           />
         </div>
 
-        {/* Masthead */}
-        <header className="mx-auto max-w-7xl px-4 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-10">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold" suppressHydrationWarning>
-                {dhakaDate(now)}
-              </p>
-              {/* A full load, so the board starts over with no filters, section or search. */}
-              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-              <a href="/" className="mt-1.5 inline-block text-[32px] sm:text-5xl" aria-label="Bartaboard home">
-                <BartaboardLogo />
-              </a>
-              <h1 className="mt-2 text-[15px] font-medium text-muted sm:text-base">
-                {boardHeading(categoryPath(category) ? category : "", view === "videos")}
-              </h1>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
+        {/* Masthead: the logo and buttons on one row, then the heading and a quiet status line. */}
+        <header className="mx-auto max-w-7xl px-4 pt-[max(env(safe-area-inset-top),1rem)] sm:px-6 sm:pt-7">
+          <div className="flex items-center justify-between gap-4">
+            {/* A full load, so the board starts over with no filters, section or search. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a href="/" className="flex shrink-0 text-[24px] sm:text-[32px]" aria-label="Bartaboard home">
+              <BartaboardLogo tagline={false} />
+            </a>
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <AccountButton />
               <ThemeButton />
               <button
@@ -738,51 +730,56 @@ export function NewsBoard({
                 onClick={() => load(true)}
                 disabled={loading}
                 aria-label={loading ? "Fetching headlines" : "Refresh headlines"}
-                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3.5 text-sm font-semibold text-background shadow-card transition active:scale-95 disabled:opacity-70 sm:px-5"
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3 text-sm font-semibold text-background transition hover:opacity-90 active:scale-95 disabled:opacity-70 sm:px-4"
               >
-                <RefreshIcon spinning={loading} className="h-[18px] w-[18px]" />
+                <RefreshIcon spinning={loading} className="h-4 w-4" />
                 <span className="hidden sm:inline">{loading ? "Fetching…" : "Refresh"}</span>
               </button>
             </div>
           </div>
 
-          {/* Status */}
-          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted">
-            {/* A line of its own on phones: as its text changes, nothing below moves. */}
-            <span className="inline-flex items-center gap-1.5 max-sm:basis-full">
-              <span className="relative flex h-2 w-2">
-                {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
-                <span className="relative h-2 w-2 rounded-full bg-accent" />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-1.5 sm:mt-4">
+            <h1 className="text-balance text-[13px] font-medium text-muted sm:text-sm">
+              {boardHeading(categoryPath(category) ? category : "", view === "videos")}
+            </h1>
+
+            {/* Status. "Updated …" comes last, so as it grows nothing else moves. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+              <span className="font-semibold uppercase tracking-[0.14em] text-gold" suppressHydrationWarning>
+                <span className="sm:hidden">{dhakaShortDate(now)}</span>
+                <span className="max-sm:hidden">{dhakaDate(now)}</span>
               </span>
-              {loading ? (
-                <span className="tabular-nums">
-                  Fetching {received} of {fetchedCount} sources
-                </span>
-              ) : generatedAt ? (
-                <span title={fullTime(generatedAt)}>Updated {timeAgo(generatedAt, now)}</span>
-              ) : (
-                <span>Live</span>
+              {hasData && newCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setOnlyNew((v) => !v)}
+                  aria-pressed={onlyNew}
+                  title="Headlines since your last visit. Click to show only these."
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${
+                    onlyNew ? "bg-gold text-background" : "bg-gold/15 text-gold hover:bg-gold/25"
+                  }`}
+                >
+                  {!onlyNew && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />}
+                  {formatCount(newCount)} new
+                  {onlyNew && <CloseIcon className="h-3 w-3" />}
+                </button>
               )}
-            </span>
-            {hasData && (
-              <>
-                {newCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setOnlyNew((v) => !v)}
-                    aria-pressed={onlyNew}
-                    title="Headlines since your last visit. Click to show only these."
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${
-                      onlyNew ? "bg-gold text-background" : "bg-gold/15 text-gold"
-                    }`}
-                  >
-                    {!onlyNew && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />}
-                    {formatCount(newCount)} new
-                    {onlyNew && <CloseIcon className="h-3 w-3" />}
-                  </button>
+              <span className="inline-flex items-center gap-1.5" aria-live="polite">
+                <span className="relative flex h-1.5 w-1.5">
+                  {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
+                  <span className="relative h-1.5 w-1.5 rounded-full bg-accent" />
+                </span>
+                {loading ? (
+                  <span className="tabular-nums">
+                    Fetching {received} of {fetchedCount} sources
+                  </span>
+                ) : generatedAt ? (
+                  <span title={fullTime(generatedAt)}>Updated {timeAgo(generatedAt, now)}</span>
+                ) : (
+                  <span>Live</span>
                 )}
-              </>
-            )}
+              </span>
+            </div>
           </div>
 
           {outage && (
@@ -799,7 +796,7 @@ export function NewsBoard({
         {/* Toolbar */}
         <div
           data-toolbar
-          className="sticky top-0 z-30 mt-5 border-b sm:mt-7 border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150"
+          className="sticky top-0 z-30 mt-4 border-b sm:mt-5 border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150"
         >
           <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 pt-3 sm:px-6 md:h-16 md:pt-0">
             {/* Views and filters live in the bottom bar and filter sheet on phones. */}
@@ -1205,12 +1202,12 @@ function AccountButton() {
       href="/account/"
       aria-label={label}
       title={label}
-      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-foreground shadow-card transition active:scale-95"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line text-foreground transition hover:bg-surface-2 active:scale-95"
     >
       {account ? (
-        <Avatar email={account.email} src={account.avatar} className="h-8 w-8 text-sm" />
+        <Avatar email={account.email} src={account.avatar} className="h-7 w-7 text-xs" />
       ) : (
-        <UserIcon className="h-[18px] w-[18px]" />
+        <UserIcon className="h-4 w-4" />
       )}
     </a>
   );
@@ -1227,9 +1224,9 @@ function ThemeButton() {
       onClick={() => setTheme(NEXT_THEME[theme])}
       aria-label={`Theme: ${label(theme)}. Switch to ${label(NEXT_THEME[theme])}`}
       title={`Theme: ${label(theme)}`}
-      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-foreground shadow-card transition active:scale-95"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line text-foreground transition hover:bg-surface-2 active:scale-95"
     >
-      <Icon className="h-[18px] w-[18px]" />
+      <Icon className="h-4 w-4" />
     </button>
   );
 }
