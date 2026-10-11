@@ -59,6 +59,13 @@ export const SOURCES_DESCRIPTION =
   `news sites, ${KIND_COUNT("TV")} TV stations and ${KIND_COUNT("Agency")} agencies, plus ${CHANNELS.length} TV ` +
   "channels on YouTube.";
 
+/** The about page: what Bartaboard is and how it works. */
+export const ABOUT_PATH = "/about";
+export const ABOUT_TITLE = `About ${SITE_NAME}, the Bangladesh News Aggregator`;
+export const ABOUT_DESCRIPTION =
+  `${SITE_NAME} puts the latest headlines from ${ACTIVE_SOURCES.length} Bangladeshi news sites and videos from ` +
+  `${CHANNELS.length} TV channels on one free board, kept up to date all day.`;
+
 /** The page's visible heading: what it holds, in the words people search for. */
 export function boardHeading(category?: Category | "", videos = false): string {
   if (videos) return "Bangladesh TV news videos today";
@@ -206,6 +213,21 @@ export function sourcesJsonLd(groups: DirectoryGroup[]): string {
         ],
       },
     ],
+  });
+}
+
+/** Structured data for the about page: an AboutPage about the organisation behind the site. */
+export function aboutJsonLd(): string {
+  const url = `${SITE_URL}${ABOUT_PATH}`;
+  return jsonLd({
+    "@type": "AboutPage",
+    "@id": url,
+    url,
+    name: ABOUT_TITLE,
+    description: ABOUT_DESCRIPTION,
+    inLanguage: "en",
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    about: { "@id": `${SITE_URL}/#organization` },
   });
 }
 
