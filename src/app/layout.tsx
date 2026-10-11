@@ -19,7 +19,7 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   // Absolute base for canonical and share image URLs; set SITE_URL to the public address when deploying.
   metadataBase: new URL(SITE_URL),
-  title: { default: SITE_TITLE, template: `%s · ${SITE_NAME}` },
+  title: { default: SITE_TITLE, template: `%s | ${SITE_NAME}` },
   description: SITE_DESCRIPTION,
   keywords: KEYWORDS,
   applicationName: SITE_NAME,

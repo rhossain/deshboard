@@ -1,16 +1,23 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { CONTACT_EMAIL, LegalPage } from "@/components/LegalPage";
+import { shareMetadata, SITE_NAME } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Privacy policy",
-  description: "What Bartaboard stores about you, where, and how to delete it.",
-  alternates: { canonical: "/privacy/" },
-};
+const TITLE = "Privacy policy";
+const DESCRIPTION = "What Bartaboard stores about you, where, and how to delete it.";
+
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return {
+    title: TITLE,
+    description: DESCRIPTION,
+    alternates: { canonical: "/privacy/" },
+    ...(await shareMetadata(parent, { title: `${TITLE} | ${SITE_NAME}`, description: DESCRIPTION, url: "/privacy/" })),
+  };
+}
 
 /** Linked from Google's sign-in screen, the account page and the board's footer. */
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy policy" updated="10 October 2026">
+    <LegalPage title={TITLE} updated="10 October 2026">
       <p>
         Bartaboard collects Bangladeshi news headlines in one place. You can read it without an account, and we keep as
         little about you as we can.
