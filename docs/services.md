@@ -13,6 +13,8 @@ those stay in the dashboards and in GitHub's encrypted secrets. Last checked 10 
 | Google Cloud | hossain.robin007@gmail.com | "Continue with Google" |
 | Resend | rshossain.bd | Sends the sign-in emails |
 | Hostinger | — | Domain registrar; serves the old deshboard.rshossain.me address, which redirects here |
+| Google Search Console | hossain.robin007@gmail.com | Indexing, sitemap, search queries |
+| Bing Webmaster Tools | — (not set up yet) | Indexing on Bing, DuckDuckGo and the AI assistants' search |
 
 ## Cloudflare
 
@@ -98,6 +100,22 @@ Account rshossain.bd, Free plan (3,000 emails a month, 100 a day).
 - **API key** "Supabase": sending access only, limited to bartaboard.com. It was copied straight into Supabase's SMTP
   password, so if it's lost, create a new key and paste that in.
 - **Emails** shows every message sent and whether it was delivered. Check here first when a code doesn't arrive.
+
+## Search engines
+
+See `docs/seo.md` for the plan these belong to.
+
+- **Google Search Console**: Domain property `bartaboard.com` (covers http/https and every subdomain), added
+  11 October 2026 under hossain.robin007@gmail.com. **Not verified yet.** Verification is the TXT record
+  `google-site-verification=1VZSX9QEkuN7_pFP64BBvyKMDXTZY0UQfWRx227WNU8` on `bartaboard.com` (name `@`) in
+  Cloudflare DNS; the record must stay, or the property loses verification. Once verified:
+  Sitemaps → `https://bartaboard.com/sitemap.xml`, and URL inspection → "Request indexing" for `/` and the 12 section
+  pages (about 10 a day).
+- **Bing Webmaster Tools**: not set up. Sign in and choose "Import from Google Search Console" once Google is verified;
+  it copies the site and sitemap and needs no record of its own. Record the account here.
+- **Cloudflare, for crawlers** (not on yet): Caching → Configuration → Crawler Hints (pings Bing and Yandex through
+  IndexNow when pages change; turning it on accepts Cloudflare's supplemental terms) and SSL/TLS → Edge Certificates →
+  HSTS.
 
 ## When something breaks
 
