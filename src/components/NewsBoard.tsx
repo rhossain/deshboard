@@ -18,7 +18,7 @@ import { type Filters, filtersToSearch, type LangFilter, type Order, type View }
 import { usePlansVisible } from "@/lib/plans";
 import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
-import { categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
+import { boardHeading, categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime, newestFirst } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
@@ -697,12 +697,13 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold" suppressHydrationWarning>
                 {dhakaDate(now)}
               </p>
-              <h1 className="mt-1.5 text-[32px] sm:text-5xl">
+              {/* A full load, so the board starts over with no filters, section or search. */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+              <a href="/" className="mt-1.5 inline-block text-[32px] sm:text-5xl" aria-label="Bartaboard home">
                 <BartaboardLogo />
-                <span className="sr-only">
-                  : {(categoryPath(category) && CATEGORIES.find((c) => c.id === category)?.label) || "Latest"} news from
-                  Bangladesh
-                </span>
+              </a>
+              <h1 className="mt-2 text-[15px] font-medium text-muted sm:text-base">
+                {boardHeading(categoryPath(category) ? category : "")}
               </h1>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -975,6 +976,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
           {hasData && view === "sources" && (
             <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+              {pinnedCards === 0 && <h2 className="sr-only">Headlines by newspaper</h2>}
               {visibleSources.map((s, i) => (
                 <Fragment key={s.id}>
                   {pinnedCards > 0 && i === 0 && <GroupHeading pinned>Your news</GroupHeading>}

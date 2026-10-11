@@ -112,7 +112,10 @@ export const SourceCard = memo(function SourceCard({
           />
         )}
         <div className={`relative min-w-0 ${collapsible ? "pointer-events-none" : ""}`}>
-          <SourceLogo source={source} link={!collapsible} />
+          {/* Under the board's "Headlines by newspaper" (or "Your news" / "Other news") heading. */}
+          <h3 className="min-w-0">
+            <SourceLogo source={source} link={!collapsible} />
+          </h3>
           <p className="mt-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
             {source.kind} · {source.lang === "bn" ? "বাংলা" : "English"}
             {fallback ? (
