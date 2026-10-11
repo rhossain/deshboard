@@ -5,9 +5,23 @@
     <link>https://bartaboard.com/videos/</link>
     <description>Latest Bangladesh TV news videos from 31 channels on YouTube, including Jamuna TV, Somoy TV, Channel 24 and BBC News Bangla, newest first, free to watch.</description>
     <language>bn</language>
-    <lastBuildDate>Sun, 11 Oct 2026 22:15:37 GMT</lastBuildDate>
+    <lastBuildDate>Sun, 11 Oct 2026 22:30:42 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/videos/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>পাকিস্তানে ইমরান খানের দল পিটিআই শাসিত প্রদেশে জরুরি অবস্থা</title>
+      <link>https://www.youtube.com/watch?v=w0Cr1QsloWg</link>
+      <description>Channel i News</description>
+      <guid isPermaLink="true">https://www.youtube.com/watch?v=w0Cr1QsloWg</guid>
+      <pubDate>Sun, 11 Oct 2026 22:30:05 GMT</pubDate>
+    </item>
+    <item>
+      <title>ডে’ঙ্গু’র প্রকোপ, সাজেক অবরোধসহ আলোচিত সব খবর । দেশজুড়ে</title>
+      <link>https://www.youtube.com/watch?v=evI3uZ7r0e0</link>
+      <description>NTV News</description>
+      <guid isPermaLink="true">https://www.youtube.com/watch?v=evI3uZ7r0e0</guid>
+      <pubDate>Sun, 11 Oct 2026 22:27:31 GMT</pubDate>
+    </item>
     <item>
       <title>ডাক্তার আছেন - ১১ অক্টোবর, ২০২৬</title>
       <link>https://www.youtube.com/watch?v=qUTITwKBg2Q</link>
@@ -343,20 +357,6 @@
       <description>NTV News</description>
       <guid isPermaLink="true">https://www.youtube.com/watch?v=aiEf1NqKLKo</guid>
       <pubDate>Sun, 11 Oct 2026 19:00:17 GMT</pubDate>
-    </item>
-    <item>
-      <title>ভারতের সঙ্গে টানাপোড়েন, সম্পর্ক কোন পথে যাচ্ছে?</title>
-      <link>https://www.youtube.com/watch?v=o_E1QsETmKk</link>
-      <description>GTV News</description>
-      <guid isPermaLink="true">https://www.youtube.com/watch?v=o_E1QsETmKk</guid>
-      <pubDate>Sun, 11 Oct 2026 19:00:10 GMT</pubDate>
-    </item>
-    <item>
-      <title>সারাদিনের সব খবর একসাথে</title>
-      <link>https://www.youtube.com/watch?v=MUUxvJ_uEzI</link>
-      <description>Jamuna TV</description>
-      <guid isPermaLink="true">https://www.youtube.com/watch?v=MUUxvJ_uEzI</guid>
-      <pubDate>Sun, 11 Oct 2026 18:58:09 GMT</pubDate>
     </item>
   </channel>
 </rss>
