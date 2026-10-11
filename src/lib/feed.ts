@@ -3,6 +3,7 @@ import path from "node:path";
 import type { Category } from "./categories";
 import { dedupeByLink } from "./fetchers/utils";
 import { seedResults } from "./site";
+import { itemTime } from "./stories";
 import type { NewsFeed, NewsSeed } from "./types";
 
 /**
@@ -10,17 +11,38 @@ import type { NewsFeed, NewsSeed } from "./types";
  * given) for prerendering into the page. Undefined when nothing has been fetched yet.
  */
 export function readSeed(category?: Category): NewsSeed | undefined {
+  const feed = readFeed();
+  if (!feed) return undefined;
+  // Counted as the board counts them: every headline once, however many outlets list it.
+  const counts: NewsSeed["counts"] = {};
+  const totals: NewsSeed["totals"] = {};
+  for (const it of dedupeByLink(feed.results.flatMap((r) => r.items))) {
+    counts[it.category] = (counts[it.category] ?? 0) + 1;
+    if (!category || it.category === category) totals[it.sourceId] = (totals[it.sourceId] ?? 0) + 1;
+  }
+  return { ...feed, results: seedResults(feed.results, category), counts, category, totals };
+}
+
+/** The whole feed from `npm run fetch`, or undefined when nothing has been fetched yet. */
+export function readFeed(): NewsFeed | undefined {
   try {
-    const feed = JSON.parse(readFileSync(path.join(process.cwd(), "public", "data", "news.json"), "utf8")) as NewsFeed;
-    // Counted as the board counts them: every headline once, however many outlets list it.
-    const counts: NewsSeed["counts"] = {};
-    const totals: NewsSeed["totals"] = {};
-    for (const it of dedupeByLink(feed.results.flatMap((r) => r.items))) {
-      counts[it.category] = (counts[it.category] ?? 0) + 1;
-      if (!category || it.category === category) totals[it.sourceId] = (totals[it.sourceId] ?? 0) + 1;
-    }
-    return { ...feed, results: seedResults(feed.results, category), counts, category, totals };
+    return JSON.parse(readFileSync(path.join(process.cwd(), "public", "data", "news.json"), "utf8")) as NewsFeed;
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Each section's newest headline time, for the sitemap. Times later than the fetch (a portal's clock
+ * or time zone gone wrong) count as the fetch time.
+ */
+export function newestByCategory(feed: NewsFeed): Partial<Record<Category, string>> {
+  const newest: Partial<Record<Category, string>> = {};
+  for (const it of feed.results.flatMap((r) => r.items)) {
+    const t = Date.parse(itemTime(it) ?? "");
+    if (Number.isNaN(t)) continue;
+    const at = new Date(Math.min(t, Date.parse(feed.generatedAt))).toISOString();
+    if (!newest[it.category] || at > newest[it.category]!) newest[it.category] = at;
+  }
+  return newest;
 }
