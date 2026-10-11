@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Paid plans, paid by hand with bKash (docs/subscriptions.md, "Payment options"). They stay hidden until the
- * `PLANS` repository variable is `on` (deploy.yml passes it to the build as NEXT_PUBLIC_PLANS). While hidden,
- * /account/?plans=preview shows them on this device only, and /account/?plans=off hides them again.
+ * Accounts and paid plans (paid by hand with bKash, docs/subscriptions.md "Payment options"). Both stay hidden — no
+ * account button on the board, no sign-in on /account/ — until the `PLANS` repository variable is `on` (deploy.yml
+ * passes it to the build as NEXT_PUBLIC_PLANS). While hidden, /account/?plans=preview shows them on this device
+ * only, and /account/?plans=off hides them again.
  */
 export const PLANS_PUBLIC = process.env.NEXT_PUBLIC_PLANS === "on";
 
@@ -29,6 +30,9 @@ export function readPlansPreview() {
 }
 
 function previewing(): boolean {
+  // The address counts before readPlansPreview has stored it.
+  const value = new URLSearchParams(location.search).get("plans");
+  if (value === "preview" || value === "off") return value === "preview";
   try {
     return localStorage.getItem(PREVIEW_KEY) === "1";
   } catch {
@@ -36,7 +40,7 @@ function previewing(): boolean {
   }
 }
 
-/** Whether paid plans show on this device: on for everyone, or previewed here. */
+/** Whether accounts and paid plans show on this device: on for everyone, or previewed here. */
 export function usePlansVisible(): boolean {
   const preview = useSyncExternalStore(
     () => () => {},

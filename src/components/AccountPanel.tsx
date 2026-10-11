@@ -33,6 +33,24 @@ function cleanUrl() {
 
 /** Sign in (Google, or an emailed code and link), and the signed-in account: plan, payments, sign out, delete. */
 export function AccountPanel() {
+  const visible = usePlansVisible();
+  useEffect(readPlansPreview, []);
+  return visible ? <Account /> : <NotOpenYet />;
+}
+
+/** Until accounts open (src/lib/plans.ts): no sign-in, and the Supabase client never starts. */
+function NotOpenYet() {
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-6">
+      <h2 className="font-display text-xl font-semibold">Accounts are coming soon</h2>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted">
+        Everything on Bartaboard works without an account. Saved headlines and pinned sources stay on this device.
+      </p>
+    </section>
+  );
+}
+
+function Account() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +58,6 @@ export function AccountPanel() {
     const auth = supabase().auth;
     const hadCode = new URLSearchParams(location.search).has("code");
     const fromUrl = urlError();
-    readPlansPreview();
     // getSession waits for the client to finish any sign-in in the address (?code=).
     auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -293,7 +310,6 @@ function SignedIn({ session }: { session: Session }) {
   const name = (user.user_metadata.full_name ?? user.user_metadata.name) as string | undefined;
   const avatar = user.user_metadata.avatar_url as string | undefined;
   const via = user.app_metadata.provider === "google" ? "Google" : "email";
-  const plansVisible = usePlansVisible();
   const plan = activePlan(profile);
 
   useEffect(() => {
@@ -401,7 +417,7 @@ function SignedIn({ session }: { session: Session }) {
           )}
         </div>
       </section>
-      {plansVisible && <PlanPanel profile={profile} />}
+      <PlanPanel profile={profile} />
       {profile?.is_admin && <AdminPayments />}
     </>
   );
