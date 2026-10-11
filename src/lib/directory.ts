@@ -1,7 +1,45 @@
 import { CATEGORIES, type Category } from "./categories";
 import { CHANNELS } from "./channels";
 import { ACTIVE_SOURCES } from "./sources";
-import type { Lang, LogoShape, NewsFeed, NewsSource, VideoChannel, VideoFeed } from "./types";
+import { itemTime, newestFirst } from "./stories";
+import type { Lang, LogoShape, NewsFeed, NewsItem, NewsSource, Video, VideoChannel, VideoFeed } from "./types";
+
+/** An outlet with a page of its own: a news site (with its station's channel, if read) or a channel alone. */
+export interface Outlet {
+  id: string;
+  name: string;
+  source?: NewsSource;
+  channel?: VideoChannel;
+}
+
+const ACTIVE_IDS = new Set(ACTIVE_SOURCES.map((s) => s.id));
+const CHANNEL_OF_SITE = new Map(CHANNELS.filter((c) => c.site).map((c) => [c.site!, c]));
+
+/** Every outlet with a page: the news sites in display order, then the channels with no site here. */
+export const OUTLETS: Outlet[] = [
+  ...ACTIVE_SOURCES.map((s) => ({ id: s.id, name: s.name, source: s, channel: CHANNEL_OF_SITE.get(s.id) })),
+  ...CHANNELS.filter((c) => !c.site || !ACTIVE_IDS.has(c.site)).map((c) => ({ id: c.id, name: c.name, channel: c })),
+];
+
+/** An outlet's own page. */
+export const outletPath = (id: string) => `/sources/${id}/`;
+
+/** What the current feeds hold from an outlet, newest first, and the time of its newest item. */
+export function outletContent(
+  o: Outlet,
+  feed?: NewsFeed,
+  videoFeed?: VideoFeed,
+): { headlines: NewsItem[]; videos: Video[]; updated?: string } {
+  const headlines = (feed?.results.find((r) => r.sourceId === o.source?.id)?.items ?? [])
+    .slice()
+    .sort((a, b) => newestFirst(itemTime(a), itemTime(b)));
+  const videos = videoFeed?.videos.filter((v) => v.channel === o.channel?.id) ?? [];
+  const newest = [headlines[0] && itemTime(headlines[0]), videos[0]?.publishedAt].filter((t): t is string => !!t);
+  // Capped at the fetch time: a portal's clock or time zone can put a headline in the future.
+  const cap = feed?.generatedAt ?? videoFeed?.generatedAt;
+  const updated = newest.sort().at(-1);
+  return { headlines, videos, updated: updated && cap && updated > cap ? cap : updated };
+}
 
 /** One outlet on the sources page: a news site, a TV channel on YouTube, or a station with both. */
 export interface DirectoryEntry {
@@ -14,6 +52,8 @@ export interface DirectoryEntry {
   homepage?: string;
   logo?: string;
   logoShape?: LogoShape;
+  /** Its own page (see OUTLETS). */
+  href: string;
   /** The board showing only this outlet's headlines. */
   boardHref?: string;
   youtubeId?: string;
@@ -68,17 +108,16 @@ export function buildDirectory(feed?: NewsFeed, videos?: VideoFeed): DirectoryGr
     for (const c of videos.channels) videoCounts.set(c.id, 0);
     for (const v of videos.videos) videoCounts.set(v.channel, (videoCounts.get(v.channel) ?? 0) + 1);
   }
-  const channelOf = new Map(CHANNELS.filter((c) => c.site).map((c) => [c.site!, c]));
-  const active = new Set(ACTIVE_SOURCES.map((s) => s.id));
 
   const site = (s: NewsSource): DirectoryEntry => {
-    const channel = channelOf.get(s.id);
+    const channel = CHANNEL_OF_SITE.get(s.id);
     const videoLine = channel ? videoSummary(videoCounts.get(channel.id)) : "";
     return {
       id: s.id,
       name: s.name,
       label: `${KIND[s.kind]} · ${LANG[s.lang]}`,
       summary: [headlineSummary(items.get(s.id) ?? []), videoLine].filter(Boolean).join(" "),
+      href: outletPath(s.id),
       homepage: s.homepage,
       logo: feed?.logos[s.id],
       logoShape: feed?.logoShapes?.[s.id],
@@ -91,6 +130,7 @@ export function buildDirectory(feed?: NewsFeed, videos?: VideoFeed): DirectoryGr
     name: c.name,
     label: "TV news channel · YouTube",
     summary: videoSummary(videoCounts.get(c.id)),
+    href: outletPath(c.id),
     youtubeId: c.youtubeId,
   });
 
@@ -105,7 +145,7 @@ export function buildDirectory(feed?: NewsFeed, videos?: VideoFeed): DirectoryGr
       id: "tv-channels",
       title: "More TV news channels",
       // Channels whose station has no news site among the ones read here.
-      entries: CHANNELS.filter((c) => !c.site || !active.has(c.site)).map(channel),
+      entries: OUTLETS.filter((o) => !o.source).map((o) => channel(o.channel!)),
     },
   ].filter((g) => g.entries.length);
 }

@@ -1,6 +1,6 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { CATEGORIES, type Category } from "./categories";
-import type { DirectoryGroup } from "./directory";
+import type { DirectoryEntry, DirectoryGroup, Outlet } from "./directory";
 import { FAQ } from "./intros";
 import { CHANNELS } from "./channels";
 import { ACTIVE_SOURCES } from "./sources";
@@ -59,6 +59,26 @@ export const SOURCES_DESCRIPTION =
   `All Bangla and English news sources on ${SITE_NAME}: ${KIND_COUNT("Newspaper")} newspapers, ${KIND_COUNT("Online")} ` +
   `news sites, ${KIND_COUNT("TV")} TV stations and ${KIND_COUNT("Agency")} agencies, plus ${CHANNELS.length} TV ` +
   "channels on YouTube.";
+
+/** An outlet's own page: a news site's latest headlines, or a channel's latest videos. */
+export function outletTitle(o: Outlet): string {
+  return o.source
+    ? `${o.name} Latest News Headlines Today | ${SITE_NAME}`
+    : `${o.name} News Today: Latest Videos | ${SITE_NAME}`;
+}
+
+export function outletHeading(o: Outlet): string {
+  return o.source ? `${o.name} latest news headlines` : `${o.name} news today: latest videos`;
+}
+
+export function outletDescription(o: Outlet): string {
+  if (!o.source) {
+    return `The latest news videos from ${o.name}'s YouTube channel, newest first, with a link to its live stream. Updated every 15 minutes on ${SITE_NAME}.`;
+  }
+  const host = new URL(o.source.homepage).hostname.replace(/^www\./, "");
+  const videos = o.channel ? " and videos" : "";
+  return `Today's latest ${o.name} headlines${videos}, updated every 15 minutes on ${SITE_NAME}. Each story links to ${host}.`;
+}
 
 /** The about page: what Bartaboard is and how it works. */
 export const ABOUT_PATH = "/about/";
@@ -211,6 +231,40 @@ export function sourcesJsonLd(groups: DirectoryGroup[]): string {
         itemListElement: [
           { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
           { "@type": "ListItem", position: 2, name: "All newspapers", item: url },
+        ],
+      },
+    ],
+  });
+}
+
+/** Structured data for an outlet's page: about the outlet, under the sources page. */
+export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string): string {
+  const url = `${SITE_URL}${entry.href}`;
+  const youtube = entry.youtubeId && `https://www.youtube.com/channel/${entry.youtubeId}`;
+  return jsonLd({
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": url,
+        url,
+        name: outletTitle(o),
+        description: outletDescription(o),
+        inLanguage: o.source?.lang ?? "bn",
+        dateModified: updated,
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        about: {
+          "@type": "NewsMediaOrganization",
+          name: o.name,
+          url: entry.homepage ?? youtube,
+          ...(entry.homepage && youtube && { sameAs: [youtube] }),
+        },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
+          { "@type": "ListItem", position: 2, name: "All newspapers", item: `${SITE_URL}${SOURCES_PATH}` },
+          { "@type": "ListItem", position: 3, name: o.name, item: url },
         ],
       },
     ],
