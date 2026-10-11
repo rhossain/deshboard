@@ -1083,6 +1083,7 @@ export function NewsBoard({
         <nav
           className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
           aria-label="View"
+          data-bottom-nav
         >
           <div className="mx-auto grid h-16 max-w-md grid-cols-4">
             <NavButton active={sectionOf(view) === "news"} onClick={() => openSection("news")} label="News">

@@ -141,6 +141,17 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Back-to-top button (src/components/BackToTop.tsx): clear of the home indicator, and of the
+   phone bottom bar on the pages that have one. */
+.back-to-top {
+  bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}
+@media (width < 48rem) {
+  body:has([data-bottom-nav]) .back-to-top {
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;
