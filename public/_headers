@@ -5,6 +5,14 @@
 /*
   X-Content-Type-Options: nosniff
 
+# RSS feeds (src/app/**/feed.xml), served as such rather than as plain XML.
+/feed.xml
+  Content-Type: application/rss+xml; charset=utf-8
+/news/*/feed.xml
+  Content-Type: application/rss+xml; charset=utf-8
+/videos/feed.xml
+  Content-Type: application/rss+xml; charset=utf-8
+
 # Next writes the share image and the home-screen icon without a file extension.
 /opengraph-image
   Content-Type: image/png

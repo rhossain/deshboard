@@ -2,6 +2,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { NewsBoardFromUrl } from "@/components/NewsBoard";
 import type { Category } from "@/lib/categories";
 import { readSeed } from "@/lib/feed";
+import { feedLink } from "@/lib/rss";
 import {
   CATEGORY_PAGES,
   categoryDescription,
@@ -30,7 +31,10 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      types: feedLink(url, `Bangladesh ${CATEGORY_PAGES.find((c) => c.id === category)!.label.toLowerCase()} news`),
+    },
     robots: INDEXABLE,
     ...(await shareMetadata(parent, { title, description, url })),
   };
