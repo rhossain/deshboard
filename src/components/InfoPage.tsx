@@ -12,6 +12,24 @@ export const SITE_LINKS = [
   { href: "/terms/", label: "Terms" },
 ];
 
+/** Thanks to the site whose idea Bartaboard builds on, at the foot of every page. */
+export function InspiredBy() {
+  return (
+    <p className="mt-3 text-center text-xs text-muted">
+      With thanks to 24 Live Newspaper (
+      <a
+        href="https://www.24livenewspaper.com/"
+        target="_blank"
+        rel="noopener"
+        className="underline hover:text-foreground"
+      >
+        24livenewspaper.com
+      </a>
+      ), whose idea of every Bangladeshi paper in one place inspired Bartaboard.
+    </p>
+  );
+}
+
 /**
  * A page of text under the logo (about, sources, privacy, terms): a heading, an optional intro and
  * "last updated" line, the body, and the site's links. `wide` for pages of lists rather than prose.
@@ -66,6 +84,7 @@ export function InfoPage({
             </Link>
           ))}
         </nav>
+        <InspiredBy />
       </footer>
     </div>
   );
