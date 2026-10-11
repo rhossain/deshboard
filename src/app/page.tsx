@@ -2,7 +2,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { NewsBoard } from "@/components/NewsBoard";
 import { cachedSeed } from "@/lib/feed";
 import { parseFilters } from "@/lib/filters";
-import { INDEXABLE, shareMetadata, SITE_DESCRIPTION, SITE_TITLE, siteJsonLd } from "@/lib/site";
+import { faqJsonLd, INDEXABLE, shareMetadata, SITE_DESCRIPTION, SITE_TITLE, siteJsonLd } from "@/lib/site";
 import { SOURCES } from "@/lib/sources";
 
 const SOURCE_IDS = new Set(SOURCES.map((s) => s.id));
@@ -27,6 +27,7 @@ export default async function Home({
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: siteJsonLd(seed?.generatedAt) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd() }} />
       <NewsBoard sources={SOURCES} initial={parseFilters(await searchParams, SOURCE_IDS)} seed={seed} />
     </>
   );

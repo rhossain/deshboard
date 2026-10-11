@@ -1,6 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { CATEGORIES, type Category } from "./categories";
 import type { DirectoryGroup } from "./directory";
+import { FAQ } from "./intros";
 import { CHANNELS } from "./channels";
 import { ACTIVE_SOURCES } from "./sources";
 import { itemTime, newestFirst } from "./stories";
@@ -228,6 +229,14 @@ export function aboutJsonLd(): string {
     inLanguage: "en",
     isPartOf: { "@id": `${SITE_URL}/#website` },
     about: { "@id": `${SITE_URL}/#organization` },
+  });
+}
+
+/** The board's questions and answers, as FAQPage data. */
+export function faqJsonLd(): string {
+  return jsonLd({
+    "@type": "FAQPage",
+    mainEntity: FAQ.map(({ q, a }) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
   });
 }
 

@@ -18,6 +18,7 @@ import { DEFAULT_FILTERS, type Filters, filtersToSearch, type LangFilter, type O
 import { usePlansVisible } from "@/lib/plans";
 import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
+import { sectionIntro, VIDEOS_INTRO } from "@/lib/intros";
 import { boardHeading, categoryPath, categoryTitle, SITE_TITLE, VIDEOS_PATH, VIDEOS_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime, newestFirst } from "@/lib/stories";
@@ -29,6 +30,8 @@ import { useLastVisit } from "./last-visit";
 import { byNewest, LatestList } from "./LatestList";
 import { Avatar, useAccount } from "./account";
 import { BartaboardLogo } from "./BartaboardLogo";
+import { SITE_LINKS } from "./InfoPage";
+import { PageNotes } from "./PageNotes";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinButton, PinPicker } from "./PinPicker";
 import { useSaved, useSavedVideos } from "./saved";
@@ -1037,16 +1040,23 @@ export function NewsBoard({
             </div>
           )}
 
+          {view === "videos" ? (
+            <PageNotes intro={VIDEOS_INTRO} />
+          ) : (
+            sectionOf(view) === "news" && (
+              <PageNotes
+                intro={sectionIntro(categoryPath(category) ? category : "")}
+                faq={!categoryPath(category)}
+              />
+            )
+          )}
+
           <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
-            <a href="/health" className="hover:text-foreground">
-              Source health
-            </a>
-            <a href="/privacy/" className="hover:text-foreground">
-              Privacy
-            </a>
-            <a href="/terms/" className="hover:text-foreground">
-              Terms
-            </a>
+            {SITE_LINKS.map((l) => (
+              <a key={l.href} href={l.href} className="hover:text-foreground">
+                {l.label}
+              </a>
+            ))}
             <button
               type="button"
               onClick={() => setShortcutsOpen(true)}
