@@ -5,7 +5,7 @@
     <link>https://bartaboard.com/news/health/</link>
     <description>Latest health news from Bangladesh: স্বাস্থ্য headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Sun, 11 Oct 2026 19:01:46 GMT</lastBuildDate>
+    <lastBuildDate>Sun, 11 Oct 2026 19:15:59 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/health/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
@@ -14,6 +14,14 @@
       <description>bdnews24 English · Health</description>
       <guid isPermaLink="true">https://bdnews24.com/health/8zrlsy3wsl</guid>
       <pubDate>Sun, 11 Oct 2026 17:15:48 GMT</pubDate>
+      <category>Health</category>
+    </item>
+    <item>
+      <title>Three more children die with measles-like symptoms in Sylhet</title>
+      <link>https://www.dhakatribune.com/amp/bangladesh/health/421887/three-more-children-die-with-measles-like-symptoms</link>
+      <description>Dhaka Tribune · Health</description>
+      <guid isPermaLink="true">https://www.dhakatribune.com/amp/bangladesh/health/421887/three-more-children-die-with-measles-like-symptoms</guid>
+      <pubDate>Sun, 11 Oct 2026 15:52:25 GMT</pubDate>
       <category>Health</category>
     </item>
     <item>
@@ -398,14 +406,6 @@
       <description>The Financial Express · Health</description>
       <guid isPermaLink="true">https://thefinancialexpress.com.bd/health/seven-more-suspected-measles-deaths-reported-in-a-day</guid>
       <pubDate>Sun, 11 Oct 2026 10:15:40 GMT</pubDate>
-      <category>Health</category>
-    </item>
-    <item>
-      <title>হামের উপসর্গে আরও ৭ প্রাণহানি, আক্রান্ত ১২৭৩</title>
-      <link>https://www.ntvbd.com/health/news-1817637</link>
-      <description>NTV · Health</description>
-      <guid isPermaLink="true">https://www.ntvbd.com/health/news-1817637</guid>
-      <pubDate>Sun, 11 Oct 2026 10:01:01 GMT</pubDate>
       <category>Health</category>
     </item>
   </channel>
