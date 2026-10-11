@@ -1,16 +1,23 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { CONTACT_EMAIL, LegalPage } from "@/components/LegalPage";
+import { shareMetadata, SITE_NAME } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Terms of service",
-  description: "The rules for using Bartaboard and its accounts.",
-  alternates: { canonical: "/terms/" },
-};
+const TITLE = "Terms of service";
+const DESCRIPTION = "The rules for using Bartaboard and its accounts.";
+
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return {
+    title: TITLE,
+    description: DESCRIPTION,
+    alternates: { canonical: "/terms/" },
+    ...(await shareMetadata(parent, { title: `${TITLE} | ${SITE_NAME}`, description: DESCRIPTION, url: "/terms/" })),
+  };
+}
 
 /** Linked from Google's sign-in screen, the account page and the board's footer. */
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of service" updated="10 October 2026">
+    <LegalPage title={TITLE} updated="10 October 2026">
       <p>By using Bartaboard you agree to these terms. They are short on purpose.</p>
 
       <h2>What Bartaboard is</h2>

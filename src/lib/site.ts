@@ -1,3 +1,4 @@
+import type { Metadata, ResolvingMetadata } from "next";
 import { CATEGORIES, type Category } from "./categories";
 import { ACTIVE_SOURCES } from "./sources";
 import { itemTime, newestFirst } from "./stories";
@@ -6,10 +7,12 @@ import type { SourceResult } from "./types";
 /** The public address, for absolute URLs (canonical, sitemap, share image). Set SITE_URL when deploying. */
 export const SITE_URL = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 export const SITE_NAME = "Bartaboard";
-export const SITE_TITLE = "Bartaboard: Latest Bangladesh News Headlines in Bangla & English";
+// Search results cut titles at about 60 characters and descriptions at about 155, so the search
+// phrase comes first and the name last.
+export const SITE_TITLE = `Bangladesh News Today, Bangla & English | ${SITE_NAME}`;
 export const SITE_DESCRIPTION =
-  `Latest Bangladesh news from ${ACTIVE_SOURCES.length} portals on one board: Bangla and English headlines from ` +
-  "Prothom Alo, The Daily Star, bdnews24, Dhaka Tribune and more, with the top stories across outlets.";
+  `All Bangladesh news in one place: Bangla and English headlines from ${ACTIVE_SOURCES.length} newspapers, ` +
+  "like Prothom Alo, The Daily Star and bdnews24, plus the top stories.";
 export const KEYWORDS = [
   "Bangladesh news",
   "Bangla news",
@@ -35,7 +38,15 @@ export function categoryPath(category: Category | ""): string | undefined {
 
 export function categoryTitle(category: Category): string {
   const c = PAGE_BY_ID.get(category)!;
-  return `Bangladesh ${c.label} News Today (${c.bn}) · ${SITE_NAME}`;
+  return `Bangladesh ${c.label} News Today (${c.bn}) | ${SITE_NAME}`;
+}
+
+/** The page's visible heading: what it holds, in the words people search for. */
+export function boardHeading(category?: Category | ""): string {
+  const c = category ? PAGE_BY_ID.get(category) : undefined;
+  return c
+    ? `Bangladesh ${c.label.toLowerCase()} news today (${c.bn})`
+    : `Latest Bangladesh news headlines from ${ACTIVE_SOURCES.length} newspapers`;
 }
 
 export function categoryDescription(category: Category): string {
@@ -84,8 +95,35 @@ function jsonLd(data: object): string {
   return JSON.stringify({ "@context": "https://schema.org", ...data }).replace(/</g, "\\u003c");
 }
 
-/** Structured data for a section's page: what it is, and where it sits under the board. */
-export function categoryJsonLd(category: Category): string {
+/**
+ * A page's Open Graph and Twitter card. Next replaces the layout's openGraph rather than merging it, so
+ * the site's share image (app/opengraph-image.tsx) is carried over from `parent`.
+ */
+export async function shareMetadata(
+  parent: ResolvingMetadata,
+  { title, description, url }: { title: string; description: string; url: string },
+): Promise<Pick<Metadata, "openGraph" | "twitter">> {
+  const { openGraph, twitter } = await parent;
+  return {
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: SITE_NAME,
+      type: "website",
+      locale: "en_US",
+      alternateLocale: ["bn_BD"],
+      images: openGraph?.images,
+    },
+    twitter: { card: "summary_large_image", title, description, images: twitter?.images },
+  };
+}
+
+/**
+ * Structured data for a section's page: what it is, and where it sits under the board. `updated` is
+ * when the headlines were last collected.
+ */
+export function categoryJsonLd(category: Category, updated?: string): string {
   const c = PAGE_BY_ID.get(category)!;
   const url = `${SITE_URL}${categoryPath(category)}`;
   return jsonLd({
@@ -97,6 +135,7 @@ export function categoryJsonLd(category: Category): string {
         name: categoryTitle(category),
         description: categoryDescription(category),
         inLanguage: ["en", "bn"],
+        dateModified: updated,
         isPartOf: { "@id": `${SITE_URL}/#website` },
       },
       {
@@ -110,8 +149,8 @@ export function categoryJsonLd(category: Category): string {
   });
 }
 
-/** Structured data for search engines (schema.org): the site and its publisher. */
-export function siteJsonLd(): string {
+/** Structured data for search engines (schema.org): the site and its publisher, and when the headlines were collected. */
+export function siteJsonLd(updated?: string): string {
   return jsonLd({
     "@graph": [
       {
@@ -121,6 +160,7 @@ export function siteJsonLd(): string {
         name: SITE_NAME,
         description: SITE_DESCRIPTION,
         inLanguage: ["en", "bn"],
+        dateModified: updated,
         publisher: { "@id": `${SITE_URL}/#organization` },
       },
       {

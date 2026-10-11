@@ -11,7 +11,7 @@ import {
   categoryPath,
   categoryTitle,
   INDEXABLE,
-  SITE_NAME,
+  shareMetadata,
 } from "@/lib/site";
 import { SOURCES } from "@/lib/sources";
 
@@ -31,27 +31,15 @@ async function sectionFrom(params: Props["params"]): Promise<Category> {
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const category = await sectionFrom(params);
-  // The site's share image (app/opengraph-image.tsx); setting openGraph here would otherwise drop it.
-  const { openGraph, twitter } = await parent;
   const title = categoryTitle(category);
   const description = categoryDescription(category);
-  const url = categoryPath(category);
+  const url = categoryPath(category)!;
   return {
     title: { absolute: title },
     description,
     alternates: { canonical: url },
     robots: INDEXABLE,
-    openGraph: {
-      title,
-      description,
-      url,
-      siteName: SITE_NAME,
-      type: "website",
-      locale: "en_US",
-      alternateLocale: ["bn_BD"],
-      images: openGraph?.images,
-    },
-    twitter: { card: "summary_large_image", title, description, images: twitter?.images },
+    ...(await shareMetadata(parent, { title, description, url })),
   };
 }
 
@@ -59,10 +47,14 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 export default async function CategoryPage({ params, searchParams }: Props) {
   const category = await sectionFrom(params);
   const initial = { ...parseFilters(await searchParams, SOURCE_IDS), category };
+  const seed = cachedSeed(category);
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: categoryJsonLd(category) }} />
-      <NewsBoard sources={SOURCES} initial={initial} seed={cachedSeed(category)} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, seed?.generatedAt) }}
+      />
+      <NewsBoard sources={SOURCES} initial={initial} seed={seed} />
     </>
   );
 }
