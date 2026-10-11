@@ -17,6 +17,9 @@ export function BartaboardLogo({ className = "" }: { className?: string }) {
         width={746}
         height={160}
         alt="Bartaboard"
+        // Lazy, so the browser skips the theme's other logo (display: none) rather than download both.
+        loading="lazy"
+        decoding="async"
         className="logo-on-light h-[1.5em] w-auto max-w-none select-none"
       />
       {/* eslint-disable-next-line @next/next/no-img-element -- static export, no image optimizer */}
@@ -27,6 +30,8 @@ export function BartaboardLogo({ className = "" }: { className?: string }) {
         // Only one of the two shows; the other is hidden from screen readers so the name isn't read twice.
         alt=""
         aria-hidden
+        loading="lazy"
+        decoding="async"
         className="logo-on-dark h-[1.5em] w-auto max-w-none select-none"
       />
     </span>
