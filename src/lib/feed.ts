@@ -55,9 +55,14 @@ const SEED_VIDEOS = 24;
  * page. Undefined when nothing has been fetched yet.
  */
 export function readVideoSeed(): VideoFeed | undefined {
+  const feed = readVideos();
+  return feed && { ...feed, videos: feed.videos.slice(0, SEED_VIDEOS) };
+}
+
+/** The whole videos feed from `npm run fetch`, or undefined when nothing has been fetched yet. */
+export function readVideos(): VideoFeed | undefined {
   try {
-    const feed = JSON.parse(readFileSync(path.join(process.cwd(), "public", "data", "videos.json"), "utf8")) as VideoFeed;
-    return { ...feed, videos: feed.videos.slice(0, SEED_VIDEOS) };
+    return JSON.parse(readFileSync(path.join(process.cwd(), "public", "data", "videos.json"), "utf8")) as VideoFeed;
   } catch {
     return undefined;
   }

@@ -106,6 +106,8 @@ export interface VideoChannel {
   name: string;
   /** The YouTube channel ID ("UC…"): its feed is youtube.com/feeds/videos.xml?channel_id=… */
   youtubeId: string;
+  /** The id of the station's own news site in sources.ts, when Bartaboard reads that too. */
+  site?: string;
 }
 
 export interface Video {
