@@ -30,7 +30,7 @@ import { useLastVisit } from "./last-visit";
 import { byNewest, LatestList } from "./LatestList";
 import { Avatar, useAccount } from "./account";
 import { BartaboardLogo } from "./BartaboardLogo";
-import { SITE_LINKS } from "./InfoPage";
+import { InspiredBy, SITE_LINKS } from "./InfoPage";
 import { PageNotes } from "./PageNotes";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinButton, PinPicker } from "./PinPicker";
@@ -1065,6 +1065,7 @@ export function NewsBoard({
               Keyboard shortcuts <kbd className="ml-1 rounded border border-line px-1 font-sans">?</kbd>
             </button>
           </footer>
+          <InspiredBy />
         </main>
 
         {/* New headlines from the automatic refresh, held back so nothing moves while reading. */}

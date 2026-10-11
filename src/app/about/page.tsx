@@ -57,6 +57,13 @@ export default function AboutPage() {
           channels, newest first. They play here or on YouTube.
         </li>
         <li>
+          The idea of reading every Bangladeshi newspaper from one page comes from 24 Live Newspaper (
+          <a href="https://www.24livenewspaper.com/" target="_blank" rel="noopener">
+            24livenewspaper.com
+          </a>
+          ); Bartaboard builds on it with live headlines, top stories and TV news videos.
+        </li>
+        <li>
           There are no ads, no analytics and no tracking cookies. Your saved stories, pinned sources and settings stay in
           your own browser (see the <Link href="/privacy/">privacy policy</Link>).
         </li>
