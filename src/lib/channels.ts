@@ -1,25 +1,25 @@
 // Bangladeshi TV news channels on YouTube, checked 7 Oct 2026: each posts many videos a day and its
 // feed returns the latest 15. Shown in this order (most subscribers first). The channel ID is in the
-// channel page's source ("externalId").
+// channel page's source ("externalId"). `site` is the station's news site among the sources, if any.
 import type { VideoChannel } from "./types";
 
 export const CHANNELS: VideoChannel[] = [
-  { id: "jamuna", name: "Jamuna TV", youtubeId: "UCN6sm8iHiPd0cnoUardDAnw" },
-  { id: "somoy", name: "Somoy TV", youtubeId: "UCxHoBXkY88Tb8z1Ssj6CWsQ" },
-  { id: "channel24", name: "Channel 24", youtubeId: "UCHLqIOMPk20w-6cFgkA90jw" },
-  { id: "ekattor", name: "Ekattor TV", youtubeId: "UCtqvtAVmad5zywaziN6CbfA" },
-  { id: "itv", name: "Independent TV", youtubeId: "UCATUkaOHwO9EP_W87zCiPbA" },
-  { id: "rtv", name: "RTV News", youtubeId: "UC2P5Fd5g41Gtdqf0Uzh8Qaw" },
+  { id: "jamuna", name: "Jamuna TV", youtubeId: "UCN6sm8iHiPd0cnoUardDAnw", site: "jamuna" },
+  { id: "somoy", name: "Somoy TV", youtubeId: "UCxHoBXkY88Tb8z1Ssj6CWsQ", site: "somoynews" },
+  { id: "channel24", name: "Channel 24", youtubeId: "UCHLqIOMPk20w-6cFgkA90jw", site: "channel24" },
+  { id: "ekattor", name: "Ekattor TV", youtubeId: "UCtqvtAVmad5zywaziN6CbfA", site: "ekattor" },
+  { id: "itv", name: "Independent TV", youtubeId: "UCATUkaOHwO9EP_W87zCiPbA", site: "itv" },
+  { id: "rtv", name: "RTV News", youtubeId: "UC2P5Fd5g41Gtdqf0Uzh8Qaw", site: "rtv" },
   { id: "atn-bangla", name: "ATN Bangla News", youtubeId: "UCbgcYEdMsuypG2NJ-znBp3w" },
-  { id: "banglavision", name: "BanglaVision News", youtubeId: "UCA4y9g_GRdNrZLH_u5LLSdw" },
-  { id: "ntv", name: "NTV News", youtubeId: "UCUDQdVsKssximyFwg4IxnOQ" },
-  { id: "dbc", name: "DBC News", youtubeId: "UCUvXoiDEKI8VZJrr58g4VAw" },
+  { id: "banglavision", name: "BanglaVision News", youtubeId: "UCA4y9g_GRdNrZLH_u5LLSdw", site: "banglavision" },
+  { id: "ntv", name: "NTV News", youtubeId: "UCUDQdVsKssximyFwg4IxnOQ", site: "ntv" },
+  { id: "dbc", name: "DBC News", youtubeId: "UCUvXoiDEKI8VZJrr58g4VAw", site: "dbc" },
   { id: "atn-news", name: "ATN News", youtubeId: "UC9Rgo0CrNyd7OWliLekqqGA" },
   { id: "news24", name: "News24", youtubeId: "UCPREnbhKQP-hsVfsfKP-mCw" },
   { id: "desh", name: "Desh TV News", youtubeId: "UCmCCTsDl-eCKw91shC7ZmMw" },
   { id: "bbc-bangla", name: "BBC News Bangla", youtubeId: "UChPD2BQ2dJ-w00klQQkc-Qg" },
-  { id: "channeli", name: "Channel i News", youtubeId: "UC8NcXMG3A3f2aFQyGTpSNww" },
-  { id: "ekushey", name: "Ekushey TV", youtubeId: "UCBQxpxkI2qLRAFR_6PNdwIA" },
+  { id: "channeli", name: "Channel i News", youtubeId: "UC8NcXMG3A3f2aFQyGTpSNww", site: "channeli" },
+  { id: "ekushey", name: "Ekushey TV", youtubeId: "UCBQxpxkI2qLRAFR_6PNdwIA", site: "ekushey-tv" },
   { id: "mytv", name: "mytv", youtubeId: "UC9zgYOQB6zkleAQjW53DLeQ" },
   { id: "maasranga", name: "Maasranga News", youtubeId: "UCHR-p802PibDYG1btNJcOew" },
   { id: "ekhon", name: "Ekhon TV", youtubeId: "UCWVqdPTigfQ-cSNwG7O9MeA" },

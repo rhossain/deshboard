@@ -32,7 +32,7 @@ export function cachedSeed(category?: Category) {
 }
 
 /** The board's share of each source's cache, so the counts match what it will load. */
-function cachedResults() {
+export function cachedResults() {
   return ACTIVE_SOURCES.flatMap((s) => {
     const result = cachedResult(s.id);
     return result ? [forBoard(result)] : [];

@@ -1,5 +1,6 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { CATEGORIES, type Category } from "./categories";
+import type { DirectoryGroup } from "./directory";
 import { CHANNELS } from "./channels";
 import { ACTIVE_SOURCES } from "./sources";
 import { itemTime, newestFirst } from "./stories";
@@ -48,6 +49,15 @@ export const VIDEOS_TITLE = `Bangla TV News Videos Today, ${CHANNELS.length} Cha
 export const VIDEOS_DESCRIPTION =
   `Latest Bangladesh TV news videos from ${CHANNELS.length} channels on YouTube, including Jamuna TV, Somoy TV, ` +
   "Channel 24 and BBC News Bangla, newest first, free to watch.";
+
+/** The sources page: every outlet Bartaboard reads. */
+export const SOURCES_PATH = "/sources";
+const KIND_COUNT = (kind: string) => ACTIVE_SOURCES.filter((s) => s.kind === kind).length;
+export const SOURCES_TITLE = `All Bangladesh Newspapers & News Sites (${ACTIVE_SOURCES.length}) | ${SITE_NAME}`;
+export const SOURCES_DESCRIPTION =
+  `All Bangla and English news sources on ${SITE_NAME}: ${KIND_COUNT("Newspaper")} newspapers, ${KIND_COUNT("Online")} ` +
+  `news sites, ${KIND_COUNT("TV")} TV stations and ${KIND_COUNT("Agency")} agencies, plus ${CHANNELS.length} TV ` +
+  "channels on YouTube.";
 
 /** The page's visible heading: what it holds, in the words people search for. */
 export function boardHeading(category?: Category | "", videos = false): string {
@@ -152,6 +162,47 @@ export function categoryJsonLd(category: Category, updated?: string): string {
         itemListElement: [
           { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
           { "@type": "ListItem", position: 2, name: `${c.label} news`, item: url },
+        ],
+      },
+    ],
+  });
+}
+
+/** Structured data for the sources page: the outlets, as news organisations. */
+export function sourcesJsonLd(groups: DirectoryGroup[]): string {
+  const url = `${SITE_URL}${SOURCES_PATH}`;
+  const entries = groups.flatMap((g) => g.entries);
+  const youtube = (id: string) => `https://www.youtube.com/channel/${id}`;
+  return jsonLd({
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": url,
+        url,
+        name: SOURCES_TITLE,
+        description: SOURCES_DESCRIPTION,
+        inLanguage: ["en", "bn"],
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        mainEntity: {
+          "@type": "ItemList",
+          numberOfItems: entries.length,
+          itemListElement: entries.map((e, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            item: {
+              "@type": "NewsMediaOrganization",
+              name: e.name,
+              url: e.homepage ?? youtube(e.youtubeId!),
+              ...(e.homepage && e.youtubeId && { sameAs: [youtube(e.youtubeId)] }),
+            },
+          })),
+        },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
+          { "@type": "ListItem", position: 2, name: "All newspapers", item: url },
         ],
       },
     ],
