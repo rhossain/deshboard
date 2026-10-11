@@ -238,8 +238,9 @@ sources; ask each provider for its current rate card in writing before signing u
 
 #### The manual bKash flow (built, hidden)
 
-- **Hidden switch.** Plans show only when the `PLANS` repository variable is `on`; `BKASH_NUMBER` is the PRA number
-  readers pay to (both read in `src/lib/plans.ts`, passed to the build by `deploy.yml`). Until then,
+- **Hidden switch.** Accounts and plans show only when the `PLANS` repository variable is `on`: until then the
+  board has no account button and `/account/` only says accounts are coming soon, with no sign-in. `BKASH_NUMBER` is
+  the PRA number readers pay to (both read in `src/lib/plans.ts`, passed to the build by `deploy.yml`). Until then,
   `/account/?plans=preview` shows them on that one device and `/account/?plans=off` hides them again.
 - **Reader** (`src/components/PlanPanel.tsx`): on `/account/`, picks 1, 6 or 12 months, pays that amount with bKash
   Payment, then enters the bKash number paid from and the TrxID. The payment shows as "Being checked".

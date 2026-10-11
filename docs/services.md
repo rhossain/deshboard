@@ -39,7 +39,8 @@ the `deploy` branch for Hostinger, then runs `wrangler pages deploy out --projec
 
 - Repository variables: `SITE_URL` = `https://bartaboard.com`, `CLOUDFLARE_ACCOUNT_ID`. The Cloudflare upload step is
   skipped without the latter.
-- Paid plans: repository variables `PLANS` (`on` shows them to everyone; unset keeps them hidden) and `BKASH_NUMBER`
+- Accounts and paid plans: repository variables `PLANS` (`on` shows sign-in, the account button and plans to
+  everyone; unset keeps them hidden, previewable at `/account/?plans=preview`) and `BKASH_NUMBER`
   (the bKash account readers pay to). Both take effect on the next build.
 - Repository secret: `CLOUDFLARE_API_TOKEN`, the Cloudflare API token Wrangler uploads with (made in Cloudflare →
   My Profile → API Tokens).

@@ -15,6 +15,7 @@ import {
 } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { type Filters, filtersToSearch, type LangFilter, type Order, type View } from "@/lib/filters";
+import { usePlansVisible } from "@/lib/plans";
 import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
 import { categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
@@ -1146,9 +1147,14 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 const THEME_ICON: Record<Theme, typeof SunIcon> = { system: AutoThemeIcon, light: SunIcon, dark: MoonIcon };
 const NEXT_THEME: Record<Theme, Theme> = { system: "light", light: "dark", dark: "system" };
 
-/** Links to /account/: the signed-in person's photo or initial, or an outline when signed out. */
+/**
+ * Links to /account/: the signed-in person's photo or initial, or an outline when signed out. Hidden until accounts
+ * open (src/lib/plans.ts).
+ */
 function AccountButton() {
   const account = useAccount();
+  const visible = usePlansVisible();
+  if (!visible) return null;
   const label = account ? `Your account (${account.email})` : "Sign in";
   return (
     <a
