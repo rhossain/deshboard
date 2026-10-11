@@ -114,9 +114,10 @@ See `docs/seo.md` for the plan these belong to.
 - **Bing Webmaster Tools**: site `https://bartaboard.com/`, imported from Search Console on 11 October 2026 (signed in
   with Google as rshossain.bd, read-only Search Console access), so it needs no record of its own. The import found no
   sitemap, so `https://bartaboard.com/sitemap.xml` was submitted in Bing → Sitemaps by hand.
-- **Cloudflare, for crawlers** (not on yet): Caching → Configuration → Crawler Hints (pings Bing and Yandex through
-  IndexNow when pages change; turning it on accepts Cloudflare's supplemental terms) and SSL/TLS → Edge Certificates →
-  HSTS.
+- **Cloudflare, for crawlers** (on since 11 October 2026): Caching → Configuration → **Crawler Hints** pings Bing,
+  Yandex and the other IndexNow engines when pages change. SSL/TLS → Edge Certificates → **HSTS**: max-age 6 months,
+  includeSubDomains off (the DNS-only Resend and Hostinger mail records are other services), preload off, No-Sniff left
+  to `public/_headers`. Turning HSTS off only takes effect once browsers' 6 months run out.
 
 ## When something breaks
 
