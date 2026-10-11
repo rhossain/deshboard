@@ -28,6 +28,12 @@ export function dhakaDate(t: number | string): string {
   return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
+/** "Wed 7 Oct" */
+export function dhakaShortDate(t: number | string): string {
+  const d = dhaka(t);
+  return `${WEEKDAYS[d.getUTCDay()].slice(0, 3)} ${d.getUTCDate()} ${SHORT_MONTHS[d.getUTCMonth()]}`;
+}
+
 /** "2026-10-07": the calendar day in Dhaka. */
 export function dhakaDay(t: number | string): string {
   return dhaka(t).toISOString().slice(0, 10);
