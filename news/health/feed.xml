@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/health/</link>
     <description>Latest health news from Bangladesh: স্বাস্থ্য headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Sun, 11 Oct 2026 21:30:57 GMT</lastBuildDate>
+    <lastBuildDate>Sun, 11 Oct 2026 21:45:56 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/health/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>ডেঙ্গু: ২৪ ঘণ্টায় ৮ জনের মৃত্যু, হাসপাতালে ১৮৬০</title>
+      <link>https://bangla.thedailystar.net/health/disease/news-3968451</link>
+      <description>The Daily Star Bangla · Health</description>
+      <guid isPermaLink="true">https://bangla.thedailystar.net/health/disease/news-3968451</guid>
+      <pubDate>Sun, 11 Oct 2026 20:32:16 GMT</pubDate>
+      <category>Health</category>
+    </item>
     <item>
       <title>5 common medicines linked to hearing loss: study</title>
       <link>https://bdnews24.com/health/8zrlsy3wsl</link>
@@ -398,14 +406,6 @@
       <description>Channel i Online · Health</description>
       <guid isPermaLink="true">https://www.channelionline.com/7-more-deaths-from-measles/</guid>
       <pubDate>Sun, 11 Oct 2026 10:18:48 GMT</pubDate>
-      <category>Health</category>
-    </item>
-    <item>
-      <title>হাম উপসর্গে ৭ জনের মৃত্যু, হাসপাতালে ভর্তি ১২৭৩</title>
-      <link>https://www.dhakapost.com/health/489631</link>
-      <description>Dhaka Post · Health</description>
-      <guid isPermaLink="true">https://www.dhakapost.com/health/489631</guid>
-      <pubDate>Sun, 11 Oct 2026 10:18:40 GMT</pubDate>
       <category>Health</category>
     </item>
   </channel>
