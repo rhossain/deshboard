@@ -96,7 +96,11 @@ function Entry({ entry: e }: { entry: DirectoryEntry }) {
           } ${wide ? "h-9 w-auto max-w-[180px] px-2 py-1.5" : "h-9 w-9"}`}
         />
       )}
-      <h3 className="text-[15px] font-semibold">{e.name}</h3>
+      <h3 className="text-[15px] font-semibold">
+        <Link href={e.href} className="hover:text-accent">
+          {e.name}
+        </Link>
+      </h3>
       <p className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">{e.label}</p>
       <p className="mt-2 flex-1 text-sm text-muted">{e.summary}</p>
       <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
