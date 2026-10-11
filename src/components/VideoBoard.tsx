@@ -2,6 +2,7 @@
 
 import { Fragment, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, preconnect } from "react-dom";
+import { VIDEOS_PATH } from "@/lib/site";
 import type { Video, VideoFeed } from "@/lib/types";
 import { CategoryTabs } from "./CategoryTabs";
 import { MAX_PINS, pinRanks, togglePin, usePinnedChannels } from "./pinned";
@@ -35,6 +36,7 @@ export default function VideoBoard({
   rail,
   refreshSignal,
   onShare,
+  seed,
 }: {
   query: string;
   /** Where the channel rail goes (in the sticky toolbar). */
@@ -42,17 +44,22 @@ export default function VideoBoard({
   /** Changes when the reader presses Refresh. */
   refreshSignal: number;
   onShare: (video: Video, channelName: string) => void;
+  /** The newest few cached videos rendered with the Videos page (see cachedVideoSeed), shown until the feed loads. */
+  seed?: VideoFeed;
 }) {
-  const [feed, setFeed] = useState<VideoFeed | undefined>(cachedVideos);
+  const [feed, setFeed] = useState<VideoFeed | undefined>(() => cachedVideos() ?? seed);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [channel, setChannel] = useState("");
   const [playing, setPlaying] = useState<Video | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  // With a seed, the clock starts at its render time so the server's HTML and hydration agree.
+  const [now, setNow] = useState(() => (!cachedVideos() && seed ? Date.parse(seed.generatedAt) : Date.now()));
   const { savedVideoIds, toggleSavedVideo } = useSavedVideos();
   const [pins, updatePins] = usePinnedChannels();
   const [pinsOpen, setPinsOpen] = useState(false);
   const feedRef = useRef(feed);
+  // The seed is only the start of the feed, so the first open loads the whole of it.
+  const partialRef = useRef(feed === seed && !!seed);
   useEffect(() => {
     feedRef.current = feed;
   }, [feed]);
@@ -87,8 +94,14 @@ export default function VideoBoard({
   // First open: fetch (or join the fetch the Videos button started). Reopened later, the videos
   // already here show at once, and newer ones are looked for if they are due.
   useEffect(() => {
-    if (!feedRef.current) {
-      loadVideos().then(show, (err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+    if (!feedRef.current || partialRef.current) {
+      loadVideos().then(
+        (next) => {
+          partialRef.current = false;
+          show(next);
+        },
+        (err: unknown) => setError(err instanceof Error ? err.message : String(err)),
+      );
     } else if (Date.now() - cachedVideosAt() >= AUTO_REFRESH_MS) {
       refreshQuietly();
     }
@@ -187,11 +200,11 @@ export default function VideoBoard({
   const failed = feed?.channels.filter((c) => !c.ok) ?? [];
   const tabs = feed
     ? [
-        { id: "", label: "All", href: "/?view=videos", count: matching.length },
+        { id: "", label: "All", href: VIDEOS_PATH, count: matching.length },
         // Pinned channels first in the rail too, in the reader's order.
         ...[...feed.channels]
           .sort((a, b) => (rank.get(a.id) ?? MAX_PINS) - (rank.get(b.id) ?? MAX_PINS))
-          .map((c) => ({ id: c.id, label: c.name, href: "/?view=videos", count: counts.get(c.id) ?? 0 })),
+          .map((c) => ({ id: c.id, label: c.name, href: VIDEOS_PATH, count: counts.get(c.id) ?? 0 })),
       ]
     : [];
 

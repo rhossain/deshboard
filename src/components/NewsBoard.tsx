@@ -14,15 +14,15 @@ import {
   useState,
 } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
-import { type Filters, filtersToSearch, type LangFilter, type Order, type View } from "@/lib/filters";
+import { DEFAULT_FILTERS, type Filters, filtersToSearch, type LangFilter, type Order, type View } from "@/lib/filters";
 import { usePlansVisible } from "@/lib/plans";
 import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
-import { boardHeading, categoryPath, categoryTitle, SITE_TITLE } from "@/lib/site";
+import { boardHeading, categoryPath, categoryTitle, SITE_TITLE, VIDEOS_PATH, VIDEOS_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { findStories, itemTime, newestFirst } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
-import type { LogoShape, NewsItem, NewsSource, NewsStreamMessage, SourceResult, Video } from "@/lib/types";
+import type { LogoShape, NewsItem, NewsSource, NewsStreamMessage, SourceResult, Video, VideoFeed } from "@/lib/types";
 import { PHONE, useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLastVisit } from "./last-visit";
@@ -180,7 +180,18 @@ const NO_SHAPES: Record<string, LogoShape | null> = {};
  * `initial` is the view and filters from the URL.
  * `seed` is shown from the first paint; each source's result is replaced as the stream delivers it.
  */
-export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; initial: Filters; seed?: NewsSeed }) {
+export function NewsBoard({
+  sources,
+  initial,
+  seed,
+  videoSeed,
+}: {
+  sources: NewsSource[];
+  initial: Filters;
+  seed?: NewsSeed;
+  /** The newest few cached videos, for the Videos page (see cachedVideoSeed). */
+  videoSeed?: VideoFeed;
+}) {
   // Latest result per source; on refresh each one is replaced as its new result arrives.
   const [results, setResults] = useState<Map<string, SourceResult>>(
     () => new Map(seed?.results.map((r) => [r.sourceId, r])),
@@ -218,7 +229,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   const resultsRef = useRef(results);
   const searchRef = useRef<HTMLInputElement>(null);
   // With a seed, the clock starts at its render time so the server's HTML and hydration agree.
-  const [now, setNow] = useState(() => (seed ? Date.parse(seed.generatedAt) : Date.now()));
+  const [now, setNow] = useState(() => Date.parse(seed?.generatedAt ?? videoSeed?.generatedAt ?? "") || Date.now());
   const controllerRef = useRef<AbortController | null>(null);
   // These four come from the browser (screen width, local storage), so right after hydration they can
   // differ from the prerendered page, and every card has to be drawn again. Deferred, that redraw runs
@@ -338,8 +349,15 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
   }, [videosFirst, view, load]);
 
   // Mirror the view and filters in the URL, so the page can be bookmarked or shared as it is. A
-  // section with a page of its own (/news/sports) uses that address and title.
+  // section with a page of its own (/news/sports) uses that address and title, and so does Videos
+  // (/videos, where only the search applies); an old /?view=videos link lands there too.
   useEffect(() => {
+    if (view === "videos") {
+      const url = VIDEOS_PATH + filtersToSearch({ ...DEFAULT_FILTERS, query });
+      if (url !== window.location.pathname + window.location.search) window.history.replaceState(null, "", url);
+      document.title = VIDEOS_TITLE;
+      return;
+    }
     const path = categoryPath(category);
     const search = filtersToSearch({ view, lang, source: onlySource, category: path ? "" : category, query, order });
     const url = (path ?? "/") + search;
@@ -612,6 +630,9 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
     window.scrollTo({ top: 0 });
   }, []);
   const openSection = (section: Section) => changeView(section === "news" ? lastNewsView : section);
+  /** Where a section's link goes when opened in a new tab (or followed by a search engine). */
+  const sectionHref = (section: Section) =>
+    section === "videos" ? VIDEOS_PATH : section === "saved" ? "/?view=saved" : (categoryPath(category) ?? "/");
 
   // Keyboard shortcuts (see SHORTCUTS). Ignored while typing or while a panel is open.
   useEffect(() => {
@@ -703,7 +724,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                 <BartaboardLogo />
               </a>
               <h1 className="mt-2 text-[15px] font-medium text-muted sm:text-base">
-                {boardHeading(categoryPath(category) ? category : "")}
+                {boardHeading(categoryPath(category) ? category : "", view === "videos")}
               </h1>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -783,10 +804,14 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
               {SECTIONS.map(({ value, label, Icon }) => {
                 const active = sectionOf(view) === value;
                 return (
-                  <button
+                  <a
                     key={value}
-                    type="button"
-                    onClick={() => openSection(value)}
+                    href={sectionHref(value)}
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                      e.preventDefault();
+                      openSection(value);
+                    }}
                     {...(value === "videos" ? videoIntent : {})}
                     aria-current={active ? "page" : undefined}
                     className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition active:scale-[0.97] ${
@@ -800,7 +825,7 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
                         {savedCount}
                       </span>
                     )}
-                  </button>
+                  </a>
                 );
               })}
             </nav>
@@ -970,7 +995,13 @@ export function NewsBoard({ sources, initial, seed }: { sources: NewsSource[]; i
 
           {view === "videos" && (
             <Suspense fallback={<VideoSkeleton />}>
-              <VideoBoard query={searchQuery} rail={videoRail} refreshSignal={videoRefresh} onShare={shareVideo} />
+              <VideoBoard
+                query={searchQuery}
+                rail={videoRail}
+                refreshSignal={videoRefresh}
+                onShare={shareVideo}
+                seed={videoSeed}
+              />
             </Suspense>
           )}
 

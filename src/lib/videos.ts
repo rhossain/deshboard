@@ -118,3 +118,17 @@ export function startVideoRefresh(): void {
   g.__videoRefresher.unref?.();
   void run();
 }
+
+/** The cached videos, for pages that list them (sources, sitemap). Never fetches; undefined while nothing is cached yet. */
+export function cachedVideoFeed(): VideoFeed | undefined {
+  return g.__videoCache?.feed;
+}
+
+/** Videos rendered into the Videos page: its first screenful (VideoBoard's first page). */
+const SEED_VIDEOS = 24;
+
+/** The cached videos, trimmed to the newest few for rendering into the Videos page. Never fetches. */
+export function cachedVideoSeed(): VideoFeed | undefined {
+  const feed = cachedVideoFeed();
+  return feed && { ...feed, videos: feed.videos.slice(0, SEED_VIDEOS) };
+}

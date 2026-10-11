@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { VIDEOS_PATH } from "@/lib/site";
 import type { Video } from "@/lib/types";
 import { compactCount, fullTime, timeAgo } from "./time";
 import { ArrowUpRightIcon } from "./ui";
@@ -69,7 +70,7 @@ export function SharedVideo({ video, channelName, now }: { video: Video; channel
         </div>
       </article>
       <p className="mt-6 px-1 text-center text-sm">
-        <Link href="/?view=videos" className="font-semibold text-accent hover:underline">
+        <Link href={VIDEOS_PATH} className="font-semibold text-accent hover:underline">
           More videos from Bangladeshi TV news channels
         </Link>
       </p>
