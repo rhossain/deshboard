@@ -9,6 +9,11 @@ import { formatCount } from "./time";
 import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot, StarIcon } from "./ui";
 
 const PER_CARD = 8;
+/**
+ * Headlines on a card in compact density. The card still has PER_CARD (the page is the same for
+ * every reader and search engines); CSS hides the rest until "Show all".
+ */
+const COMPACT_PER_CARD = 5;
 
 /**
  * One source's headlines. With `collapsible` (phones), tapping the header folds the card down to
@@ -98,7 +103,7 @@ export const SourceCard = memo(function SourceCard({
       ref={ref}
       // Cards off screen are skipped when the page is laid out and painted (most of them, on a page of
       // fifty); the estimate holds their place until they are.
-      className={`flex flex-col overflow-hidden rounded-2xl border border-line bg-surface [contain-intrinsic-size:auto_560px] [content-visibility:auto] compact:[contain-intrinsic-size:auto_440px] ${
+      className={`flex flex-col overflow-hidden rounded-2xl border border-line bg-surface [contain-intrinsic-size:auto_560px] [content-visibility:auto] compact:[contain-intrinsic-size:auto_400px] ${
         problem ? "" : "shadow-card"
       }`}
     >
@@ -228,8 +233,14 @@ export const SourceCard = memo(function SourceCard({
           )}
           {rest.length > 0 && (
             <ul className="border-t border-line">
-              {rest.map((it) => (
-                <li key={it.link} className="border-b border-line last:border-b-0">
+              {rest.map((it, i) => (
+                <li
+                  key={it.link}
+                  className={`border-b border-line last:border-b-0 ${
+                    // The lead is row 0, so this is row i + 1.
+                    !showAll && i + 1 >= COMPACT_PER_CARD ? "compact:hidden" : ""
+                  } ${!showAll && i + 2 === COMPACT_PER_CARD && i + 1 < rest.length ? "compact:border-b-0" : ""}`}
+                >
                   <Headline
                     item={it}
                     now={now}
@@ -245,7 +256,12 @@ export const SourceCard = memo(function SourceCard({
           {placeholders > 0 && (
             <ul className="border-t border-line" aria-hidden>
               {Array.from({ length: placeholders }, (_, i) => (
-                <li key={i} className="space-y-2 border-b border-line px-4 py-3 last:border-b-0 compact:py-2">
+                <li
+                  key={i}
+                  className={`space-y-2 border-b border-line px-4 py-3 last:border-b-0 compact:py-2 ${
+                    Math.min(items.length, PER_CARD) + i >= COMPACT_PER_CARD ? "compact:hidden" : ""
+                  }`}
+                >
                   <div className="skeleton h-3.5 rounded-full" />
                   <div className="skeleton h-3.5 w-3/5 rounded-full" />
                   <div className="skeleton h-2.5 w-16 rounded-full" />
@@ -254,7 +270,7 @@ export const SourceCard = memo(function SourceCard({
             </ul>
           )}
           {status?.ok && count === 0 && <p className="px-4 pb-6 text-sm text-muted">{t.noHeadlines}</p>}
-          {count > PER_CARD && (
+          {count > COMPACT_PER_CARD && (
             <button
               type="button"
               onClick={() => {
@@ -262,7 +278,10 @@ export const SourceCard = memo(function SourceCard({
                 setShowAll((v) => !v);
               }}
               aria-expanded={showAll}
-              className="flex min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2"
+              // With PER_CARD or fewer, only compact cards have more to show.
+              className={`min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2 ${
+                count > PER_CARD || showAll ? "flex" : "hidden compact:flex"
+              }`}
             >
               {showAll ? t.showLess : t.showAll(formatCount(count, locale))}
               <ChevronIcon className={`h-4 w-4 transition ${showAll ? "rotate-180" : ""}`} />
