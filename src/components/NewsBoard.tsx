@@ -36,6 +36,7 @@ import { Avatar, useAccount } from "./account";
 import { BartaboardLogo } from "./BartaboardLogo";
 import { InspiredBy, SITE_LINKS, siteLinkHref } from "./InfoPage";
 import { PageNotes } from "./PageNotes";
+import { setNewsDensity, useNewsDensity } from "./news-density";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinPicker, PinsButton } from "./PinPicker";
 import { useSaved, useSavedVideos } from "./saved";
@@ -817,7 +818,20 @@ export function NewsBoard({
     return () => window.removeEventListener("keydown", onKey);
   }, [allItems, saved, toggleSaved, savedVideos, toggleSavedVideo, load, changeView]);
 
+  const density = useNewsDensity();
   const orderControl = <Segmented label={t.order.label} value={order} onChange={setOrder} options={orderOptions(t)} full />;
+  const densityControl = (
+    <Segmented
+      label={t.density.label}
+      value={density}
+      onChange={setNewsDensity}
+      options={[
+        { value: "comfortable", label: t.density.comfortable },
+        { value: "compact", label: t.density.compact },
+      ]}
+      full
+    />
+  );
   const languageControl = (
     <Segmented label={t.langFilter.label} value={lang} onChange={setLang} options={langOptions(t)} full />
   );
@@ -1054,6 +1068,7 @@ export function NewsBoard({
                   )}
                   <FilterPopover count={activeFilters.length}>
                     {view === "sources" && <Field label={t.orderSources}>{orderControl}</Field>}
+                    {sectionOf(view) === "news" && <Field label={t.density.label}>{densityControl}</Field>}
                     <Field label={t.langFilter.label}>{languageControl}</Field>
                     <Field label={t.source}>{sourceControl}</Field>
                     <button
@@ -1167,7 +1182,7 @@ export function NewsBoard({
             )}
 
             {hasData && view === "sources" && (
-              <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 compact:gap-3">
                 {pinnedCards === 0 && <h2 className="sr-only">{t.byNewspaper}</h2>}
                 {visibleSources.map((s, i) => (
                   <Fragment key={s.id}>
@@ -1303,6 +1318,7 @@ export function NewsBoard({
               )}
               {view !== "videos" && <Field label={t.langFilter.label}>{languageControl}</Field>}
               {view !== "videos" && <Field label={t.source}>{sourceControl}</Field>}
+              {sectionOf(view) === "news" && <Field label={t.density.label}>{densityControl}</Field>}
               <Field label={t.appearance}>
                 <ThemeSetting />
               </Field>

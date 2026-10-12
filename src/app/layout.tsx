@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, Noto_Sans_Bengali } from "next/font/google";
 import { KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { THEME_SCRIPT } from "@/lib/theme";
+import { NEWS_DENSITY_SCRIPT } from "@/lib/news-density";
 import { VIDEO_LAYOUT_SCRIPT } from "@/lib/video-layout";
 
 /**
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: LANG_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: VIDEO_LAYOUT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: NEWS_DENSITY_SCRIPT }} />
       </head>
       <body className="min-h-full">
         {children}

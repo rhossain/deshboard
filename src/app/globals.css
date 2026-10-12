@@ -6,6 +6,8 @@
  */
 @custom-variant vgrid (&:is([data-video-layout="grid"] *));
 @custom-variant vlist (&:is([data-video-layout="list"] *));
+/* Compact news (src/lib/news-density.ts), weighted the same way over the comfortable default. */
+@custom-variant compact (&:is([data-news-density="compact"] *));
 
 :root {
   --background: #f6f4ef;
