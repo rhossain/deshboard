@@ -121,7 +121,10 @@ async function fetchWithFallback(
 
 async function load(source: NewsSource): Promise<SourceResult> {
   const started = Date.now();
-  const kept = cache.get(source.id)?.result.items ?? [];
+  // Headlines kept from before that no section was found for get another look, by their words.
+  const kept = (cache.get(source.id)?.result.items ?? []).map((it) =>
+    it.category === "other" ? { ...it, category: categorize(it.link, [], it.title) } : it,
+  );
   const base = {
     sourceId: source.id,
     sourceName: source.name,
@@ -132,7 +135,7 @@ async function load(source: NewsSource): Promise<SourceResult> {
     const { items, url, via, directError } = await fetchWithFallback(source);
     const unmapped = new Map<string, number>();
     const news: NewsItem[] = dedupeByLink(items).map(({ tags, ...it }) => {
-      const category = categorize(it.link, tags);
+      const category = categorize(it.link, tags, it.title);
       if (category === "other") {
         const section = unmappedSection(it.link, tags);
         unmapped.set(section, (unmapped.get(section) ?? 0) + 1);
