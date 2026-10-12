@@ -5,7 +5,7 @@
     <link>https://bartaboard.com/news/health/</link>
     <description>Latest health news from Bangladesh: স্বাস্থ্য headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 12:45:59 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 13:01:03 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/health/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
@@ -38,6 +38,14 @@
       <description>NTV · Health</description>
       <guid isPermaLink="true">https://www.ntvbd.com/health/news-1818333</guid>
       <pubDate>Mon, 12 Oct 2026 11:45:52 GMT</pubDate>
+      <category>Health</category>
+    </item>
+    <item>
+      <title>ডেঙ্গুতে ৪ জনের মৃত্যু, আক্রান্ত লাখ ছাড়াল</title>
+      <link>https://www.risingbd.com/health/news/666482</link>
+      <description>Rising BD · Health</description>
+      <guid isPermaLink="true">https://www.risingbd.com/health/news/666482</guid>
+      <pubDate>Mon, 12 Oct 2026 11:45:00 GMT</pubDate>
       <category>Health</category>
     </item>
     <item>
@@ -94,14 +102,6 @@
       <description>bdnews24 English · Health</description>
       <guid isPermaLink="true">https://bdnews24.com/health/pku8ah2ah1</guid>
       <pubDate>Mon, 12 Oct 2026 11:30:48 GMT</pubDate>
-      <category>Health</category>
-    </item>
-    <item>
-      <title>ডেঙ্গুতে আরও ৪ মৃত্যু, আক্রান্ত লাখ ছাড়াল</title>
-      <link>https://www.itvbd.com/health/276434/%E0%A6%A1%E0%A7%87%E0%A6%99%E0%A7%8D%E0%A6%97%E0%A7%81%E0%A6%A4%E0%A7%87-%E0%A6%86%E0%A6%B0%E0%A6%93-%E0%A7%AA-%E0%A6%AE%E0%A7%83%E0%A6%A4%E0%A7%8D%E0%A6%AF%E0%A7%81-%E0%A6%86%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BE%E0%A6%A8%E0%A7%8D%E0%A6%A4-%E0%A6%B2%E0%A6%BE%E0%A6%96-%E0%A6%9B%E0%A6%BE%E0%A7%9C%E0%A6%BE%E0%A6%B2</link>
-      <description>Independent TV · Health</description>
-      <guid isPermaLink="true">https://www.itvbd.com/health/276434/%E0%A6%A1%E0%A7%87%E0%A6%99%E0%A7%8D%E0%A6%97%E0%A7%81%E0%A6%A4%E0%A7%87-%E0%A6%86%E0%A6%B0%E0%A6%93-%E0%A7%AA-%E0%A6%AE%E0%A7%83%E0%A6%A4%E0%A7%8D%E0%A6%AF%E0%A7%81-%E0%A6%86%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BE%E0%A6%A8%E0%A7%8D%E0%A6%A4-%E0%A6%B2%E0%A6%BE%E0%A6%96-%E0%A6%9B%E0%A6%BE%E0%A7%9C%E0%A6%BE%E0%A6%B2</guid>
-      <pubDate>Mon, 12 Oct 2026 11:28:12 GMT</pubDate>
       <category>Health</category>
     </item>
     <item>
