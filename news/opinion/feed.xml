@@ -5,7 +5,7 @@
     <link>https://bartaboard.com/news/opinion/</link>
     <description>Latest opinion news from Bangladesh: মতামত headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 11:45:54 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 12:02:07 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/opinion/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
@@ -14,6 +14,22 @@
       <description>The Daily Star · Opinion</description>
       <guid isPermaLink="true">https://www.thedailystar.net/opinion/views/mind-the-gap/news/navi-pillays-nobel-prize-and-the-convenient-conscience-international-law-4296901</guid>
       <pubDate>Mon, 12 Oct 2026 11:45:48 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
+    <item>
+      <title>সংবিধান সংশোধন: রাষ্ট্রের সংজ্ঞায় বিচার বিভাগ থাকুক</title>
+      <link>https://www.prothomalo.com/opinion/column/avyx5429mr</link>
+      <description>Prothom Alo · Opinion</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/opinion/column/avyx5429mr</guid>
+      <pubDate>Mon, 12 Oct 2026 11:41:53 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
+    <item>
+      <title>বাল্যবিবাহ যেভাবে মেয়েদের ভবিষ্যৎকে প্রশ্নের মুখে ফেলে</title>
+      <link>https://www.prothomalo.com/opinion/column/gbvc231f36</link>
+      <description>Prothom Alo · Opinion</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/opinion/column/gbvc231f36</guid>
+      <pubDate>Mon, 12 Oct 2026 11:38:43 GMT</pubDate>
       <category>Opinion</category>
     </item>
     <item>
@@ -390,22 +406,6 @@
       <description>bdnews24 Bangla · Opinion</description>
       <guid isPermaLink="true">https://bangla.bdnews24.com/opinion/8pk4lhpws2</guid>
       <pubDate>Sun, 11 Oct 2026 18:30:55 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>Supporting adolescent mental health in Bangladesh</title>
-      <link>https://thefinancialexpress.com.bd/views/supporting-adolescent-mental-health-in-bangladesh</link>
-      <description>The Financial Express · Opinion</description>
-      <guid isPermaLink="true">https://thefinancialexpress.com.bd/views/supporting-adolescent-mental-health-in-bangladesh</guid>
-      <pubDate>Sun, 11 Oct 2026 18:15:49 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>How much longer must we wait for press freedom?</title>
-      <link>https://www.thedailystar.net/opinion/views/news/how-much-longer-must-we-wait-press-freedom-4296346</link>
-      <description>The Daily Star · Opinion</description>
-      <guid isPermaLink="true">https://www.thedailystar.net/opinion/views/news/how-much-longer-must-we-wait-press-freedom-4296346</guid>
-      <pubDate>Sun, 11 Oct 2026 18:15:43 GMT</pubDate>
       <category>Opinion</category>
     </item>
   </channel>

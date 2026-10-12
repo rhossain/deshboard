@@ -5,9 +5,25 @@
     <link>https://bartaboard.com/news/health/</link>
     <description>Latest health news from Bangladesh: স্বাস্থ্য headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 11:45:54 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 12:02:07 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/health/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>হাম উপসর্গে আরো ২ শিশুর মৃত্যু, নতুন রোগী ১১৬৪</title>
+      <link>https://dailynayadiganta.com/post/health/1060661</link>
+      <description>Naya Diganta · Health</description>
+      <guid isPermaLink="true">https://dailynayadiganta.com/post/health/1060661</guid>
+      <pubDate>Mon, 12 Oct 2026 12:02:01 GMT</pubDate>
+      <category>Health</category>
+    </item>
+    <item>
+      <title>ডেঙ্গুতে একদিনে ৪ মৃত্যু</title>
+      <link>https://www.channelionline.com/4-deaths-from-dengue-in-a-single-day-2167-hospitalized/</link>
+      <description>Channel i Online · Health</description>
+      <guid isPermaLink="true">https://www.channelionline.com/4-deaths-from-dengue-in-a-single-day-2167-hospitalized/</guid>
+      <pubDate>Mon, 12 Oct 2026 11:57:10 GMT</pubDate>
+      <category>Health</category>
+    </item>
     <item>
       <title>হামের উপসর্গে আরও ২ প্রাণহানি, আক্রান্ত ১৪২১</title>
       <link>https://www.ntvbd.com/health/news-1818333</link>
@@ -390,22 +406,6 @@
       <description>Naya Diganta · Health</description>
       <guid isPermaLink="true">https://dailynayadiganta.com/post/health/1060413</guid>
       <pubDate>Sun, 11 Oct 2026 12:15:42 GMT</pubDate>
-      <category>Health</category>
-    </item>
-    <item>
-      <title>Dengue cases near 1 lakh, death toll reaches 303</title>
-      <link>https://www.tbsnews.net/bangladesh/health/dengue-cases-near-1-lakh-death-toll-reaches-303-1569251</link>
-      <description>The Business Standard · Health</description>
-      <guid isPermaLink="true">https://www.tbsnews.net/bangladesh/health/dengue-cases-near-1-lakh-death-toll-reaches-303-1569251</guid>
-      <pubDate>Sun, 11 Oct 2026 12:15:41 GMT</pubDate>
-      <category>Health</category>
-    </item>
-    <item>
-      <title>Govt commits to recruiting 25,000 midwives: Health minister</title>
-      <link>https://www.tbsnews.net/bangladesh/health/govt-commits-recruiting-25000-midwives-health-minister-1569261</link>
-      <description>The Business Standard · Health</description>
-      <guid isPermaLink="true">https://www.tbsnews.net/bangladesh/health/govt-commits-recruiting-25000-midwives-health-minister-1569261</guid>
-      <pubDate>Sun, 11 Oct 2026 12:15:41 GMT</pubDate>
       <category>Health</category>
     </item>
   </channel>
