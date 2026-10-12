@@ -1,98 +1,266 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 <url>
 <loc>https://bartaboard.com/</loc>
-<lastmod>2026-10-12T06:31:05.597Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/" />
+<lastmod>2026-10-12T06:35:07.243Z</lastmod>
+<changefreq>always</changefreq>
+<priority>1</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/" />
+<lastmod>2026-10-12T06:35:07.243Z</lastmod>
 <changefreq>always</changefreq>
 <priority>1</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/national/</loc>
-<lastmod>2026-10-12T06:30:56.949Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/national/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/national/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/national/" />
+<lastmod>2026-10-12T06:35:07.238Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/national/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/national/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/national/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/national/" />
+<lastmod>2026-10-12T06:35:07.238Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/politics/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/politics/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/politics/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/politics/" />
+<lastmod>2026-10-12T06:16:59.000Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/politics/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/politics/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/politics/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/politics/" />
 <lastmod>2026-10-12T06:16:59.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/international/</loc>
-<lastmod>2026-10-12T06:30:56.949Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/international/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/international/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/international/" />
+<lastmod>2026-10-12T06:35:07.238Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/international/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/international/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/international/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/international/" />
+<lastmod>2026-10-12T06:35:07.238Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/business/</loc>
-<lastmod>2026-10-12T06:30:56.862Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/business/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/business/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/business/" />
+<lastmod>2026-10-12T06:35:06.480Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/business/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/business/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/business/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/business/" />
+<lastmod>2026-10-12T06:35:06.480Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/sports/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/sports/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/sports/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/sports/" />
+<lastmod>2026-10-12T06:28:46.000Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/sports/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/sports/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/sports/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/sports/" />
 <lastmod>2026-10-12T06:28:46.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/entertainment/</loc>
-<lastmod>2026-10-12T06:30:56.126Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/entertainment/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/entertainment/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/entertainment/" />
+<lastmod>2026-10-12T06:35:06.093Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/entertainment/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/entertainment/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/entertainment/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/entertainment/" />
+<lastmod>2026-10-12T06:35:06.093Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/tech/</loc>
-<lastmod>2026-10-12T06:16:39.423Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/tech/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/tech/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/tech/" />
+<lastmod>2026-10-12T06:14:52.097Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/tech/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/tech/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/tech/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/tech/" />
+<lastmod>2026-10-12T06:14:52.097Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/education/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/education/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/education/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/education/" />
+<lastmod>2026-10-12T06:18:48.000Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/education/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/education/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/education/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/education/" />
 <lastmod>2026-10-12T06:18:48.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/health/</loc>
-<lastmod>2026-10-12T06:00:52.900Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/health/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/health/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/health/" />
+<lastmod>2026-10-12T05:50:00.023Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/health/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/health/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/health/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/health/" />
+<lastmod>2026-10-12T05:50:00.023Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/lifestyle/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/lifestyle/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/lifestyle/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/lifestyle/" />
+<lastmod>2026-10-12T06:23:36.000Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/lifestyle/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/lifestyle/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/lifestyle/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/lifestyle/" />
 <lastmod>2026-10-12T06:23:36.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/crime/</loc>
-<lastmod>2026-10-12T06:16:40.199Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/crime/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/crime/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/crime/" />
+<lastmod>2026-10-12T06:35:01.992Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/crime/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/crime/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/crime/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/crime/" />
+<lastmod>2026-10-12T06:35:01.992Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/opinion/</loc>
-<lastmod>2026-10-12T06:16:37.998Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/opinion/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/opinion/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/opinion/" />
+<lastmod>2026-10-12T06:35:02.533Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/news/opinion/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/news/opinion/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/news/opinion/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/news/opinion/" />
+<lastmod>2026-10-12T06:35:02.533Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/videos/</loc>
-<lastmod>2026-10-12T06:11:41.000Z</lastmod>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/videos/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/videos/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/videos/" />
+<lastmod>2026-10-12T06:13:12.000Z</lastmod>
+<changefreq>hourly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://bartaboard.com/bn/videos/</loc>
+<xhtml:link rel="alternate" hreflang="en" href="https://bartaboard.com/videos/" />
+<xhtml:link rel="alternate" hreflang="bn" href="https://bartaboard.com/bn/videos/" />
+<xhtml:link rel="alternate" hreflang="x-default" href="https://bartaboard.com/videos/" />
+<lastmod>2026-10-12T06:13:12.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/</loc>
-<lastmod>2026-10-12T06:31:05.597Z</lastmod>
+<lastmod>2026-10-12T06:35:07.243Z</lastmod>
 <changefreq>daily</changefreq>
 <priority>0.7</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/prothomalo/</loc>
-<lastmod>2026-10-12T06:00:00.000Z</lastmod>
+<lastmod>2026-10-12T06:14:37.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -104,19 +272,19 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/dailystar-bn/</loc>
-<lastmod>2026-10-12T06:30:52.763Z</lastmod>
+<lastmod>2026-10-12T06:35:01.992Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/dailystar/</loc>
-<lastmod>2026-10-12T06:30:51.802Z</lastmod>
+<lastmod>2026-10-12T06:34:59.600Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/dailysun/</loc>
-<lastmod>2026-10-11T09:32:45.000Z</lastmod>
+<lastmod>2026-10-11T08:56:22.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -170,7 +338,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/amardesh/</loc>
-<lastmod>2026-10-12T06:30:41.000Z</lastmod>
+<lastmod>2026-10-12T06:32:04.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -182,7 +350,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/nayadiganta/</loc>
-<lastmod>2026-10-12T06:30:53.558Z</lastmod>
+<lastmod>2026-10-12T06:35:02.726Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -194,19 +362,19 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/bhorerkagoj/</loc>
-<lastmod>2026-10-12T05:46:56.050Z</lastmod>
+<lastmod>2026-10-12T05:45:02.058Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/inqilab/</loc>
-<lastmod>2026-10-12T04:38:00.000Z</lastmod>
+<lastmod>2026-10-12T05:10:00.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/deshrupantor/</loc>
-<lastmod>2026-10-12T05:22:12.000Z</lastmod>
+<lastmod>2026-10-12T04:46:09.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -218,19 +386,19 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/bdnews24-bn/</loc>
-<lastmod>2026-10-12T06:30:52.283Z</lastmod>
+<lastmod>2026-10-12T06:35:02.417Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/bdnews24-en/</loc>
-<lastmod>2026-10-12T06:16:39.489Z</lastmod>
+<lastmod>2026-10-12T06:35:02.344Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/dhakatribune/</loc>
-<lastmod>2026-10-12T05:00:27.000Z</lastmod>
+<lastmod>2026-10-12T04:57:03.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -242,19 +410,19 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/tbs/</loc>
-<lastmod>2026-10-12T06:16:39.743Z</lastmod>
+<lastmod>2026-10-12T06:35:02.533Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/tbs-bn/</loc>
-<lastmod>2026-10-12T06:30:56.430Z</lastmod>
+<lastmod>2026-10-12T06:35:02.612Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/samakal/</loc>
-<lastmod>2026-10-12T06:19:06.000Z</lastmod>
+<lastmod>2026-10-12T06:20:56.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -266,7 +434,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/sangbad/</loc>
-<lastmod>2026-10-12T05:37:00.000Z</lastmod>
+<lastmod>2026-10-12T06:29:00.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -278,13 +446,13 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/dhakapost/</loc>
-<lastmod>2026-10-12T06:28:46.000Z</lastmod>
+<lastmod>2026-10-12T06:30:18.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/risingbd/</loc>
-<lastmod>2026-10-12T04:57:00.000Z</lastmod>
+<lastmod>2026-10-12T04:56:00.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -296,25 +464,25 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/barta24/</loc>
-<lastmod>2026-10-12T06:26:48.000Z</lastmod>
+<lastmod>2026-10-12T06:32:41.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/dhakatimes24/</loc>
-<lastmod>2026-10-12T05:55:00.000Z</lastmod>
+<lastmod>2026-10-12T06:31:00.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/ekushey-tv/</loc>
-<lastmod>2026-10-12T06:18:54.000Z</lastmod>
+<lastmod>2026-10-12T06:31:16.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/jamuna/</loc>
-<lastmod>2026-10-12T05:57:28.000Z</lastmod>
+<lastmod>2026-10-12T06:09:10.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -326,25 +494,25 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/ntv/</loc>
-<lastmod>2026-10-12T06:30:56.126Z</lastmod>
+<lastmod>2026-10-12T06:35:06.093Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/rtv/</loc>
-<lastmod>2026-10-12T06:30:55.962Z</lastmod>
+<lastmod>2026-10-12T06:35:05.537Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/ekattor/</loc>
-<lastmod>2026-10-12T06:11:41.000Z</lastmod>
+<lastmod>2026-10-11T19:26:07.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/channel24/</loc>
-<lastmod>2026-10-12T03:12:45.000Z</lastmod>
+<lastmod>2026-10-12T00:00:00.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -362,7 +530,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/banglavision/</loc>
-<lastmod>2026-10-12T06:28:51.000Z</lastmod>
+<lastmod>2026-10-12T06:32:51.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -374,13 +542,13 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/alokito/</loc>
-<lastmod>2026-10-12T06:21:33.000Z</lastmod>
+<lastmod>2026-10-12T06:28:01.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/financialexpress/</loc>
-<lastmod>2026-10-12T06:30:56.862Z</lastmod>
+<lastmod>2026-10-12T06:35:06.480Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -392,19 +560,19 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/bangladeshpost/</loc>
-<lastmod>2026-10-12T05:18:31.000Z</lastmod>
+<lastmod>2026-10-12T05:18:29.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/asianage/</loc>
-<lastmod>2026-10-11T18:45:51.341Z</lastmod>
+<lastmod>2026-10-12T01:06:15.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/unb/</loc>
-<lastmod>2026-10-12T06:30:56.949Z</lastmod>
+<lastmod>2026-10-12T06:35:07.238Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -446,7 +614,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/somoy/</loc>
-<lastmod>2026-10-12T02:58:40.000Z</lastmod>
+<lastmod>2026-10-11T19:28:40.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -464,7 +632,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/news24/</loc>
-<lastmod>2026-10-11T19:45:27.000Z</lastmod>
+<lastmod>2026-10-11T19:15:46.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -482,37 +650,37 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/mytv/</loc>
-<lastmod>2026-10-12T02:36:55.000Z</lastmod>
+<lastmod>2026-10-11T17:16:21.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/maasranga/</loc>
-<lastmod>2026-10-11T17:00:46.000Z</lastmod>
+<lastmod>2026-10-12T05:38:02.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/ekhon/</loc>
-<lastmod>2026-10-12T05:59:21.000Z</lastmod>
+<lastmod>2026-10-11T19:12:06.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/btv/</loc>
-<lastmod>2026-10-12T02:19:13.000Z</lastmod>
+<lastmod>2026-10-11T16:36:03.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/satv/</loc>
-<lastmod>2026-10-12T05:46:36.000Z</lastmod>
+<lastmod>2026-10-11T15:35:45.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/boishakhi/</loc>
-<lastmod>2026-10-12T05:20:12.000Z</lastmod>
+<lastmod>2026-10-11T16:27:49.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -524,19 +692,19 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/asian/</loc>
-<lastmod>2026-10-12T02:39:48.000Z</lastmod>
+<lastmod>2026-10-11T17:45:39.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/gtv/</loc>
-<lastmod>2026-10-12T06:00:36.000Z</lastmod>
+<lastmod>2026-10-11T19:00:10.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/channel9/</loc>
-<lastmod>2026-10-12T01:16:04.000Z</lastmod>
+<lastmod>2026-10-11T17:22:24.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -554,13 +722,13 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/mohona/</loc>
-<lastmod>2026-10-12T04:50:56.000Z</lastmod>
+<lastmod>2026-10-11T16:25:35.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/globaltv/</loc>
-<lastmod>2026-10-12T00:53:26.000Z</lastmod>
+<lastmod>2026-10-11T17:58:44.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
