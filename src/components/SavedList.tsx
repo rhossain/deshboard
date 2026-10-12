@@ -11,6 +11,7 @@ import { formatCount, timeAgo } from "./time";
 import { BookmarkIcon, ItemMenu } from "./ui";
 import { useVideoLayoutChoice } from "./video-layout";
 import { Player, VideoCard } from "./VideoCard";
+import { Highlight } from "./Highlight";
 
 /** Headlines and videos the reader saved on this device, most recently saved first. */
 export function SavedList({
@@ -80,7 +81,9 @@ export function SavedList({
                   <ItemTime item={it} now={now} />
                   <span>· {t.savedAgo(timeAgo(savedAt, now, locale))}</span>
                 </div>
-                <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent">{it.title}</p>
+                <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent">
+                  <Highlight text={it.title} />
+                </p>
               </a>
               <ItemMenu saved onToggleSave={() => onToggleSave(it)} onShare={() => onShare(it)} className="pt-4" />
             </li>

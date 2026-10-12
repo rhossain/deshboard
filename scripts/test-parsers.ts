@@ -25,6 +25,8 @@ import { findLogoCandidates } from "../src/lib/logos";
 import { forBoard, mergeNews, newsQueryFrom } from "../src/lib/news";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
 import { SHARE_TARGETS, sharedVideoId, sharePath, videoSharePath } from "../src/lib/share";
+import { compileSearch } from "../src/lib/search";
+import { SEARCH_TERMS } from "../src/lib/search-terms";
 import { findStories, keywords } from "../src/lib/stories";
 import type { NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
 import { mergeVideos } from "../src/lib/videos";
@@ -190,6 +192,66 @@ function item(sourceId: string, title: string, extra: Partial<NewsItem> = {}): N
     ...extra,
   };
 }
+
+test("search: every word, in any order, in other forms", () => {
+  const s = compileSearch("নির্বাচনে ইসি")!;
+  assert.ok(s.matches("ইসির সঙ্গে নির্বাচনের প্রস্তুতি নিয়ে বৈঠক"));
+  assert.ok(!s.matches("নির্বাচনের প্রস্তুতি নিয়ে বৈঠক"));
+  assert.ok(compileSearch("elections")!.matches("Election date announced"));
+  assert.equal(compileSearch("   "), null);
+  assert.equal(compileSearch("?!"), null);
+});
+
+test("search: Bangla and English equivalents, and other spellings", () => {
+  assert.ok(compileSearch("flood")!.matches("সিলেটে বন্যায় পানিবন্দী লাখো মানুষ"));
+  assert.ok(compileSearch("বন্যা")!.matches("Floods hit Sylhet"));
+  assert.ok(compileSearch("Chittagong")!.matches("চট্টগ্রামে সার জব্দ"));
+  assert.ok(compileSearch("chittagong")!.matches("Chattogram port busy"));
+  assert.ok(compileSearch("awami league")!.matches("আওয়ামী লীগ নেত্রী গ্রেপ্তার"));
+  assert.ok(compileSearch("dhaka rain")!.matches("ঢাকায় মেঘলা আকাশ, সঙ্গে হালকা বৃষ্টির সম্ভাবনা"));
+  // Each word in a group finds every other: no stemming cuts into them, and no word belongs to two groups.
+  for (const group of SEARCH_TERMS) {
+    for (const a of group) for (const b of group) assert.ok(compileSearch(a)!.matches(b), `${a} → ${b}`);
+  }
+});
+
+test("search: English and equivalents start a word; typed Bangla can sit inside one", () => {
+  assert.ok(!compileSearch("rain")!.matches("Train services resume"));
+  assert.ok(compileSearch("rain")!.matches("Heavy rains likely"));
+  // "train" → "রেলওয়ে", which must not find "জেনারেল".
+  assert.ok(!compileSearch("train")!.matches("অবসরপ্রাপ্ত মেজর জেনারেল"));
+  assert.ok(compileSearch("ভোট")!.matches("সংবিধানে ফিরছে গণভোটের বিধান"));
+  // An English equivalent is a whole word: "বন্যা" finds "Floods", not "floodlit".
+  assert.ok(!compileSearch("বন্যা")!.matches("Cup set for floodlit debut"));
+  assert.ok(compileSearch("বন্যা")!.matches("Flooding in Sylhet"));
+  // ি/ী forgiven in what's typed, not in the word list: "china" mustn't find চিনি (sugar).
+  assert.ok(compileSearch("চিন")!.matches("চীনের সঙ্গে চুক্তি"));
+  assert.ok(!compileSearch("china")!.matches("চিনি কলকে লাভজনক করতে"));
+});
+
+test("search: however the Bangla was written", () => {
+  const ch = (...codes: number[]) => String.fromCharCode(...codes);
+  // য় precomposed in the headline, decomposed in the query (and the other way round).
+  assert.ok(compileSearch("বিয়ে")!.matches(`বি${ch(0x09df)}ে`));
+  assert.ok(compileSearch(`বি${ch(0x09df)}ে`)!.matches("বিয়ে"));
+  // ো as two marks; a zero-width joiner inside the word; Bangla digits.
+  assert.ok(compileSearch("ভোট")!.matches(`ভ${ch(0x09c7, 0x09be)}ট`));
+  assert.ok(compileSearch("র্যাব")!.matches(`র${ch(0x200d)}্যাব`));
+  assert.ok(compileSearch("2026")!.matches("২০২৬ সালের ১৩ নভেম্বর"));
+  assert.ok(compileSearch("২০২৬")!.matches("Budget 2026"));
+});
+
+test("search: small words left out, unless they are the whole query", () => {
+  assert.ok(compileSearch("rain in dhaka")!.matches("Rain lashes Dhaka"));
+  assert.ok(compileSearch("in")!.matches("Rain in Dhaka"));
+});
+
+test("search: ranges mark whole words, merged and in order", () => {
+  const text = "ঢাকায় মেঘলা আকাশ, সঙ্গে হালকা বৃষ্টির সম্ভাবনা";
+  const marked = compileSearch("rain dhaka")!.ranges(text).map(([a, b]) => text.slice(a, b));
+  assert.deepEqual(marked, ["ঢাকায়", "বৃষ্টির"]);
+  assert.deepEqual(compileSearch("ভোট")!.ranges("গণভোটের বিধান"), [[2, 7]]);
+});
 
 test("keywords: Bangla suffixes, digits and stopwords", () => {
   assert.deepEqual(keywords("ঢাকার পুলিশের ২৪ কর্মকর্তাকে বদলি"), ["পুলিশ", "24", "কর্মকর্তা", "বদলি"]);

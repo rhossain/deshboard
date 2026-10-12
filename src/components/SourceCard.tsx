@@ -7,6 +7,7 @@ import { ItemTime } from "./ItemTime";
 import { useLocale, useStrings } from "./locale";
 import { formatCount } from "./time";
 import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot, StarIcon } from "./ui";
+import { Highlight } from "./Highlight";
 
 const PER_CARD = 8;
 /**
@@ -341,7 +342,7 @@ const Headline = memo(function Headline({
           }`}
         >
           {isNew && <NewDot className="mr-2 -mt-0.5" />}
-          {item.title}
+          <Highlight text={item.title} />
         </span>
         <ItemTime item={item} now={now} className="mt-1 block text-xs text-muted compact:mt-0.5" />
       </a>

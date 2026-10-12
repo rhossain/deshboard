@@ -7,6 +7,7 @@ import { ItemTime } from "./ItemTime";
 import { useLocale, useStrings } from "./locale";
 import { formatCount, timeAgo } from "./time";
 import { ChevronIcon, ItemMenu, NewDot } from "./ui";
+import { Highlight } from "./Highlight";
 
 /** Other outlets' headlines shown before "Show all". */
 const PREVIEW = 3;
@@ -125,7 +126,7 @@ function StoryCard({
           </div>
           <p className="text-[18px] font-semibold leading-[1.5] group-hover:text-accent compact:text-[16px] compact:leading-[1.45]">
             {story.items.some(isNew) && <NewDot className="mr-2 -mt-0.5" />}
-            {lead.title}
+            <Highlight text={lead.title} />
           </p>
           <p className="mt-1 text-xs text-muted">
             <span className="font-semibold text-accent">{name(lead)}</span>
@@ -153,7 +154,7 @@ function StoryCard({
               <span className="w-28 shrink-0 truncate pt-px text-xs font-semibold text-accent">{name(it)}</span>
               <span className="min-w-0 group-hover:text-accent">
                 {isNew(it) && <NewDot className="mr-1.5 -mt-0.5" />}
-                {it.title}
+                <Highlight text={it.title} />
               </span>
             </a>
             <ItemMenu

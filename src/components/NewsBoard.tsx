@@ -24,6 +24,7 @@ import { type Locale, localePath } from "@/lib/i18n";
 import { boardHeading, categoryPath, categoryTitle, siteTitle, VIDEOS_PATH, videosTitle } from "@/lib/site";
 import { STRINGS, type Strings } from "@/lib/strings";
 import { isFetched } from "@/lib/sources";
+import { compileSearch } from "@/lib/search";
 import { countSince, findStories, itemTime, newestFirst } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
 import type { LogoShape, NewsItem, NewsSource, NewsStreamMessage, SourceResult, Video, VideoFeed } from "@/lib/types";
@@ -37,6 +38,7 @@ import { BartaboardLogo } from "./BartaboardLogo";
 import { InspiredBy, SITE_LINKS, siteLinkHref } from "./InfoPage";
 import { PageNotes } from "./PageNotes";
 import { setNewsDensity, useNewsDensity } from "./news-density";
+import { SearchProvider } from "./Highlight";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinPicker, PinsButton } from "./PinPicker";
 import { useSaved, useSavedVideos } from "./saved";
@@ -516,23 +518,25 @@ export function NewsBoard({
 
   // The search filters behind the typing: the box keeps up while the results catch up.
   const searchQuery = useDeferredValue(query);
-  const filtering = !!searchQuery.trim() || !!category || onlyNew;
+  const search = useMemo(() => compileSearch(searchQuery), [searchQuery]);
+  const filtering = !!search || !!category || onlyNew;
 
   // Everything except the category filter, so the chips can show counts.
-  const matching = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return allItems.filter(
-      (it) =>
-        (lang === "all" || it.lang === lang) &&
-        (!onlySource || it.sourceId === onlySource) &&
-        (!onlyNew || isNew(it)) &&
-        (!q || it.title.toLowerCase().includes(q)),
-    );
-  }, [allItems, lang, onlySource, onlyNew, isNew, searchQuery]);
+  const matching = useMemo(
+    () =>
+      allItems.filter(
+        (it) =>
+          (lang === "all" || it.lang === lang) &&
+          (!onlySource || it.sourceId === onlySource) &&
+          (!onlyNew || isNew(it)) &&
+          (!search || search.matches(it.title)),
+      ),
+    [allItems, lang, onlySource, onlyNew, isNew, search],
+  );
 
   // Until the stream has delivered every source, the unfiltered counts come with the seed, so the
   // tabs don't widen as sources arrive.
-  const unfiltered = !onlyNew && lang === "all" && !onlySource && !searchQuery.trim();
+  const unfiltered = !onlyNew && lang === "all" && !onlySource && !search;
   const categoryCounts = useMemo(() => {
     if (seedCounts && unfiltered) return new Map(Object.entries(seedCounts) as [Category, number][]);
     const counts = new Map<Category, number>();
@@ -601,41 +605,40 @@ export function NewsBoard({
     [view, storyItems, lang, now],
   );
   const stories = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
     const matches = allStories.filter((st) =>
       st.items.some(
         (it) =>
           (!onlySource || it.sourceId === onlySource) &&
           (!category || it.category === category) &&
           (!onlyNew || isNew(it)) &&
-          (!q || it.title.toLowerCase().includes(q)),
+          (!search || search.matches(it.title)),
       ),
     );
     const big = matches.filter((st) => st.outlets >= TOP_MIN_OUTLETS);
     return big.length ? big : matches;
-  }, [allStories, searchQuery, onlySource, category, onlyNew, isNew]);
+  }, [allStories, search, onlySource, category, onlyNew, isNew]);
 
   // Saved headlines go through the same filters, except "new".
   const { saved, savedLinks: savedLinksNow, toggleSaved } = useSaved();
   const savedLinks = useDeferredValue(savedLinksNow);
-  const savedMatching = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return saved.filter(
-      ({ item: it }) =>
-        (lang === "all" || it.lang === lang) &&
-        (!onlySource || it.sourceId === onlySource) &&
-        (!category || it.category === category) &&
-        (!q || it.title.toLowerCase().includes(q)),
-    );
-  }, [saved, lang, onlySource, category, searchQuery]);
+  const savedMatching = useMemo(
+    () =>
+      saved.filter(
+        ({ item: it }) =>
+          (lang === "all" || it.lang === lang) &&
+          (!onlySource || it.sourceId === onlySource) &&
+          (!category || it.category === category) &&
+          (!search || search.matches(it.title)),
+      ),
+    [saved, lang, onlySource, category, search],
+  );
   // Saved videos only go through the search: they are TV channels' Bangla videos, with no source or
   // category of the board's, so a source, category or English filter leaves them out.
   const { savedVideos, toggleSavedVideo } = useSavedVideos();
   const savedVideosMatching = useMemo(() => {
     if (lang === "en" || onlySource || category) return [];
-    const q = searchQuery.trim().toLowerCase();
-    return q ? savedVideos.filter((e) => e.video.title.toLowerCase().includes(q)) : savedVideos;
-  }, [savedVideos, lang, onlySource, category, searchQuery]);
+    return search ? savedVideos.filter((e) => search.matches(e.video.title)) : savedVideos;
+  }, [savedVideos, lang, onlySource, category, search]);
   const savedCount = saved.length + savedVideos.length;
 
   // Single sources failing are explained on their cards (and on /health); half or more failing two
@@ -864,510 +867,512 @@ export function NewsBoard({
   return (
     <LocaleProvider locale={locale}>
       <LogoShapes value={seed?.logoShapes ?? NO_SHAPES}>
-        <div className="min-h-dvh pb-28 md:pb-16" lang={locale === "bn" ? "bn" : undefined}>
-          {/* Fetch progress */}
-          <div className="fixed inset-x-0 top-0 z-40 h-0.5" aria-hidden>
-            <div
-              className={`h-full bg-accent transition-all duration-500 ${loading ? "opacity-100" : "opacity-0"}`}
-              style={{ width: `${loading ? Math.max(4, (received / fetchedCount) * 100) : 100}%` }}
-            />
-          </div>
+        <SearchProvider search={search}>
+          <div className="min-h-dvh pb-28 md:pb-16" lang={locale === "bn" ? "bn" : undefined}>
+            {/* Fetch progress */}
+            <div className="fixed inset-x-0 top-0 z-40 h-0.5" aria-hidden>
+              <div
+                className={`h-full bg-accent transition-all duration-500 ${loading ? "opacity-100" : "opacity-0"}`}
+                style={{ width: `${loading ? Math.max(4, (received / fetchedCount) * 100) : 100}%` }}
+              />
+            </div>
 
-          {/* Masthead: the logo and buttons on one row, then the heading and a quiet status line. */}
-          <header className="mx-auto max-w-7xl px-4 pt-[max(env(safe-area-inset-top),1rem)] sm:px-6 sm:pt-7">
-            <div className="flex items-center justify-between gap-4">
-              {/* A full load, so the board starts over with no filters, section or search. */}
-              <a href={localePath("/", locale)} className="flex shrink-0 text-[24px] sm:text-[32px]" aria-label={t.home}>
-                <BartaboardLogo tagline={false} />
-              </a>
-              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-                <AccountButton />
+            {/* Masthead: the logo and buttons on one row, then the heading and a quiet status line. */}
+            <header className="mx-auto max-w-7xl px-4 pt-[max(env(safe-area-inset-top),1rem)] sm:px-6 sm:pt-7">
+              <div className="flex items-center justify-between gap-4">
+                {/* A full load, so the board starts over with no filters, section or search. */}
+                <a href={localePath("/", locale)} className="flex shrink-0 text-[24px] sm:text-[32px]" aria-label={t.home}>
+                  <BartaboardLogo tagline={false} />
+                </a>
+                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                  <AccountButton />
+                  <a
+                    href={otherLocaleHref}
+                    hrefLang={otherLocale}
+                    lang={otherLocale}
+                    aria-label={t.switchLanguageLabel}
+                    title={t.switchLanguageLabel}
+                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-line px-3 text-sm font-semibold text-foreground transition hover:bg-surface-2 active:scale-95"
+                  >
+                    {t.switchLanguageShort}
+                  </a>
+                  <ThemeButton />
+                  <button
+                    type="button"
+                    onClick={() => load(true)}
+                    disabled={loading}
+                    aria-label={loading ? t.fetchingHeadlines : t.refreshHeadlines}
+                    className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3 text-sm font-semibold text-background transition hover:opacity-90 active:scale-95 disabled:opacity-70 sm:px-4"
+                  >
+                    <RefreshIcon spinning={loading} className="h-4 w-4" />
+                    <span className="hidden sm:inline">{loading ? t.fetchingShort : t.refresh}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-1.5 sm:mt-4">
+                <h1 className="text-balance text-[13px] font-medium text-muted sm:text-sm">
+                  {boardHeading(categoryPath(category) ? category : "", view === "videos", locale)}
+                </h1>
+
+                {/* Status. "Updated …" comes last, so as it grows nothing else moves. Below md it has a row of its
+                    own: beside a short heading, "updated just now" in the prerendered page fits where "updated 5
+                    minutes ago" doesn't, and the wrap pushed the whole board down (a 0.16 layout shift). */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted max-md:w-full">
+                  <span className="font-semibold uppercase tracking-[0.14em] text-gold" suppressHydrationWarning>
+                    <span className="sm:hidden">{dhakaShortDate(now, locale)}</span>
+                    <span className="max-sm:hidden">{dhakaDate(now, locale)}</span>
+                  </span>
+                  {hasData && newCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setOnlyNew((v) => !v)}
+                      aria-pressed={onlyNew}
+                      title={t.newSinceTitle}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${
+                        onlyNew ? "bg-gold text-background" : "bg-gold/15 text-gold hover:bg-gold/25"
+                      }`}
+                    >
+                      {!onlyNew && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />}
+                      {t.newCount(formatCount(newCount, locale))}
+                      {onlyNew && <CloseIcon className="h-3 w-3" />}
+                    </button>
+                  )}
+                  <span className="inline-flex items-center gap-1.5" aria-live="polite">
+                    <span className="relative flex h-1.5 w-1.5">
+                      {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
+                      <span className="relative h-1.5 w-1.5 rounded-full bg-accent" />
+                    </span>
+                    {loading ? (
+                      <span className="tabular-nums">
+                        {t.fetchingSources(formatCount(received, locale), formatCount(fetchedCount, locale))}
+                      </span>
+                    ) : generatedAt ? (
+                      <span title={fullTime(generatedAt, locale)}>{t.updated(timeAgo(generatedAt, now, locale))}</span>
+                    ) : (
+                      <span>{t.live}</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {outage && (
+                <p role="status" className="mt-3 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+                  {t.outage(formatCount(failedCount, locale), formatCount(fetchedCount, locale))}{" "}
+                  <a href="/health" className="font-semibold underline">
+                    {t.sourceHealth}
+                  </a>
+                </p>
+              )}
+            </header>
+
+            {/* Toolbar */}
+            <div
+              data-toolbar
+              className="sticky top-0 z-30 mt-4 border-b sm:mt-5 border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150"
+            >
+              <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 pt-3 sm:px-6 md:h-16 md:pt-0">
+                {/* Views and filters live in the bottom bar and filter sheet on phones. */}
+                <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={t.sectionsLabel}>
+                  {SECTIONS.map(({ value, Icon }) => {
+                    const active = sectionOf(view) === value;
+                    return (
+                      <a
+                        key={value}
+                        href={sectionHref(value)}
+                        onClick={(e) => {
+                          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                          e.preventDefault();
+                          openSection(value);
+                        }}
+                        {...(value === "videos" ? videoIntent : {})}
+                        aria-current={active ? "page" : undefined}
+                        className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition active:scale-[0.97] ${
+                          active ? "bg-foreground text-background" : "text-muted hover:bg-surface-2 hover:text-foreground"
+                        }`}
+                      >
+                        <Icon className="hidden h-4 w-4 lg:block" />
+                        {t.sections[value]}
+                        {value === "saved" && savedCount > 0 && (
+                          <span className={`text-xs tabular-nums ${active ? "opacity-60" : "text-muted/80"}`}>
+                            {formatCount(savedCount, locale)}
+                          </span>
+                        )}
+                      </a>
+                    );
+                  })}
+                </nav>
+
+                <label className="relative min-w-0 flex-1 md:ml-auto md:max-w-xs">
+                  <span className="sr-only">{view === "videos" ? t.searchVideos : t.searchHeadlines}</span>
+                  <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
+                  <input
+                    ref={searchRef}
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Escape") return;
+                      setQuery("");
+                      e.currentTarget.blur();
+                    }}
+                    placeholder={view === "videos" ? t.searchVideosHint : t.searchHeadlinesHint}
+                    enterKeyHint="search"
+                    className="peer h-11 w-full rounded-full border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
+                  />
+                  {query ? (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      aria-label={t.clearSearch}
+                      className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:text-foreground"
+                    >
+                      <CloseIcon className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <kbd
+                      className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-line px-1.5 font-sans text-[11px] font-semibold text-muted peer-focus:opacity-0 md:block"
+                      aria-hidden
+                    >
+                      /
+                    </kbd>
+                  )}
+                </label>
+
+              </div>
+
+              {view === "videos" ? (
+                // The channel rail, from the Videos view; its height is kept while that loads.
+                <div ref={setVideoRail} className="relative mx-auto -mb-px min-h-12 max-w-7xl md:-mt-1" />
+              ) : hasData ? (
+                <div className="relative mx-auto -mb-px max-w-7xl md:-mt-1">
+                  <CategoryTabs
+                    tabs={categoryTabs}
+                    value={category}
+                    onChange={(id) => pickCategory(id as Category | "")}
+                    label={t.filterByCategory}
+                  />
+                </div>
+              ) : (
+                <div className="h-3" />
+              )}
+            </div>
+
+            <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
+              {/* News's views on the left, My news on the right; on larger screens, Filters too (also in Saved). Videos has neither. */}
+              {view !== "videos" && (
+                <div className={`mb-4 items-center gap-3 sm:mb-5 ${sectionOf(view) === "news" ? "flex" : "hidden md:flex"}`}>
+                  {sectionOf(view) === "news" && (
+                    <div className="min-w-0 flex-1 sm:flex-none">
+                      <Segmented label={t.newsView} value={view} onChange={changeView} options={newsViews(t)} full />
+                    </div>
+                  )}
+                  <div className="ml-auto flex items-center gap-3">
+                    {sectionOf(view) === "news" && (
+                      <PinsButton label={t.myNews} count={pinsNow.ids.length} onClick={() => setPinsOpen(true)} compact />
+                    )}
+                    <FilterPopover count={activeFilters.length}>
+                      {view === "sources" && <Field label={t.orderSources}>{orderControl}</Field>}
+                      {sectionOf(view) === "news" && <Field label={t.density.label}>{densityControl}</Field>}
+                      <Field label={t.langFilter.label}>{languageControl}</Field>
+                      <Field label={t.source}>{sourceControl}</Field>
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        disabled={activeFilters.length === 0}
+                        className="h-10 w-full rounded-xl border border-line text-sm font-semibold transition hover:bg-surface-2 disabled:opacity-40"
+                      >
+                        {t.resetFilters}
+                      </button>
+                    </FilterPopover>
+                  </div>
+                </div>
+              )}
+
+              {view !== "videos" && activeFilters.length > 0 && (
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  {activeFilters.map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={f.clear}
+                      className="inline-flex h-8 items-center gap-1 rounded-full bg-accent-soft pl-3 pr-2 text-xs font-semibold text-accent"
+                    >
+                      {f.label}
+                      <CloseIcon className="h-3.5 w-3.5" />
+                      <span className="sr-only">{t.removeFilter}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {view !== "videos" && error && (
+                <p className="mb-4 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+                  {t.couldNotLoad(error)}
+                </p>
+              )}
+
+              {view !== "videos" && !hasData && loading && <SkeletonGrid />}
+
+              {hasData && view !== "saved" && view !== "videos" && filtering && filtered.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+                  <p className="font-display text-xl">{t.nothingFound}</p>
+                  <p className="mt-1 text-sm text-muted">{t.tryAnother}</p>
+                </div>
+              )}
+
+              {hasData && view === "top" && !(filtering && filtered.length === 0) && (
+                <TopStories
+                  stories={stories}
+                  sourceById={sourceById}
+                  now={now}
+                  isNew={isNew}
+                  savedLinks={savedLinks}
+                  onToggleSave={toggleSaved}
+                  onShare={shareItem}
+                  emptyHint={
+                    onlySource
+                      ? t.topEmpty.source(sourceById.get(onlySource)?.name ?? t.topEmpty.thisSource)
+                      : filtering
+                        ? t.topEmpty.filtered
+                        : loading
+                          ? t.topEmpty.grouping
+                          : t.topEmpty.none
+                  }
+                />
+              )}
+
+              {hasData && view === "latest" && (
+                <LatestList
+                  key={
+                    filtersToSearch({ view, lang, source: onlySource, category, query: searchQuery, order }) +
+                    onlyNew +
+                    [...sourceRank.keys()].join()
+                  }
+                  items={filtered}
+                  pinned={sourceRank}
+                  sourceById={sourceById}
+                  now={now}
+                  isNew={isNew}
+                  savedLinks={savedLinks}
+                  onToggleSave={toggleSaved}
+                  onShare={shareItem}
+                />
+              )}
+
+              {view === "saved" && (
+                <SavedList
+                  entries={savedMatching}
+                  videos={savedVideosMatching}
+                  total={savedCount}
+                  sourceById={sourceById}
+                  now={now}
+                  onToggleSave={toggleSaved}
+                  onShare={shareItem}
+                  onToggleSaveVideo={toggleSavedVideo}
+                  onShareVideo={shareVideo}
+                />
+              )}
+
+              {view === "videos" && (
+                <Suspense fallback={<VideoSkeleton />}>
+                  <VideoBoard
+                    query={searchQuery}
+                    rail={videoRail}
+                    refreshSignal={videoRefresh}
+                    onShare={shareVideo}
+                    seed={videoSeed}
+                  />
+                </Suspense>
+              )}
+
+              {hasData && view === "sources" && (
+                <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 compact:gap-3">
+                  {pinnedCards === 0 && <h2 className="sr-only">{t.byNewspaper}</h2>}
+                  {visibleSources.map((s, i) => (
+                    <Fragment key={s.id}>
+                      {pinnedCards > 0 && i === 0 && <GroupHeading pinned>{t.yourNews}</GroupHeading>}
+                      {pinnedCards > 0 && i === pinnedCards && <GroupHeading>{t.otherNews}</GroupHeading>}
+                      <SourceCard
+                        source={s}
+                        status={statusById.get(s.id)}
+                        items={itemsBySource.get(s.id) ?? []}
+                        filtering={filtering}
+                        now={now}
+                        collapsible={isPhone}
+                        savedCollapsed={cardPrefs.collapsed[s.id]}
+                        seenLead={cardPrefs.seen[s.id]}
+                        onToggle={toggleCard}
+                        isNew={isNew}
+                        savedLinks={savedLinks}
+                        onToggleSave={toggleSaved}
+                        onShare={shareItem}
+                        total={
+                          cardTotals && results.get(s.id) === partResults.get(s.id) ? (cardTotals[s.id] ?? 0) : undefined
+                        }
+                        onShowAll={whole ? undefined : showAllCards}
+                        pinned={pinnedIds.has(s.id)}
+                        onTogglePin={toggleSourcePin}
+                      />
+                    </Fragment>
+                  ))}
+                </div>
+              )}
+
+              {view === "videos" ? (
+                <PageNotes intro={VIDEOS_INTRO} locale={locale} />
+              ) : (
+                sectionOf(view) === "news" && (
+                  <PageNotes
+                    intro={sectionIntro(categoryPath(category) ? category : "")}
+                    faq={!categoryPath(category)}
+                    locale={locale}
+                  />
+                )
+              )}
+
+              <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
+                {SITE_LINKS.map((l) => (
+                  <a key={l.href} href={siteLinkHref(l, locale)} className="hover:text-foreground">
+                    {t.links[l.id]}
+                  </a>
+                ))}
                 <a
                   href={otherLocaleHref}
                   hrefLang={otherLocale}
                   lang={otherLocale}
-                  aria-label={t.switchLanguageLabel}
                   title={t.switchLanguageLabel}
-                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-line px-3 text-sm font-semibold text-foreground transition hover:bg-surface-2 active:scale-95"
+                  className="font-semibold hover:text-foreground"
                 >
-                  {t.switchLanguageShort}
+                  {t.switchLanguage}
                 </a>
-                <ThemeButton />
                 <button
                   type="button"
-                  onClick={() => load(true)}
-                  disabled={loading}
-                  aria-label={loading ? t.fetchingHeadlines : t.refreshHeadlines}
-                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3 text-sm font-semibold text-background transition hover:opacity-90 active:scale-95 disabled:opacity-70 sm:px-4"
+                  onClick={() => setShortcutsOpen(true)}
+                  className="hidden hover:text-foreground md:inline"
                 >
-                  <RefreshIcon spinning={loading} className="h-4 w-4" />
-                  <span className="hidden sm:inline">{loading ? t.fetchingShort : t.refresh}</span>
+                  {t.shortcuts.title} <kbd className="ml-1 rounded border border-line px-1 font-sans">?</kbd>
+                </button>
+              </footer>
+              <InspiredBy locale={locale} />
+            </main>
+
+            {/* New headlines from the automatic refresh, held back so nothing moves while reading. */}
+            {pending && view !== "videos" && (
+              <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
+                <button
+                  type="button"
+                  onClick={showPending}
+                  className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink shadow-card transition active:scale-95"
+                >
+                  <ChevronIcon className="h-4 w-4 rotate-180" />
+                  {t.newHeadlines(pending.fresh, formatCount(pending.fresh, locale))}
                 </button>
               </div>
-            </div>
+            )}
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-1.5 sm:mt-4">
-              <h1 className="text-balance text-[13px] font-medium text-muted sm:text-sm">
-                {boardHeading(categoryPath(category) ? category : "", view === "videos", locale)}
-              </h1>
+            {/* Bottom bar (phones) */}
+            <nav
+              className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
+              aria-label={t.viewLabel}
+              data-bottom-nav
+            >
+              <div className="mx-auto grid h-16 max-w-md grid-cols-4">
+                <NavButton active={sectionOf(view) === "news"} onClick={() => openSection("news")} label={t.sections.news}>
+                  <NewspaperIcon />
+                </NavButton>
+                <NavButton active={view === "videos"} onClick={() => openSection("videos")} label={t.sections.videos} {...videoIntent}>
+                  <VideoIcon />
+                </NavButton>
+                <NavButton active={view === "saved"} onClick={() => openSection("saved")} label={t.sections.saved}>
+                  <BookmarkIcon />
+                </NavButton>
+                <NavButton active={false} onClick={() => setFiltersOpen(true)} label={t.filters} badge={activeFilters.length}>
+                  <SlidersIcon />
+                </NavButton>
+              </div>
+            </nav>
 
-              {/* Status. "Updated …" comes last, so as it grows nothing else moves. Below md it has a row of its
-                  own: beside a short heading, "updated just now" in the prerendered page fits where "updated 5
-                  minutes ago" doesn't, and the wrap pushed the whole board down (a 0.16 layout shift). */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted max-md:w-full">
-                <span className="font-semibold uppercase tracking-[0.14em] text-gold" suppressHydrationWarning>
-                  <span className="sm:hidden">{dhakaShortDate(now, locale)}</span>
-                  <span className="max-sm:hidden">{dhakaDate(now, locale)}</span>
-                </span>
-                {hasData && newCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setOnlyNew((v) => !v)}
-                    aria-pressed={onlyNew}
-                    title={t.newSinceTitle}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${
-                      onlyNew ? "bg-gold text-background" : "bg-gold/15 text-gold hover:bg-gold/25"
-                    }`}
-                  >
-                    {!onlyNew && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />}
-                    {t.newCount(formatCount(newCount, locale))}
-                    {onlyNew && <CloseIcon className="h-3 w-3" />}
-                  </button>
+            <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title={t.filters}>
+              <div className="space-y-6">
+                {view === "sources" && <Field label={t.orderSources}>{orderControl}</Field>}
+                {view === "sources" && (
+                  <Field label={t.sourceCards}>
+                    <div className="flex gap-2">
+                      {[
+                        { label: t.expandAll, collapsed: false },
+                        { label: t.collapseAll, collapsed: true },
+                      ].map((b) => (
+                        <button
+                          key={b.label}
+                          type="button"
+                          onClick={() =>
+                            setCollapsed(
+                              visibleSources.map((src) => src.id),
+                              b.collapsed,
+                            )
+                          }
+                          className="h-11 flex-1 rounded-xl border border-line bg-surface-2 text-sm font-medium transition active:scale-[0.98]"
+                        >
+                          {b.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-muted">{t.foldHint}</p>
+                  </Field>
                 )}
-                <span className="inline-flex items-center gap-1.5" aria-live="polite">
-                  <span className="relative flex h-1.5 w-1.5">
-                    {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
-                    <span className="relative h-1.5 w-1.5 rounded-full bg-accent" />
-                  </span>
-                  {loading ? (
-                    <span className="tabular-nums">
-                      {t.fetchingSources(formatCount(received, locale), formatCount(fetchedCount, locale))}
-                    </span>
-                  ) : generatedAt ? (
-                    <span title={fullTime(generatedAt, locale)}>{t.updated(timeAgo(generatedAt, now, locale))}</span>
-                  ) : (
-                    <span>{t.live}</span>
-                  )}
-                </span>
-              </div>
-            </div>
-
-            {outage && (
-              <p role="status" className="mt-3 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
-                {t.outage(formatCount(failedCount, locale), formatCount(fetchedCount, locale))}{" "}
-                <a href="/health" className="font-semibold underline">
-                  {t.sourceHealth}
-                </a>
-              </p>
-            )}
-          </header>
-
-          {/* Toolbar */}
-          <div
-            data-toolbar
-            className="sticky top-0 z-30 mt-4 border-b sm:mt-5 border-line bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150"
-          >
-            <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 pt-3 sm:px-6 md:h-16 md:pt-0">
-              {/* Views and filters live in the bottom bar and filter sheet on phones. */}
-              <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={t.sectionsLabel}>
-                {SECTIONS.map(({ value, Icon }) => {
-                  const active = sectionOf(view) === value;
-                  return (
-                    <a
-                      key={value}
-                      href={sectionHref(value)}
-                      onClick={(e) => {
-                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-                        e.preventDefault();
-                        openSection(value);
-                      }}
-                      {...(value === "videos" ? videoIntent : {})}
-                      aria-current={active ? "page" : undefined}
-                      className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition active:scale-[0.97] ${
-                        active ? "bg-foreground text-background" : "text-muted hover:bg-surface-2 hover:text-foreground"
-                      }`}
-                    >
-                      <Icon className="hidden h-4 w-4 lg:block" />
-                      {t.sections[value]}
-                      {value === "saved" && savedCount > 0 && (
-                        <span className={`text-xs tabular-nums ${active ? "opacity-60" : "text-muted/80"}`}>
-                          {formatCount(savedCount, locale)}
-                        </span>
-                      )}
-                    </a>
-                  );
-                })}
-              </nav>
-
-              <label className="relative min-w-0 flex-1 md:ml-auto md:max-w-xs">
-                <span className="sr-only">{view === "videos" ? t.searchVideos : t.searchHeadlines}</span>
-                <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
-                <input
-                  ref={searchRef}
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Escape") return;
-                    setQuery("");
-                    e.currentTarget.blur();
-                  }}
-                  placeholder={view === "videos" ? t.searchVideosHint : t.searchHeadlinesHint}
-                  enterKeyHint="search"
-                  className="peer h-11 w-full rounded-full border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
-                />
-                {query ? (
-                  <button
-                    type="button"
-                    onClick={() => setQuery("")}
-                    aria-label={t.clearSearch}
-                    className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:text-foreground"
-                  >
-                    <CloseIcon className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <kbd
-                    className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-line px-1.5 font-sans text-[11px] font-semibold text-muted peer-focus:opacity-0 md:block"
-                    aria-hidden
-                  >
-                    /
-                  </kbd>
-                )}
-              </label>
-
-            </div>
-
-            {view === "videos" ? (
-              // The channel rail, from the Videos view; its height is kept while that loads.
-              <div ref={setVideoRail} className="relative mx-auto -mb-px min-h-12 max-w-7xl md:-mt-1" />
-            ) : hasData ? (
-              <div className="relative mx-auto -mb-px max-w-7xl md:-mt-1">
-                <CategoryTabs
-                  tabs={categoryTabs}
-                  value={category}
-                  onChange={(id) => pickCategory(id as Category | "")}
-                  label={t.filterByCategory}
-                />
-              </div>
-            ) : (
-              <div className="h-3" />
-            )}
-          </div>
-
-          <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
-            {/* News's views on the left, My news on the right; on larger screens, Filters too (also in Saved). Videos has neither. */}
-            {view !== "videos" && (
-              <div className={`mb-4 items-center gap-3 sm:mb-5 ${sectionOf(view) === "news" ? "flex" : "hidden md:flex"}`}>
-                {sectionOf(view) === "news" && (
-                  <div className="min-w-0 flex-1 sm:flex-none">
-                    <Segmented label={t.newsView} value={view} onChange={changeView} options={newsViews(t)} full />
-                  </div>
-                )}
-                <div className="ml-auto flex items-center gap-3">
-                  {sectionOf(view) === "news" && (
-                    <PinsButton label={t.myNews} count={pinsNow.ids.length} onClick={() => setPinsOpen(true)} compact />
-                  )}
-                  <FilterPopover count={activeFilters.length}>
-                    {view === "sources" && <Field label={t.orderSources}>{orderControl}</Field>}
-                    {sectionOf(view) === "news" && <Field label={t.density.label}>{densityControl}</Field>}
-                    <Field label={t.langFilter.label}>{languageControl}</Field>
-                    <Field label={t.source}>{sourceControl}</Field>
-                    <button
-                      type="button"
-                      onClick={resetFilters}
-                      disabled={activeFilters.length === 0}
-                      className="h-10 w-full rounded-xl border border-line text-sm font-semibold transition hover:bg-surface-2 disabled:opacity-40"
-                    >
-                      {t.resetFilters}
-                    </button>
-                  </FilterPopover>
-                </div>
-              </div>
-            )}
-
-            {view !== "videos" && activeFilters.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                {activeFilters.map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={f.clear}
-                    className="inline-flex h-8 items-center gap-1 rounded-full bg-accent-soft pl-3 pr-2 text-xs font-semibold text-accent"
-                  >
-                    {f.label}
-                    <CloseIcon className="h-3.5 w-3.5" />
-                    <span className="sr-only">{t.removeFilter}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {view !== "videos" && error && (
-              <p className="mb-4 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
-                {t.couldNotLoad(error)}
-              </p>
-            )}
-
-            {view !== "videos" && !hasData && loading && <SkeletonGrid />}
-
-            {hasData && view !== "saved" && view !== "videos" && filtering && filtered.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
-                <p className="font-display text-xl">{t.nothingFound}</p>
-                <p className="mt-1 text-sm text-muted">{t.tryAnother}</p>
-              </div>
-            )}
-
-            {hasData && view === "top" && !(filtering && filtered.length === 0) && (
-              <TopStories
-                stories={stories}
-                sourceById={sourceById}
-                now={now}
-                isNew={isNew}
-                savedLinks={savedLinks}
-                onToggleSave={toggleSaved}
-                onShare={shareItem}
-                emptyHint={
-                  onlySource
-                    ? t.topEmpty.source(sourceById.get(onlySource)?.name ?? t.topEmpty.thisSource)
-                    : filtering
-                      ? t.topEmpty.filtered
-                      : loading
-                        ? t.topEmpty.grouping
-                        : t.topEmpty.none
-                }
-              />
-            )}
-
-            {hasData && view === "latest" && (
-              <LatestList
-                key={
-                  filtersToSearch({ view, lang, source: onlySource, category, query: searchQuery, order }) +
-                  onlyNew +
-                  [...sourceRank.keys()].join()
-                }
-                items={filtered}
-                pinned={sourceRank}
-                sourceById={sourceById}
-                now={now}
-                isNew={isNew}
-                savedLinks={savedLinks}
-                onToggleSave={toggleSaved}
-                onShare={shareItem}
-              />
-            )}
-
-            {view === "saved" && (
-              <SavedList
-                entries={savedMatching}
-                videos={savedVideosMatching}
-                total={savedCount}
-                sourceById={sourceById}
-                now={now}
-                onToggleSave={toggleSaved}
-                onShare={shareItem}
-                onToggleSaveVideo={toggleSavedVideo}
-                onShareVideo={shareVideo}
-              />
-            )}
-
-            {view === "videos" && (
-              <Suspense fallback={<VideoSkeleton />}>
-                <VideoBoard
-                  query={searchQuery}
-                  rail={videoRail}
-                  refreshSignal={videoRefresh}
-                  onShare={shareVideo}
-                  seed={videoSeed}
-                />
-              </Suspense>
-            )}
-
-            {hasData && view === "sources" && (
-              <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 compact:gap-3">
-                {pinnedCards === 0 && <h2 className="sr-only">{t.byNewspaper}</h2>}
-                {visibleSources.map((s, i) => (
-                  <Fragment key={s.id}>
-                    {pinnedCards > 0 && i === 0 && <GroupHeading pinned>{t.yourNews}</GroupHeading>}
-                    {pinnedCards > 0 && i === pinnedCards && <GroupHeading>{t.otherNews}</GroupHeading>}
-                    <SourceCard
-                      source={s}
-                      status={statusById.get(s.id)}
-                      items={itemsBySource.get(s.id) ?? []}
-                      filtering={filtering}
-                      now={now}
-                      collapsible={isPhone}
-                      savedCollapsed={cardPrefs.collapsed[s.id]}
-                      seenLead={cardPrefs.seen[s.id]}
-                      onToggle={toggleCard}
-                      isNew={isNew}
-                      savedLinks={savedLinks}
-                      onToggleSave={toggleSaved}
-                      onShare={shareItem}
-                      total={
-                        cardTotals && results.get(s.id) === partResults.get(s.id) ? (cardTotals[s.id] ?? 0) : undefined
-                      }
-                      onShowAll={whole ? undefined : showAllCards}
-                      pinned={pinnedIds.has(s.id)}
-                      onTogglePin={toggleSourcePin}
-                    />
-                  </Fragment>
-                ))}
-              </div>
-            )}
-
-            {view === "videos" ? (
-              <PageNotes intro={VIDEOS_INTRO} locale={locale} />
-            ) : (
-              sectionOf(view) === "news" && (
-                <PageNotes
-                  intro={sectionIntro(categoryPath(category) ? category : "")}
-                  faq={!categoryPath(category)}
-                  locale={locale}
-                />
-              )
-            )}
-
-            <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
-              {SITE_LINKS.map((l) => (
-                <a key={l.href} href={siteLinkHref(l, locale)} className="hover:text-foreground">
-                  {t.links[l.id]}
-                </a>
-              ))}
-              <a
-                href={otherLocaleHref}
-                hrefLang={otherLocale}
-                lang={otherLocale}
-                title={t.switchLanguageLabel}
-                className="font-semibold hover:text-foreground"
-              >
-                {t.switchLanguage}
-              </a>
-              <button
-                type="button"
-                onClick={() => setShortcutsOpen(true)}
-                className="hidden hover:text-foreground md:inline"
-              >
-                {t.shortcuts.title} <kbd className="ml-1 rounded border border-line px-1 font-sans">?</kbd>
-              </button>
-            </footer>
-            <InspiredBy locale={locale} />
-          </main>
-
-          {/* New headlines from the automatic refresh, held back so nothing moves while reading. */}
-          {pending && view !== "videos" && (
-            <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
-              <button
-                type="button"
-                onClick={showPending}
-                className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink shadow-card transition active:scale-95"
-              >
-                <ChevronIcon className="h-4 w-4 rotate-180" />
-                {t.newHeadlines(pending.fresh, formatCount(pending.fresh, locale))}
-              </button>
-            </div>
-          )}
-
-          {/* Bottom bar (phones) */}
-          <nav
-            className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 backdrop-blur-xl backdrop-saturate-150 md:hidden"
-            aria-label={t.viewLabel}
-            data-bottom-nav
-          >
-            <div className="mx-auto grid h-16 max-w-md grid-cols-4">
-              <NavButton active={sectionOf(view) === "news"} onClick={() => openSection("news")} label={t.sections.news}>
-                <NewspaperIcon />
-              </NavButton>
-              <NavButton active={view === "videos"} onClick={() => openSection("videos")} label={t.sections.videos} {...videoIntent}>
-                <VideoIcon />
-              </NavButton>
-              <NavButton active={view === "saved"} onClick={() => openSection("saved")} label={t.sections.saved}>
-                <BookmarkIcon />
-              </NavButton>
-              <NavButton active={false} onClick={() => setFiltersOpen(true)} label={t.filters} badge={activeFilters.length}>
-                <SlidersIcon />
-              </NavButton>
-            </div>
-          </nav>
-
-          <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title={t.filters}>
-            <div className="space-y-6">
-              {view === "sources" && <Field label={t.orderSources}>{orderControl}</Field>}
-              {view === "sources" && (
-                <Field label={t.sourceCards}>
-                  <div className="flex gap-2">
-                    {[
-                      { label: t.expandAll, collapsed: false },
-                      { label: t.collapseAll, collapsed: true },
-                    ].map((b) => (
-                      <button
-                        key={b.label}
-                        type="button"
-                        onClick={() =>
-                          setCollapsed(
-                            visibleSources.map((src) => src.id),
-                            b.collapsed,
-                          )
-                        }
-                        className="h-11 flex-1 rounded-xl border border-line bg-surface-2 text-sm font-medium transition active:scale-[0.98]"
-                      >
-                        {b.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-xs text-muted">{t.foldHint}</p>
+                {view !== "videos" && <Field label={t.langFilter.label}>{languageControl}</Field>}
+                {view !== "videos" && <Field label={t.source}>{sourceControl}</Field>}
+                {sectionOf(view) === "news" && <Field label={t.density.label}>{densityControl}</Field>}
+                <Field label={t.appearance}>
+                  <ThemeSetting />
                 </Field>
-              )}
-              {view !== "videos" && <Field label={t.langFilter.label}>{languageControl}</Field>}
-              {view !== "videos" && <Field label={t.source}>{sourceControl}</Field>}
-              {sectionOf(view) === "news" && <Field label={t.density.label}>{densityControl}</Field>}
-              <Field label={t.appearance}>
-                <ThemeSetting />
-              </Field>
-            </div>
-            <div className="mt-8 flex gap-3">
-              {view !== "videos" && (
+              </div>
+              <div className="mt-8 flex gap-3">
+                {view !== "videos" && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    disabled={activeFilters.length === 0}
+                    className="h-12 flex-1 rounded-xl border border-line text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40"
+                  >
+                    {t.reset}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={resetFilters}
-                  disabled={activeFilters.length === 0}
-                  className="h-12 flex-1 rounded-xl border border-line text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40"
+                  onClick={() => setFiltersOpen(false)}
+                  className="h-12 flex-[2] rounded-xl bg-foreground text-sm font-semibold text-background transition active:scale-[0.98]"
                 >
-                  {t.reset}
+                  {view === "videos" ? t.done : t.showHeadlines(formatCount(filtered.length, locale))}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setFiltersOpen(false)}
-                className="h-12 flex-[2] rounded-xl bg-foreground text-sm font-semibold text-background transition active:scale-[0.98]"
-              >
-                {view === "videos" ? t.done : t.showHeadlines(formatCount(filtered.length, locale))}
-              </button>
-            </div>
-          </Sheet>
+              </div>
+            </Sheet>
 
-          <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title={t.myNews}>
-            <PinPicker kind="site" options={pinOptions} pins={pinsNow} onChange={updatePins} />
-          </Sheet>
+            <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title={t.myNews}>
+              <PinPicker kind="site" options={pinOptions} pins={pinsNow} onChange={updatePins} />
+            </Sheet>
 
-          <Sheet open={!!sharing} onClose={() => setSharing(null)} title={sharing?.video ? t.shareVideo : t.shareHeadline}>
-            {sharing && <ShareOptions shared={sharing} />}
-          </Sheet>
+            <Sheet open={!!sharing} onClose={() => setSharing(null)} title={sharing?.video ? t.shareVideo : t.shareHeadline}>
+              {sharing && <ShareOptions shared={sharing} />}
+            </Sheet>
 
-          <Sheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title={t.shortcuts.title}>
-            <dl className="grid grid-cols-[auto_1fr] items-center gap-x-5 gap-y-3 text-sm">
-              {shortcuts(t).map(([keys, what]) => (
-                <div key={keys} className="contents">
-                  <dt className="text-right">
-                    <kbd className="rounded-md border border-line bg-surface-2 px-2 py-0.5 font-sans text-xs font-semibold">
-                      {keys}
-                    </kbd>
-                  </dt>
-                  <dd className="text-muted">{what}</dd>
-                </div>
-              ))}
-            </dl>
-          </Sheet>
-        </div>
+            <Sheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title={t.shortcuts.title}>
+              <dl className="grid grid-cols-[auto_1fr] items-center gap-x-5 gap-y-3 text-sm">
+                {shortcuts(t).map(([keys, what]) => (
+                  <div key={keys} className="contents">
+                    <dt className="text-right">
+                      <kbd className="rounded-md border border-line bg-surface-2 px-2 py-0.5 font-sans text-xs font-semibold">
+                        {keys}
+                      </kbd>
+                    </dt>
+                    <dd className="text-muted">{what}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Sheet>
+          </div>
+        </SearchProvider>
       </LogoShapes>
     </LocaleProvider>
   );
