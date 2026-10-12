@@ -54,7 +54,7 @@ const en = {
   updated: (ago: string) => `Updated ${ago}`,
   live: "Live",
   outage: (failed: string, total: string) =>
-    `Many news sites couldn’t be reached on the last update (${failed} of ${total}), so headlines may be missing until the next one.`,
+    `Many news sites couldn’t be reached on the last two updates (${failed} of ${total}). Their earlier headlines are still here; new ones will appear once they’re back.`,
   sourceHealth: "Source health",
   searchVideos: "Search videos",
   searchHeadlines: "Search headlines",
@@ -282,7 +282,7 @@ const bn: Strings = {
   updated: (ago) => `হালনাগাদ ${ago}`,
   live: "লাইভ",
   outage: (failed, total) =>
-    `গত আপডেটে অনেক সংবাদ সাইটে পৌঁছানো যায়নি (${total}টির মধ্যে ${failed}টি), তাই পরের আপডেট পর্যন্ত কিছু শিরোনাম না-ও থাকতে পারে।`,
+    `গত দুই আপডেটে অনেক সংবাদ সাইটে পৌঁছানো যায়নি (${total}টির মধ্যে ${failed}টি)। সেগুলোর আগের শিরোনাম এখানে আছে; সাইটগুলো ফিরলে নতুন শিরোনাম আসবে।`,
   sourceHealth: "উৎসের অবস্থা",
   searchVideos: "ভিডিও খুঁজুন",
   searchHeadlines: "শিরোনাম খুঁজুন",

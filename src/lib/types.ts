@@ -53,6 +53,8 @@ export interface SourceResult {
   directError?: string;
   /** Why the Google News fallback failed too, when it did (`error` is then the site's own failure). */
   fallbackError?: string;
+  /** On a failed fetch, when the source started failing: earlier than `fetchedAt` if the last update failed too. */
+  failingSince?: string;
   fetchedUrl?: string;
   durationMs: number;
   fetchedAt: string;

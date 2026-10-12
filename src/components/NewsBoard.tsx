@@ -638,9 +638,10 @@ export function NewsBoard({
   }, [savedVideos, lang, onlySource, category, searchQuery]);
   const savedCount = saved.length + savedVideos.length;
 
-  // Single sources failing are explained on their cards (and on /health); half or more failing at once
-  // is an outage worth saying at the top. Judged once every source has reported.
-  const failedCount = statuses.filter((s) => !s.ok).length;
+  // Single sources failing are explained on their cards (and on /health); half or more failing two
+  // updates in a row is an outage worth saying at the top (one bad update is usually Google News
+  // turning us away for a moment, and their earlier headlines stay). Judged once every source has reported.
+  const failedCount = statuses.filter((s) => !s.ok && !!s.failingSince && s.failingSince < s.fetchedAt).length;
   const outage = !loading && statuses.length >= fetchedCount && failedCount * 2 >= fetchedCount;
 
   // Filters that live in the sheet on phones; shown as removable pills so they are never hidden state.

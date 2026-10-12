@@ -1,7 +1,7 @@
 import { categorize, unmappedSection } from "./categories";
 import { stampFirstSeen } from "./first-seen";
 import { googleNewsFallback } from "./google-news";
-import { recordHealth } from "./health";
+import { getHealth, recordHealth } from "./health";
 import { extractHeadlines } from "./fetchers/html";
 import { fetchText } from "./fetchers/http";
 import { parseFeed, type RawItem } from "./fetchers/rss";
@@ -172,8 +172,10 @@ async function load(source: NewsSource): Promise<SourceResult> {
       // Keep what we have; it ages out on its own if the source stays unreachable.
       items: mergeNews([], kept),
     };
+    // Read before this failure is recorded: then it is set only if the last update failed too.
+    const failingSince = getHealth(source.id).failingSince ?? result.fetchedAt;
     recordHealth(result, new Map());
-    return result;
+    return { ...result, failingSince };
   }
 }
 
