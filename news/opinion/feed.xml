@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/opinion/</link>
     <description>Latest opinion news from Bangladesh: মতামত headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 04:45:51 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 05:01:03 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/opinion/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>নির্বাচনে নিরাপত্তা চান দলিত নারীরা</title>
+      <link>https://www.prothomalo.com/roundtable/q0y6c1i8jy</link>
+      <description>Prothom Alo · Opinion</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/roundtable/q0y6c1i8jy</guid>
+      <pubDate>Mon, 12 Oct 2026 04:43:26 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
     <item>
       <title>পাকিস্তানের রাজনীতিতে কী হচ্ছে, কেন হচ্ছে</title>
       <link>https://www.prothomalo.com/opinion/column/5oa76jzwve</link>
@@ -398,14 +406,6 @@
       <description>Prothom Alo · Opinion</description>
       <guid isPermaLink="true">https://www.prothomalo.com/opinion/column/pnub1ix25q</guid>
       <pubDate>Sun, 11 Oct 2026 06:22:26 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>Farewell, Amir Khasru and all those days</title>
-      <link>https://unb.com.bd/category/Opinion/farewell-amir-khasru-and-all-those-days/197564</link>
-      <description>UNB · Opinion</description>
-      <guid isPermaLink="true">https://unb.com.bd/category/Opinion/farewell-amir-khasru-and-all-those-days/197564</guid>
-      <pubDate>Sun, 11 Oct 2026 06:15:51 GMT</pubDate>
       <category>Opinion</category>
     </item>
   </channel>
