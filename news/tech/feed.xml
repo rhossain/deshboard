@@ -5,31 +5,23 @@
     <link>https://bartaboard.com/news/tech/</link>
     <description>Latest science &amp; tech news from Bangladesh: বিজ্ঞান-প্রযুক্তি headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 05:45:14 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 05:47:00 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/tech/feed.xml" rel="self" type="application/rss+xml"/>
-    <item>
-      <title>US to allow UK to test AI models: Telegraph</title>
-      <link>https://bdnews24.com/tech/cy6c34ykaw</link>
-      <description>bdnews24 English · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bdnews24.com/tech/cy6c34ykaw</guid>
-      <pubDate>Mon, 12 Oct 2026 05:45:02 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>র‍্যামের দাম সামলাতে পুরনো সকেটে আসছে ইনটেলের নতুন প্রসেসর</title>
-      <link>https://bangla.bdnews24.com/tech/sqwianbusq</link>
-      <description>bdnews24 Bangla · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/sqwianbusq</guid>
-      <pubDate>Mon, 12 Oct 2026 05:45:02 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
     <item>
       <title>গুগলের বর্ষসেরা ইমোজি কোনটি, দেখুন জনপ্রিয় দশটির তালিকা</title>
       <link>https://www.banglatribune.com/tech-and-gadget/973942/%E0%A6%97%E0%A7%81%E0%A6%97%E0%A6%B2%E0%A7%87%E0%A6%B0-%E0%A6%AC%E0%A6%B0%E0%A7%8D%E0%A6%B7%E0%A6%B8%E0%A7%87%E0%A6%B0%E0%A6%BE-%E0%A6%87%E0%A6%AE%E0%A7%8B%E0%A6%9C%E0%A6%BF-%E0%A6%95%E0%A7%8B%E0%A6%A8%E0%A6%9F%E0%A6%BF-%E0%A6%A6%E0%A7%87%E0%A6%96%E0%A7%81%E0%A6%A8-%E0%A6%9C%E0%A6%A8%E0%A6%AA%E0%A7%8D%E0%A6%B0%E0%A6%BF%E0%A7%9F-%E0%A6%A6%E0%A6%B6%E0%A6%9F%E0%A6%BF%E0%A6%B0</link>
       <description>Bangla Tribune · Science &amp; Tech</description>
       <guid isPermaLink="true">https://www.banglatribune.com/tech-and-gadget/973942/%E0%A6%97%E0%A7%81%E0%A6%97%E0%A6%B2%E0%A7%87%E0%A6%B0-%E0%A6%AC%E0%A6%B0%E0%A7%8D%E0%A6%B7%E0%A6%B8%E0%A7%87%E0%A6%B0%E0%A6%BE-%E0%A6%87%E0%A6%AE%E0%A7%8B%E0%A6%9C%E0%A6%BF-%E0%A6%95%E0%A7%8B%E0%A6%A8%E0%A6%9F%E0%A6%BF-%E0%A6%A6%E0%A7%87%E0%A6%96%E0%A7%81%E0%A6%A8-%E0%A6%9C%E0%A6%A8%E0%A6%AA%E0%A7%8D%E0%A6%B0%E0%A6%BF%E0%A7%9F-%E0%A6%A6%E0%A6%B6%E0%A6%9F%E0%A6%BF%E0%A6%B0</guid>
       <pubDate>Mon, 12 Oct 2026 05:28:01 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>US to allow UK to test AI models: Telegraph</title>
+      <link>https://bdnews24.com/tech/cy6c34ykaw</link>
+      <description>bdnews24 English · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://bdnews24.com/tech/cy6c34ykaw</guid>
+      <pubDate>Mon, 12 Oct 2026 05:00:58 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
@@ -46,6 +38,14 @@
       <description>Jugantor · Science &amp; Tech</description>
       <guid isPermaLink="true">https://www.jugantor.com/tech/1167842</guid>
       <pubDate>Mon, 12 Oct 2026 04:25:09 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>র‍্যামের দাম সামলাতে পুরনো সকেটে আসছে ইনটেলের নতুন প্রসেসর</title>
+      <link>https://bangla.bdnews24.com/tech/sqwianbusq</link>
+      <description>bdnews24 Bangla · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/sqwianbusq</guid>
+      <pubDate>Mon, 12 Oct 2026 04:15:42 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
@@ -77,31 +77,15 @@
       <link>https://www.thedailystar.net/news/technology/news/do-living-computers-dream-electric-sheep-4296311</link>
       <description>The Daily Star · Science &amp; Tech</description>
       <guid isPermaLink="true">https://www.thedailystar.net/news/technology/news/do-living-computers-dream-electric-sheep-4296311</guid>
-      <pubDate>Sun, 11 Oct 2026 18:23:34 GMT</pubDate>
+      <pubDate>Sun, 11 Oct 2026 17:30:42 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
-      <title>বুয়েট শিক্ষার্থী আবরার হত্যায় গুপ্ত শিবির জড়িত ছিল: আবু হানিফ</title>
-      <link>https://rtvonline.com/social-media/408957</link>
-      <description>RTV Online · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://rtvonline.com/social-media/408957</guid>
-      <pubDate>Sun, 11 Oct 2026 16:48:40 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>মক্কা-মদিনাকে নিয়ে মিজানুর রহমান আজহারী ফেসবুক পোস্ট</title>
-      <link>https://rtvonline.com/social-media/408917</link>
-      <description>RTV Online · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://rtvonline.com/social-media/408917</guid>
-      <pubDate>Sun, 11 Oct 2026 16:48:40 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>কায়দা করে বাঁচার জন্য আ.লীগ-ছাত্রলীগ এখন জামায়াত হয়ে যাচ্ছে: রাশেদ খাঁন</title>
-      <link>https://rtvonline.com/social-media/408910</link>
-      <description>RTV Online · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://rtvonline.com/social-media/408910</guid>
-      <pubDate>Sun, 11 Oct 2026 16:48:40 GMT</pubDate>
+      <title>Our top picks for laptops under BDT 100k</title>
+      <link>https://www.thedailystar.net/news/technology/news/our-top-picks-laptops-under-bdt-100k-4295946</link>
+      <description>The Daily Star · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.thedailystar.net/news/technology/news/our-top-picks-laptops-under-bdt-100k-4295946</guid>
+      <pubDate>Sun, 11 Oct 2026 17:00:54 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
@@ -110,30 +94,6 @@
       <description>Bangla Tribune · Science &amp; Tech</description>
       <guid isPermaLink="true">https://www.banglatribune.com/tech-and-gadget/tech-news/973896/%E0%A6%A1%E0%A6%BF%E0%A6%97%E0%A7%8D%E0%A6%B0%E0%A6%BF-%E0%A6%9B%E0%A6%BE%E0%A7%9C%E0%A6%BE%E0%A6%87-%E0%A6%97%E0%A7%81%E0%A6%97%E0%A6%B2%E0%A7%87-%E0%A6%9A%E0%A6%BE%E0%A6%95%E0%A6%B0%E0%A6%BF%E0%A6%B0-%E0%A6%B8%E0%A7%81%E0%A6%AF%E0%A7%8B%E0%A6%97-%E0%A6%AC%E0%A7%87%E0%A6%A4%E0%A6%A8-%E0%A7%A7%E0%A7%A7-%E0%A6%95%E0%A7%8B%E0%A6%9F%E0%A6%BF-%E0%A6%9F%E0%A6%BE%E0%A6%95%E0%A6%BE</guid>
       <pubDate>Sun, 11 Oct 2026 16:48:39 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>Nuclear war, AI misuse pose extinction risks: Lancet</title>
-      <link>https://bdnews24.com/technology/dmraahwli7</link>
-      <description>bdnews24 English · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bdnews24.com/technology/dmraahwli7</guid>
-      <pubDate>Sun, 11 Oct 2026 16:48:33 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>ডাইনোসর যুগে নদী-হ্রদে ভেসে বেড়াত ভোঁদড়সদৃশ এই প্রাণী</title>
-      <link>https://bangla.bdnews24.com/tech/kez4mk5ogl</link>
-      <description>bdnews24 Bangla · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/kez4mk5ogl</guid>
-      <pubDate>Sun, 11 Oct 2026 16:48:33 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>পারমাণবিক যুদ্ধ ও এআই ঝুঁকিতে মানবজাতি: ল্যানসেট</title>
-      <link>https://bangla.bdnews24.com/tech/90loct6d5d</link>
-      <description>bdnews24 Bangla · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/90loct6d5d</guid>
-      <pubDate>Sun, 11 Oct 2026 16:48:33 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
@@ -161,6 +121,38 @@
       <category>Science &amp; Tech</category>
     </item>
     <item>
+      <title>এআই ও পারমাণবিক বোমায় ২১০০ সাল পেরোবে না মানবজাতি: ল্যানসেট রিপোর্ট</title>
+      <link>https://www.ajkerpatrika.com/science/ajpgdmuyvlq4i</link>
+      <description>Ajker Patrika · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.ajkerpatrika.com/science/ajpgdmuyvlq4i</guid>
+      <pubDate>Sun, 11 Oct 2026 15:19:38 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>Nuclear war, AI misuse pose extinction risks: Lancet</title>
+      <link>https://bdnews24.com/technology/dmraahwli7</link>
+      <description>bdnews24 English · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://bdnews24.com/technology/dmraahwli7</guid>
+      <pubDate>Sun, 11 Oct 2026 14:45:47 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>বুয়েট শিক্ষার্থী আবরার হত্যায় গুপ্ত শিবির জড়িত ছিল: আবু হানিফ</title>
+      <link>https://rtvonline.com/social-media/408957</link>
+      <description>RTV Online · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://rtvonline.com/social-media/408957</guid>
+      <pubDate>Sun, 11 Oct 2026 14:15:44 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>ডাইনোসর যুগে নদী-হ্রদে ভেসে বেড়াত ভোঁদড়সদৃশ এই প্রাণী</title>
+      <link>https://bangla.bdnews24.com/tech/kez4mk5ogl</link>
+      <description>bdnews24 Bangla · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/kez4mk5ogl</guid>
+      <pubDate>Sun, 11 Oct 2026 14:15:41 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
       <title>আসিফ মাহমুদের ফেসবুক পোস্ট ‘ব্যান’ করল ভারত</title>
       <link>https://www.kalbela.com/social-media/337775</link>
       <description>Kalbela · Science &amp; Tech</description>
@@ -174,6 +166,14 @@
       <description>Jugantor · Science &amp; Tech</description>
       <guid isPermaLink="true">https://www.jugantor.com/social-media/1167519</guid>
       <pubDate>Sun, 11 Oct 2026 13:37:59 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>বাংলাদেশে ৪টি সফটওয়্যার পণ্য চালু করল খুলনা টেকনোলজিস</title>
+      <link>https://sarabangla.net/news/information-technology/post-1208257/</link>
+      <description>Sarabangla · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://sarabangla.net/news/information-technology/post-1208257/</guid>
+      <pubDate>Sun, 11 Oct 2026 13:29:54 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
@@ -201,11 +201,83 @@
       <category>Science &amp; Tech</category>
     </item>
     <item>
+      <title>ইলেকট্রনের ভুতুড়ে খেলা</title>
+      <link>https://www.bigganchinta.com/physics/fl5xmk5g51</link>
+      <description>Prothom Alo · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.bigganchinta.com/physics/fl5xmk5g51</guid>
+      <pubDate>Sun, 11 Oct 2026 12:21:21 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>মক্কা-মদিনার নিরাপত্তার জন্য যে দোয়া করলেন আজহারী</title>
+      <link>https://www.dhakapost.com/social-media/489672</link>
+      <description>Dhaka Post · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.dhakapost.com/social-media/489672</guid>
+      <pubDate>Sun, 11 Oct 2026 12:20:49 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>পারমাণবিক যুদ্ধ ও এআই ঝুঁকিতে মানবজাতি: ল্যানসেট</title>
+      <link>https://bangla.bdnews24.com/tech/90loct6d5d</link>
+      <description>bdnews24 Bangla · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/90loct6d5d</guid>
+      <pubDate>Sun, 11 Oct 2026 12:15:41 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
       <title>‘পূজার ফেস্ট, শাওমি’তে বেস্ট’ ক্যাম্পেইনে স্মার্টফোন বাড়তি খরচ ছাড়াই কার্ডবিহীন কিস্তি সুবিধা</title>
       <link>https://barta24.com/details/tech/342460</link>
       <description>Barta24 · Science &amp; Tech</description>
       <guid isPermaLink="true">https://barta24.com/details/tech/342460</guid>
       <pubDate>Sun, 11 Oct 2026 11:52:58 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>মক্কা-মদিনাকে নিয়ে মিজানুর রহমান আজহারী ফেসবুক পোস্ট</title>
+      <link>https://rtvonline.com/social-media/408917</link>
+      <description>RTV Online · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://rtvonline.com/social-media/408917</guid>
+      <pubDate>Sun, 11 Oct 2026 11:45:41 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>Gadget &amp; Gear officially launches iPhone 18 series in Bangladesh</title>
+      <link>https://www.dhakatribune.com/feature/tech/421856/gadget-gear-officially-launches-iphone-18-series</link>
+      <description>Dhaka Tribune · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.dhakatribune.com/feature/tech/421856/gadget-gear-officially-launches-iphone-18-series</guid>
+      <pubDate>Sun, 11 Oct 2026 11:36:32 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>Gadget &amp; Gear officially launches iPhone 18 series in Bangladesh</title>
+      <link>https://www.dhakatribune.com/amp/feature/tech/421856/gadget-gear-officially-launches-iphone-18-series</link>
+      <description>Dhaka Tribune · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.dhakatribune.com/amp/feature/tech/421856/gadget-gear-officially-launches-iphone-18-series</guid>
+      <pubDate>Sun, 11 Oct 2026 11:36:32 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>ঢাকায় উদ্যোক্তা ও ব্যবসায়ীদের নিয়ে এআই সামিট অনুষ্ঠিত</title>
+      <link>https://www.prothomalo.com/technology/artificial-intelligence/gp1h63bynk</link>
+      <description>Prothom Alo · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/technology/artificial-intelligence/gp1h63bynk</guid>
+      <pubDate>Sun, 11 Oct 2026 11:31:08 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>এআই ও পারমাণবিক যুদ্ধে ২১০০ সালের মধ্যে মানবজাতি বিলুপ্তির শঙ্কা, ল্যানসেটের প্রতিবেদন</title>
+      <link>https://www.ajkerpatrika.com/science/ajpkkcxcwbdjy</link>
+      <description>Ajker Patrika · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.ajkerpatrika.com/science/ajpkkcxcwbdjy</guid>
+      <pubDate>Sun, 11 Oct 2026 11:27:33 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>স্ক্রিন ছেড়ে আবার কলম-কাগজে ফিরলো যুক্তরাজ্যের বিখ্যাত স্কুল</title>
+      <link>https://www.banglatribune.com/tech-and-gadget/tech-news/973806/%E0%A6%B8%E0%A7%8D%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF%E0%A6%A8-%E0%A6%9B%E0%A7%87%E0%A7%9C%E0%A7%87-%E0%A6%86%E0%A6%AC%E0%A6%BE%E0%A6%B0-%E0%A6%95%E0%A6%B2%E0%A6%AE-%E0%A6%95%E0%A6%BE%E0%A6%97%E0%A6%9C%E0%A7%87-%E0%A6%AB%E0%A6%BF%E0%A6%B0%E0%A6%B2%E0%A7%8B-%E0%A6%AF%E0%A7%81%E0%A6%95%E0%A7%8D%E0%A6%A4%E0%A6%B0%E0%A6%BE%E0%A6%9C%E0%A7%8D%E0%A6%AF%E0%A7%87%E0%A6%B0</link>
+      <description>Bangla Tribune · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.banglatribune.com/tech-and-gadget/tech-news/973806/%E0%A6%B8%E0%A7%8D%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF%E0%A6%A8-%E0%A6%9B%E0%A7%87%E0%A7%9C%E0%A7%87-%E0%A6%86%E0%A6%AC%E0%A6%BE%E0%A6%B0-%E0%A6%95%E0%A6%B2%E0%A6%AE-%E0%A6%95%E0%A6%BE%E0%A6%97%E0%A6%9C%E0%A7%87-%E0%A6%AB%E0%A6%BF%E0%A6%B0%E0%A6%B2%E0%A7%8B-%E0%A6%AF%E0%A7%81%E0%A6%95%E0%A7%8D%E0%A6%A4%E0%A6%B0%E0%A6%BE%E0%A6%9C%E0%A7%8D%E0%A6%AF%E0%A7%87%E0%A6%B0</guid>
+      <pubDate>Sun, 11 Oct 2026 11:25:54 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
@@ -217,6 +289,14 @@
       <category>Science &amp; Tech</category>
     </item>
     <item>
+      <title>ফোনের স্টোরেজ বাঁচানোর সহজ হোয়াটসঅ্যাপ ট্রিকস</title>
+      <link>https://sarabangla.net/feature/post-1208159/</link>
+      <description>Sarabangla · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://sarabangla.net/feature/post-1208159/</guid>
+      <pubDate>Sun, 11 Oct 2026 11:08:36 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
       <title>জন্মদিন না ভুলতে ফিচার আনছে হোয়াটসঅ্যাপ</title>
       <link>https://www.jugantor.com/tech/1167453</link>
       <description>Jugantor · Science &amp; Tech</description>
@@ -225,51 +305,27 @@
       <category>Science &amp; Tech</category>
     </item>
     <item>
+      <title>কায়দা করে বাঁচার জন্য আ.লীগ-ছাত্রলীগ এখন জামায়াত হয়ে যাচ্ছে: রাশেদ খাঁন</title>
+      <link>https://rtvonline.com/social-media/408910</link>
+      <description>RTV Online · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://rtvonline.com/social-media/408910</guid>
+      <pubDate>Sun, 11 Oct 2026 11:01:00 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>বিশ্বে পারসোনাল কম্পিউটারের সরবরাহ কমেছে ২০ শতাংশ</title>
+      <link>https://www.prothomalo.com/technology/j455f4g0kw</link>
+      <description>Prothom Alo · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/technology/j455f4g0kw</guid>
+      <pubDate>Sun, 11 Oct 2026 10:55:53 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
       <title>দুবাইয়ে চালু হলো চালকবিহীন পড</title>
       <link>https://barta24.com/details/tech/342443</link>
       <description>Barta24 · Science &amp; Tech</description>
       <guid isPermaLink="true">https://barta24.com/details/tech/342443</guid>
       <pubDate>Sun, 11 Oct 2026 10:49:30 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>ভুলবেন না জন্মদিন, এমন ফিচার আনছে হোয়াটসঅ্যাপ</title>
-      <link>https://www.ntvbd.com/tech/news-1817613</link>
-      <description>NTV · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://www.ntvbd.com/tech/news-1817613</guid>
-      <pubDate>Sun, 11 Oct 2026 10:37:05 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>ল্যাপটপের ব্যাটারি দ্রুত শেষ হচ্ছে? চারটি উপায়ে বাড়ান ব্যাকআপ</title>
-      <link>https://www.ntvbd.com/tech/news-1817589</link>
-      <description>NTV · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://www.ntvbd.com/tech/news-1817589</guid>
-      <pubDate>Sun, 11 Oct 2026 10:37:05 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>ড্রোন হামলায় রাশিয়ার ইয়ানডেক্সের ডেটা সেন্টার অচল, এআই সেবা বন্ধ</title>
-      <link>https://bangla.bdnews24.com/tech/zivktbrv8i</link>
-      <description>bdnews24 Bangla · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/zivktbrv8i</guid>
-      <pubDate>Sun, 11 Oct 2026 10:36:59 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>খুনের মামলায় পুলিশকে ভুয়া তথ্য দিয়েছে অ্যানথ্রপিকের এআই</title>
-      <link>https://bangla.bdnews24.com/tech/ufum1b0bmx</link>
-      <description>bdnews24 Bangla · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/ufum1b0bmx</guid>
-      <pubDate>Sun, 11 Oct 2026 10:36:59 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>OpenAI projects $70 billion annualised revenue by year-end: report</title>
-      <link>https://www.thedailystar.net/news/technology/news/openai-projects-70-billion-annualised-revenue-year-end-report-4295911</link>
-      <description>The Daily Star · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://www.thedailystar.net/news/technology/news/openai-projects-70-billion-annualised-revenue-year-end-report-4295911</guid>
-      <pubDate>Sun, 11 Oct 2026 10:36:55 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
@@ -286,6 +342,22 @@
       <description>Jugantor · Science &amp; Tech</description>
       <guid isPermaLink="true">https://www.jugantor.com/tech/1167429</guid>
       <pubDate>Sun, 11 Oct 2026 10:20:04 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>ড্রোন হামলায় রাশিয়ার ইয়ানডেক্সের ডেটা সেন্টার অচল, এআই সেবা বন্ধ</title>
+      <link>https://bangla.bdnews24.com/tech/zivktbrv8i</link>
+      <description>bdnews24 Bangla · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/zivktbrv8i</guid>
+      <pubDate>Sun, 11 Oct 2026 10:15:36 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
+    <item>
+      <title>Asus sees strong potential in Bangladesh as AI reshapes the PC market: Rex Lee</title>
+      <link>https://www.thedailystar.net/news/technology/news/asus-sees-strong-potential-bangladesh-ai-reshapes-the-pc-market-rex-lee-4293766</link>
+      <description>The Daily Star · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.thedailystar.net/news/technology/news/asus-sees-strong-potential-bangladesh-ai-reshapes-the-pc-market-rex-lee-4293766</guid>
+      <pubDate>Sun, 11 Oct 2026 10:14:39 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
@@ -321,91 +393,19 @@
       <category>Science &amp; Tech</category>
     </item>
     <item>
-      <title>স্টারলিংকের মোবাইল সেবা ব্যবহারে খরচ কত?</title>
-      <link>https://www.jugantor.com/tech/1167409</link>
-      <description>Jugantor · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://www.jugantor.com/tech/1167409</guid>
-      <pubDate>Sun, 11 Oct 2026 09:03:00 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>স্টারলিংকের মোবাইল সেবা সংযোগের আগে যেসব বিষয় জানা জরুরি</title>
-      <link>https://www.jugantor.com/tech/1167408</link>
-      <description>Jugantor · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://www.jugantor.com/tech/1167408</guid>
-      <pubDate>Sun, 11 Oct 2026 09:00:46 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>মোবাইলে স্টারলিংক সেবা যেসব কাজে ব্যবহার করা যাবে</title>
-      <link>https://www.jugantor.com/tech/1167406</link>
-      <description>Jugantor · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://www.jugantor.com/tech/1167406</guid>
-      <pubDate>Sun, 11 Oct 2026 08:57:59 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>পিক্সেল ওয়াচে ‘সেইফটি সিগনাল’ ফিচার বন্ধ করছে গুগল</title>
-      <link>https://bangla.bdnews24.com/tech/mm5edmctq1</link>
-      <description>bdnews24 Bangla · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/mm5edmctq1</guid>
-      <pubDate>Sun, 11 Oct 2026 07:35:05 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>বাংলাদেশে আইফোন ১৮ সিরিজ উন্মোচন করল গ্যাজেট অ্যান্ড গিয়ার</title>
-      <link>https://barta24.com/details/tech/342390</link>
-      <description>Barta24 · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://barta24.com/details/tech/342390</guid>
-      <pubDate>Sun, 11 Oct 2026 07:22:58 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>তুরস্কে ১৫ বছরের কম বয়সিদের সামাজিক যোগাযোগমাধ্যম ব্যবহারে নিষেধাজ্ঞা</title>
-      <link>https://www.dailyamardesh.com/feature/information-technology/amd97rwe87ijv</link>
-      <description>Amar Desh · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://www.dailyamardesh.com/feature/information-technology/amd97rwe87ijv</guid>
-      <pubDate>Sun, 11 Oct 2026 07:03:48 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>Anthropic’s Claude AI submits false tip on Philadelphia murder case</title>
-      <link>https://unb.com.bd/category/Tech/anthropics-claude-ai-submits-false-tip-on-philadelphia-murder-case/197550</link>
-      <description>UNB · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://unb.com.bd/category/Tech/anthropics-claude-ai-submits-false-tip-on-philadelphia-murder-case/197550</guid>
-      <pubDate>Sun, 11 Oct 2026 06:02:45 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>China sends new group of internet satellites into orbit</title>
-      <link>https://unb.com.bd/category/Science/china-sends-new-group-of-internet-satellites-into-orbit/197553</link>
-      <description>UNB · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://unb.com.bd/category/Science/china-sends-new-group-of-internet-satellites-into-orbit/197553</guid>
-      <pubDate>Sun, 11 Oct 2026 06:02:45 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>ডিজিটাল আর্থিক সেবার ভবিষ্যৎ নিয়ে বাংলাদেশ ফিনটেক সামিট</title>
-      <link>https://www.ntvbd.com/tech/news-1817401</link>
+      <title>ভুলবেন না জন্মদিন, এমন ফিচার আনছে হোয়াটসঅ্যাপ</title>
+      <link>https://www.ntvbd.com/tech/news-1817613</link>
       <description>NTV · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://www.ntvbd.com/tech/news-1817401</guid>
-      <pubDate>Sun, 11 Oct 2026 06:02:41 GMT</pubDate>
+      <guid isPermaLink="true">https://www.ntvbd.com/tech/news-1817613</guid>
+      <pubDate>Sun, 11 Oct 2026 09:45:50 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
     <item>
-      <title>Scientists turn lead into gold, but by accident</title>
-      <link>https://bdnews24.com/science/rv0bqxd0d5</link>
-      <description>bdnews24 English · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bdnews24.com/science/rv0bqxd0d5</guid>
-      <pubDate>Sun, 11 Oct 2026 06:02:35 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>Gene therapy helps blind patients see again: trial</title>
-      <link>https://bdnews24.com/science/8d0zrowac8</link>
-      <description>bdnews24 English · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://bdnews24.com/science/8d0zrowac8</guid>
-      <pubDate>Sun, 11 Oct 2026 06:02:35 GMT</pubDate>
+      <title>OpenAI projects $70 billion annualised revenue by year-end: report</title>
+      <link>https://www.thedailystar.net/news/technology/news/openai-projects-70-billion-annualised-revenue-year-end-report-4295911</link>
+      <description>The Daily Star · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.thedailystar.net/news/technology/news/openai-projects-70-billion-annualised-revenue-year-end-report-4295911</guid>
+      <pubDate>Sun, 11 Oct 2026 09:45:46 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
   </channel>
