@@ -1,4 +1,3 @@
-import { SEARCH_TERMS } from "./search-terms";
 import { stem } from "./stories";
 
 /**
@@ -54,16 +53,37 @@ function forms(word: string): string[] {
   return [word, once, stem(once)];
 }
 
-// search-terms.ts, read once: every way of writing each group, as lists of words.
-const GROUPS: string[][][] = SEARCH_TERMS.map((group) => group.map(words));
+/** One way of writing a group's meaning, as words, with the forms each word is known by. */
+interface Phrase {
+  group: string[][];
+  words: string[];
+  known: string[][];
+}
+
+// The word list (search-terms.ts): every way of writing each group, as lists of words, indexed by the forms
+// of each phrase's first word so a query word finds its phrases at once. Empty until installSearchTerms:
+// the page loads the list only once someone searches (see useSearch), and searches the words as typed until then.
+const BY_FIRST = new Map<string, Phrase[]>();
+
+/** Indexes the word list for compileSearch; once is enough. */
+export function installSearchTerms(terms: string[][]): void {
+  if (BY_FIRST.size) return;
+  for (const group of terms.map((g) => g.map(words))) {
+    for (const w of group) {
+      const phrase: Phrase = { group, words: w, known: w.map((x) => [x, stem(x)]) };
+      for (const key of new Set(phrase.known[0])) BY_FIRST.set(key, [...(BY_FIRST.get(key) ?? []), phrase]);
+    }
+  }
+}
+
+export function hasSearchTerms(): boolean {
+  return BY_FIRST.size > 0;
+}
 
 /** Whether the query's words from `at` start with `phrase` (each word in any of its forms). */
-function startsWith(query: string[], at: number, phrase: string[]): boolean {
-  if (at + phrase.length > query.length) return false;
-  return phrase.every((w, i) => {
-    const known = [w, stem(w)];
-    return forms(query[at + i]).some((f) => known.includes(f));
-  });
+function startsWith(query: string[][], at: number, phrase: Phrase): boolean {
+  if (at + phrase.words.length > query.length) return false;
+  return phrase.known.every((known, i) => query[at + i].some((f) => known.includes(f)));
 }
 
 /**
@@ -114,11 +134,24 @@ function wordPattern(word: string, loose: boolean): string {
  * plain (stemming "বৃষ্টি" would cut off its "টি"), and must start a word, so "train" → "রেলওয়ে" can't bring in
  * anything unexpected; an English one must also end it.
  */
+/**
+ * The endings a Bangla word takes in headlines: case, plural, emphasis ("ঢাকায়", "পুলিশের", "শিশুদের",
+ * "সরকারও"). A word from search-terms.ts matches only with one of these, so "আসাম" doesn't find "আসামি"
+ * (accused) and "ভূমি" doesn't find "ভূমিকম্প". Compounds worth finding are listed in their group instead.
+ */
+// prettier-ignore
+const BN_ENDINGS = [
+  "র", "ের", "এর", "ে", "য়", "তে", "কে", "দের", "দেরকে", "রা", "েরা", "য়ের", "য়ে", "টি", "টির", "টা", "গুলো",
+  "গুলোর", "গুলোতে", "সহ", "ই", "ও", "েই", "েও", "রই", "রও", "তেই", "তেও", "কেই", "কেও", "য়ই", "য়ও", "দেরও",
+].map((e) => wordPattern(e.normalize("NFC"), false)).join("|");
+
 function alternative(phrase: string[], typed: boolean): Alternative {
   const body = phrase.map((w) => wordPattern(typed ? stem(w) : w, typed)).join(`${NOT_WORD}+`);
   const before = typed && BANGLA.test(phrase[0]) ? "()" : `(^|${NOT_WORD})`;
-  // An English equivalent is a whole word, give or take an ending: "flood" finds "floods", not "floodlit".
-  const after = !typed && !BANGLA.test(phrase[phrase.length - 1]) ? `(?:s|es|ed|ing|${NOT_WORD}|$)` : "";
+  // An equivalent is a whole word, give or take an ending: "flood" finds "floods", not "floodlit"; "বন্যা"
+  // finds "বন্যায়", not a longer word. An English ending may double a consonant ("banned").
+  const ending = BANGLA.test(phrase[phrase.length - 1]) ? BN_ENDINGS : "s|es|e?d|[a-z]?ed|[a-z]?ing";
+  const after = typed ? "" : `(?:${ending})?(?=${NOT_WORD}|$)`;
   const source = `${before}(${body})${after}`;
   return { test: new RegExp(source, "iu"), all: new RegExp(source, "giu") };
 }
@@ -126,14 +159,15 @@ function alternative(phrase: string[], typed: boolean): Alternative {
 /** The query as a Search, or null when it has nothing to search for. */
 export function compileSearch(query: string): Search | null {
   const typed = words(query.slice(0, 200));
+  const typedForms = typed.map(forms);
   const terms: { alternatives: Alternative[]; stopword: boolean }[] = [];
   for (let at = 0; at < typed.length;) {
     // The longest group phrase the query has here, if any.
     let best: { group: string[][]; length: number } | undefined;
-    for (const group of GROUPS) {
-      for (const phrase of group) {
-        if (phrase.length > (best?.length ?? 0) && startsWith(typed, at, phrase))
-          best = { group, length: phrase.length };
+    for (const f of new Set(typedForms[at])) {
+      for (const phrase of BY_FIRST.get(f) ?? []) {
+        if (phrase.words.length > (best?.length ?? 0) && startsWith(typedForms, at, phrase))
+          best = { group: phrase.group, length: phrase.words.length };
       }
     }
     if (best) {

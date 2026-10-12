@@ -25,7 +25,7 @@ import { forBoard, mergeNews } from "../src/lib/news";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
 import { articleUrl, linkKey, SHARE_TARGETS, sharedVideoId, sharePath, videoSharePath } from "../src/lib/share";
 import { byDay, keptDates, mergeDay } from "../src/lib/archive";
-import { compileSearch } from "../src/lib/search";
+import { compileSearch, installSearchTerms } from "../src/lib/search";
 import { SEARCH_TERMS } from "../src/lib/search-terms";
 import { findStories, keywords } from "../src/lib/stories";
 import type { NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
@@ -193,6 +193,8 @@ function item(sourceId: string, title: string, extra: Partial<NewsItem> = {}): N
   };
 }
 
+installSearchTerms(SEARCH_TERMS);
+
 test("search: every word, in any order, in other forms", () => {
   const s = compileSearch("নির্বাচনে ইসি")!;
   assert.ok(s.matches("ইসির সঙ্গে নির্বাচনের প্রস্তুতি নিয়ে বৈঠক"));
@@ -209,9 +211,18 @@ test("search: Bangla and English equivalents, and other spellings", () => {
   assert.ok(compileSearch("chittagong")!.matches("Chattogram port busy"));
   assert.ok(compileSearch("awami league")!.matches("আওয়ামী লীগ নেত্রী গ্রেপ্তার"));
   assert.ok(compileSearch("dhaka rain")!.matches("ঢাকায় মেঘলা আকাশ, সঙ্গে হালকা বৃষ্টির সম্ভাবনা"));
-  // Each word in a group finds every other: no stemming cuts into them, and no word belongs to two groups.
+  // Each word in a group finds every other: no stemming cuts into them.
   for (const group of SEARCH_TERMS) {
     for (const a of group) for (const b of group) assert.ok(compileSearch(a)!.matches(b), `${a} → ${b}`);
+  }
+  // No word belongs to two groups, or a search for it would only ever find one group's.
+  const owner = new Map<string, string>();
+  for (const group of SEARCH_TERMS) {
+    for (const word of group) {
+      const key = word.normalize("NFC").toLowerCase();
+      assert.ok(!owner.has(key), `"${word}" is in "${owner.get(key)}" and "${group[0]}"`);
+      owner.set(key, group[0]);
+    }
   }
 });
 

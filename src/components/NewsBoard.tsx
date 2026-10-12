@@ -22,7 +22,6 @@ import { dedupeByLink } from "@/lib/fetchers/utils";
 import { sectionIntro, VIDEOS_INTRO } from "@/lib/intros";
 import { boardHeading, categoryPath, categoryTitle, siteTitle, VIDEOS_PATH, videosTitle } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
-import { compileSearch } from "@/lib/search";
 import { countSince, findStories, itemTime, newestFirst } from "@/lib/stories";
 import { sourceName } from "@/lib/bn-names";
 import { type Locale, localePath } from "@/lib/i18n";
@@ -41,6 +40,7 @@ import { PageNotes } from "./PageNotes";
 import { setNewsDensity, useNewsDensity } from "./news-density";
 import { SearchProvider } from "./Highlight";
 import { OlderResults } from "./OlderResults";
+import { useSearch } from "./use-search";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinPicker, PinsButton } from "./PinPicker";
 import { useSaved, useSavedVideos } from "./saved";
@@ -579,7 +579,7 @@ export function NewsBoard({
 
   // The search filters behind the typing: the box keeps up while the results catch up.
   const searchQuery = useDeferredValue(query);
-  const search = useMemo(() => compileSearch(searchQuery), [searchQuery]);
+  const search = useSearch(searchQuery);
   const filtering = !!search || !!category || onlyNew;
   // A search runs on what the board has. Until every headline is here, it may not have found everything
   // yet, so the board says it is still searching rather than "Nothing found". A failed load ends the wait.
