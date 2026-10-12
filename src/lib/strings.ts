@@ -70,6 +70,7 @@ const en = {
   unavailable: "unavailable",
   couldNotLoad: (error: string) => `Could not load news: ${error}`,
   nothingFound: "Nothing found",
+  searchingAll: "Searching all headlines…",
   tryAnother: "Try another word or category.",
   topEmpty: {
     source: (name: string) => `Nothing from ${name} is covered by other outlets right now.`,
@@ -294,6 +295,7 @@ const bn: Strings = {
   unavailable: "পাওয়া যাচ্ছে না",
   couldNotLoad: (error) => `খবর লোড করা যায়নি: ${error}`,
   nothingFound: "কিছু পাওয়া যায়নি",
+  searchingAll: "সব শিরোনামে খোঁজা হচ্ছে…",
   tryAnother: "অন্য শব্দ বা বিভাগ দিয়ে চেষ্টা করুন।",
   topEmpty: {
     source: (name) => `${possessive(name)} কোনো খবর এই মুহূর্তে অন্য কোনো মাধ্যমে নেই।`,
