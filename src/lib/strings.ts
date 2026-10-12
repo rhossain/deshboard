@@ -233,6 +233,66 @@ const en = {
     privacy: "Privacy",
     terms: "Terms",
   },
+
+  // The site tour (see Tour.tsx)
+  tour: {
+    label: "Site tour",
+    footer: "Site tour",
+    invite: "New here? Take a one-minute tour of what Bartaboard can do.",
+    start: "Take the tour",
+    later: "Not now",
+    next: "Next",
+    back: "Back",
+    skip: "Skip",
+    finish: "Got it",
+    step: (n: string, total: string) => `${n} of ${total}`,
+    steps: {
+      welcome: {
+        title: "Welcome to Bartaboard",
+        body: "Every Bangladeshi newspaper and TV news channel on one page, kept up to date all day. Here’s a quick look at what you can do.",
+      },
+      sections: {
+        title: "News, Videos and Saved",
+        body: "News has the headlines from every paper. Videos has the latest from TV news channels on YouTube. Saved keeps what you’ve set aside to read or watch later.",
+      },
+      views: {
+        title: "Three ways to read",
+        body: "Newsstand shows each paper on a card of its own. Top stories groups the same story across outlets, so you see what everyone is covering. Latest is one timeline, newest first.",
+      },
+      search: {
+        title: "Search everything",
+        body: "Type in Bangla, English or Banglish: “dhaka”, “ঢাকা” and “Dhaka” all find the same headlines. Searches reach back through the last 30 days.",
+      },
+      categories: {
+        title: "Pick a section",
+        body: "Politics, sports, business, entertainment and more. The numbers show how many headlines each one has right now.",
+      },
+      pins: {
+        title: "Choose your own sources",
+        body: "Pin your favourite news sites and they come first, in your order. You can also tap the ☆ on any paper’s card. In Videos, “My channels” does the same for TV channels.",
+      },
+      save: {
+        title: "Save for later",
+        body: "The ⋮ beside every headline and video lets you save or share it. Saved items wait for you under Saved, kept on this device.",
+      },
+      filters: {
+        title: "Filters",
+        body: "Show only Bangla or English papers, one source, newest papers first, or a compact layout that fits more headlines on screen.",
+      },
+      refresh: {
+        title: "Always up to date",
+        body: "New headlines arrive on their own; Refresh checks right now. When you come back, a gold “new” badge counts what arrived since your last visit. Tap it to see only those.",
+      },
+      language: {
+        title: "Your language, your look",
+        body: "Switch the whole site between English and বাংলা here. The button beside it changes between light, dark and automatic themes.",
+      },
+      done: {
+        title: "You’re all set",
+        body: "You can take this tour again any time from “Site tour” at the foot of the page.",
+      },
+    },
+  },
 };
 
 export type Strings = typeof en;
@@ -454,6 +514,65 @@ const bn: Strings = {
     health: "উৎসের অবস্থা",
     privacy: "গোপনীয়তা",
     terms: "শর্তাবলি",
+  },
+
+  tour: {
+    label: "সাইট পরিচিতি",
+    footer: "সাইট পরিচিতি",
+    invite: "প্রথমবার এলেন? এক মিনিটে দেখে নিন বার্তাবোর্ডে কী কী করা যায়।",
+    start: "ঘুরে দেখুন",
+    later: "এখন না",
+    next: "পরের",
+    back: "আগের",
+    skip: "বাদ দিন",
+    finish: "বুঝেছি",
+    step: (n, total) => `${total}টির মধ্যে ${n}`,
+    steps: {
+      welcome: {
+        title: "বার্তাবোর্ডে স্বাগতম",
+        body: "বাংলাদেশের সব পত্রিকা আর টিভি সংবাদ চ্যানেল এক পাতায়, সারাদিন হালনাগাদ। চলুন এক নজরে দেখে নিই কী কী করা যায়।",
+      },
+      sections: {
+        title: "খবর, ভিডিও আর সংরক্ষিত",
+        body: "খবর-এ সব পত্রিকার শিরোনাম। ভিডিও-তে ইউটিউবে টিভি সংবাদ চ্যানেলগুলোর সর্বশেষ ভিডিও। সংরক্ষিত-তে থাকে পরে পড়া বা দেখার জন্য রেখে দেওয়া সবকিছু।",
+      },
+      views: {
+        title: "পড়ার তিন ধরন",
+        body: "পত্রিকা: প্রতিটি পত্রিকা আলাদা কার্ডে। শীর্ষ খবর: একই খবর কোন কোন পত্রিকা ছেপেছে, এক জায়গায়। সর্বশেষ: সব শিরোনাম একটি তালিকায়, নতুনগুলো আগে।",
+      },
+      search: {
+        title: "সব খুঁজুন",
+        body: "বাংলা, ইংরেজি বা বাংলিশে লিখুন: “ঢাকা”, “Dhaka” বা “dhaka” লিখলে একই শিরোনাম পাবেন। গত ৩০ দিনের শিরোনামও খোঁজা যায়।",
+      },
+      categories: {
+        title: "বিভাগ বেছে নিন",
+        body: "রাজনীতি, খেলা, বাণিজ্য, বিনোদন ও আরও অনেক। সংখ্যাগুলো বলে এই মুহূর্তে কোন বিভাগে কতটি শিরোনাম আছে।",
+      },
+      pins: {
+        title: "নিজের পছন্দের উৎস বেছে নিন",
+        body: "প্রিয় সংবাদ সাইটগুলো পিন করুন, সেগুলো আপনার সাজানো ক্রমে সবার আগে আসবে। যেকোনো পত্রিকার কার্ডের ☆ চেপেও পিন করা যায়। ভিডিও-তে “আমার চ্যানেল” দিয়ে টিভি চ্যানেলও একইভাবে বেছে নিন।",
+      },
+      save: {
+        title: "পরে পড়ার জন্য রাখুন",
+        body: "প্রতিটি শিরোনাম ও ভিডিওর পাশের ⋮ চেপে সংরক্ষণ বা শেয়ার করুন। সংরক্ষিত সবকিছু এই ডিভাইসে, সংরক্ষিত বিভাগে থাকবে।",
+      },
+      filters: {
+        title: "ফিল্টার",
+        body: "শুধু বাংলা বা ইংরেজি পত্রিকা, একটি নির্দিষ্ট উৎস, নতুন শিরোনামের পত্রিকা আগে, কিংবা ঘন বিন্যাসে একসাথে আরও বেশি শিরোনাম দেখুন।",
+      },
+      refresh: {
+        title: "সবসময় হালনাগাদ",
+        body: "নতুন শিরোনাম নিজে থেকেই আসে; রিফ্রেশ চাপলে এখনই খোঁজা হয়। আবার এলে সোনালি “নতুন” চিহ্ন জানাবে শেষবারের পর কতগুলো এসেছে। চাপলে শুধু সেগুলোই দেখবেন।",
+      },
+      language: {
+        title: "আপনার ভাষা, আপনার পছন্দের রং",
+        body: "এখানে পুরো সাইট বাংলা ও English-এর মধ্যে বদলান। পাশের বোতামে লাইট, ডার্ক বা স্বয়ংক্রিয় থিম বেছে নিন।",
+      },
+      done: {
+        title: "সব প্রস্তুত",
+        body: "পাতার নিচের “সাইট পরিচিতি” থেকে যেকোনো সময় আবার ঘুরে দেখতে পারবেন।",
+      },
+    },
   },
 };
 
