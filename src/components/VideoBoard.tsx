@@ -9,7 +9,7 @@ import type { Video, VideoFeed } from "@/lib/types";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLocale, useStrings } from "./locale";
 import { MAX_PINS, pinRanks, togglePin, usePinnedChannels } from "./pinned";
-import { PinPicker } from "./PinPicker";
+import { PinPicker, PinsButton } from "./PinPicker";
 import { AT_TOP_PX, PUBLISH_LAG_MS, RETRY_MS, UPDATE_EVERY_MS } from "./schedule";
 import { useSavedVideos } from "./saved";
 import { formatCount } from "./time";
@@ -263,23 +263,7 @@ export default function VideoBoard({
 
       {feed && (
         <div className="mb-4 flex justify-end sm:mb-5">
-          <button
-            type="button"
-            onClick={() => setPinsOpen(true)}
-            className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition active:scale-[0.97] ${
-              pins.ids.length > 0
-                ? "border-accent/40 bg-accent-soft text-accent"
-                : "border-line bg-surface text-foreground hover:bg-surface-2"
-            }`}
-          >
-            <StarIcon filled={pins.ids.length > 0} className="h-4 w-4" />
-            {t.myChannels}
-            {pins.ids.length > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold tabular-nums text-accent-ink">
-                {formatCount(pins.ids.length, locale)}
-              </span>
-            )}
-          </button>
+          <PinsButton label={t.myChannels} count={pins.ids.length} onClick={() => setPinsOpen(true)} />
         </div>
       )}
 
