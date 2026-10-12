@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/opinion/</link>
     <description>Latest opinion news from Bangladesh: মতামত headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 11:16:23 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 11:30:53 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/opinion/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>স্বীকৃতির আনন্দ ও আত্মকথন</title>
+      <link>https://www.daily-bangladesh.com/opinion/537995</link>
+      <description>Daily Bangladesh · Opinion</description>
+      <guid isPermaLink="true">https://www.daily-bangladesh.com/opinion/537995</guid>
+      <pubDate>Mon, 12 Oct 2026 11:23:00 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
     <item>
       <title>মদ, নাচানাচি ও রাষ্ট্রের নৈতিক পাহারাদারি</title>
       <link>https://bangla.bdnews24.com/opinion/sn9oocxdmu</link>
@@ -398,14 +406,6 @@
       <description>Ajker Patrika · Opinion</description>
       <guid isPermaLink="true">https://www.ajkerpatrika.com/op-ed/ajptuogi4j1ga</guid>
       <pubDate>Sun, 11 Oct 2026 17:44:05 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>সুবিধাভোগী ঠিকভাবে চিহ্নিত করুন</title>
-      <link>https://dailynayadiganta.com/post/editorial/1060572</link>
-      <description>Naya Diganta · Opinion</description>
-      <guid isPermaLink="true">https://dailynayadiganta.com/post/editorial/1060572</guid>
-      <pubDate>Sun, 11 Oct 2026 17:15:49 GMT</pubDate>
       <category>Opinion</category>
     </item>
   </channel>
