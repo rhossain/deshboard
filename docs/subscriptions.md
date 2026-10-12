@@ -3,6 +3,9 @@
 A proposal, not a build. It covers what Bartaboard could charge for, and how keyword alerts and accounts would fit into
 the current setup: a static site on Hostinger, rebuilt every 15 minutes by GitHub Actions, with no backend.
 
+Ads are the other half of paying for Bartaboard: see [ads.md](ads.md). Readers are already told that both are coming,
+on the About, Privacy and Terms pages.
+
 ## 1. Ground rules
 
 1. **Don't charge for the headlines.** They belong to the publishers, who give them away. Charge for what Bartaboard

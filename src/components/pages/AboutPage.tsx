@@ -80,9 +80,24 @@ function English() {
           </a>
           ); Bartaboard builds on it with live headlines, top stories and TV news videos.
         </li>
+      </ul>
+
+      <h2>Free, with ads and paid plans to come</h2>
+      <p>Reading Bartaboard is free, and it will stay free.</p>
+      <ul>
         <li>
-          There are no ads, no analytics and no tracking cookies. Your saved stories, pinned sources and settings stay in
-          your own browser (see the <Link href="/privacy">privacy policy</Link>).
+          <strong>Today</strong> there are no ads, no analytics and no tracking cookies. Your saved stories, pinned
+          sources and settings stay in your own browser (see the <Link href="/privacy">privacy policy</Link>).
+        </li>
+        <li>
+          <strong>Ads.</strong> To pay for running Bartaboard, we plan to show ads. They will be marked as ads and kept
+          apart from the headlines, and before the first one appears the privacy policy will say who shows them and what
+          they collect.
+        </li>
+        <li>
+          <strong>Paid plans.</strong> We also plan optional paid plans for extras such as keyword alerts. Headlines,
+          Videos, saving and pinning stay free, with no account needed. A plan&apos;s price, what it includes and how
+          refunds work are shown before you pay (see the <Link href="/terms">terms</Link>).
         </li>
       </ul>
 
@@ -140,9 +155,24 @@ function Bangla() {
           </a>
           ) থেকে; বার্তাবোর্ড তার সঙ্গে যোগ করেছে সরাসরি হালনাগাদ শিরোনাম, শীর্ষ খবর আর টিভি সংবাদ ভিডিও।
         </li>
+      </ul>
+
+      <h2>বিনা মূল্যে; সামনে বিজ্ঞাপন ও পেইড প্ল্যান</h2>
+      <p>বার্তাবোর্ড পড়া বিনা মূল্যের, আর বিনা মূল্যেরই থাকবে।</p>
+      <ul>
         <li>
-          কোনো বিজ্ঞাপন, অ্যানালিটিক্স বা ট্র্যাকিং কুকি নেই। আপনার সংরক্ষিত খবর, পিন করা উৎস আর সেটিংস আপনার নিজের
-          ব্রাউজারেই থাকে (দেখুন <Link href={localePath("/privacy", "bn")}>গোপনীয়তা নীতি</Link>)।
+          <strong>এখন</strong> কোনো বিজ্ঞাপন, অ্যানালিটিক্স বা ট্র্যাকিং কুকি নেই। আপনার সংরক্ষিত খবর, পিন করা উৎস আর
+          সেটিংস আপনার নিজের ব্রাউজারেই থাকে (দেখুন <Link href={localePath("/privacy", "bn")}>গোপনীয়তা নীতি</Link>)।
+        </li>
+        <li>
+          <strong>বিজ্ঞাপন।</strong> বার্তাবোর্ড চালানোর খরচ মেটাতে আমরা বিজ্ঞাপন দেখানোর পরিকল্পনা করছি। বিজ্ঞাপনে
+          &ldquo;বিজ্ঞাপন&rdquo; লেখা থাকবে, সেগুলো শিরোনাম থেকে আলাদা থাকবে, আর প্রথম বিজ্ঞাপন আসার আগেই গোপনীয়তা নীতিতে
+          জানানো হবে কারা সেগুলো দেখায় ও কী তথ্য নেয়।
+        </li>
+        <li>
+          <strong>পেইড প্ল্যান।</strong> কিওয়ার্ড অ্যালার্টের মতো বাড়তি সুবিধার জন্য ঐচ্ছিক পেইড প্ল্যান আনারও পরিকল্পনা আছে।
+          শিরোনাম, ভিডিও, সংরক্ষণ আর পিন করা বিনা মূল্যেই থাকবে, অ্যাকাউন্ট ছাড়াই। কোনো প্ল্যানের দাম, তাতে কী থাকছে আর
+          ফেরতের নিয়ম টাকা দেওয়ার আগেই দেখানো হবে (দেখুন <Link href={localePath("/terms", "bn")}>শর্তাবলি</Link>)।
         </li>
       </ul>
 
