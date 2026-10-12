@@ -5,7 +5,7 @@
     <link>https://bartaboard.com/news/lifestyle/</link>
     <description>Latest lifestyle news from Bangladesh: জীবনযাপন headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 04:01:01 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 04:15:48 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/lifestyle/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
@@ -22,6 +22,14 @@
       <description>Ajker Patrika · Lifestyle</description>
       <guid isPermaLink="true">https://www.ajkerpatrika.com/lifestyle/ajpx8ryspgspn</guid>
       <pubDate>Mon, 12 Oct 2026 04:00:06 GMT</pubDate>
+      <category>Lifestyle</category>
+    </item>
+    <item>
+      <title>জেনে নিন প্রাপ্তবয়স্কদের জন্য গুরুত্বপূর্ণ কিছু টিকার নাম</title>
+      <link>https://www.prothomalo.com/lifestyle/health/au9nb042ki</link>
+      <description>Prothom Alo · Lifestyle</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/lifestyle/health/au9nb042ki</guid>
+      <pubDate>Mon, 12 Oct 2026 04:00:00 GMT</pubDate>
       <category>Lifestyle</category>
     </item>
     <item>
@@ -398,14 +406,6 @@
       <description>bdnews24 Bangla · Lifestyle</description>
       <guid isPermaLink="true">https://bangla.bdnews24.com/lifestyle/1v9ko0eptw</guid>
       <pubDate>Sun, 11 Oct 2026 13:15:46 GMT</pubDate>
-      <category>Lifestyle</category>
-    </item>
-    <item>
-      <title>বিমানবন্দরে হাফেজ হিরাকে সংবর্ধনা দেবে ধর্ম মন্ত্রণালয়</title>
-      <link>https://barta24.com/details/islam/342475</link>
-      <description>Barta24 · Lifestyle</description>
-      <guid isPermaLink="true">https://barta24.com/details/islam/342475</guid>
-      <pubDate>Sun, 11 Oct 2026 13:03:46 GMT</pubDate>
       <category>Lifestyle</category>
     </item>
   </channel>
