@@ -25,8 +25,8 @@ function bothLanguages(path: string, entry: Omit<MetadataRoute.Sitemap[number], 
 }
 
 /**
- * The board, each section's page and Videos (they change all day, and each is in English and
- * Bangla), then the sources, about, privacy and terms pages. Each page's date is its newest
+ * The board, each section's page and Videos (they change all day), then the sources, outlet, about,
+ * privacy and terms pages; every one in English and in Bangla. Each page's date is its newest
  * headline's, so a quiet section doesn't claim a change.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -50,22 +50,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     }),
     // The lines from the feeds change with every build; the page itself only when an outlet is added.
-    { url: `${SITE_URL}${SOURCES_PATH}`, lastModified: fetched, changeFrequency: "daily", priority: 0.7 },
+    ...bothLanguages(SOURCES_PATH, { lastModified: fetched, changeFrequency: "daily", priority: 0.7 }),
     // Each outlet's page, dated by its newest headline or video; left out while it has neither (noindex).
     ...OUTLETS.flatMap((o) => {
       const { headlines, videos: own, updated } = outletContent(o, feed, videos);
       if (!headlines.length && !own.length) return [];
-      return [
-        {
-          url: `${SITE_URL}${outletPath(o.id)}`,
-          lastModified: updated ? new Date(updated) : fetched,
-          changeFrequency: "hourly" as const,
-          priority: 0.6,
-        },
-      ];
+      return bothLanguages(outletPath(o.id), {
+        lastModified: updated ? new Date(updated) : fetched,
+        changeFrequency: "hourly",
+        priority: 0.6,
+      });
     }),
-    { url: `${SITE_URL}${ABOUT_PATH}`, lastModified: ABOUT_UPDATED, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${SITE_URL}/privacy/`, lastModified: LEGAL_UPDATED, changeFrequency: "yearly", priority: 0.2 },
-    { url: `${SITE_URL}/terms/`, lastModified: LEGAL_UPDATED, changeFrequency: "yearly", priority: 0.2 },
+    ...bothLanguages(ABOUT_PATH, { lastModified: ABOUT_UPDATED, changeFrequency: "monthly", priority: 0.5 }),
+    ...bothLanguages("/privacy/", { lastModified: LEGAL_UPDATED, changeFrequency: "yearly", priority: 0.2 }),
+    ...bothLanguages("/terms/", { lastModified: LEGAL_UPDATED, changeFrequency: "yearly", priority: 0.2 }),
   ];
 }

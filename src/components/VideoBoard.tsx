@@ -2,6 +2,7 @@
 
 import { Fragment, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, preconnect } from "react-dom";
+import { channelName } from "@/lib/bn-names";
 import { localePath } from "@/lib/i18n";
 import { VIDEOS_PATH } from "@/lib/site";
 import type { Video, VideoFeed } from "@/lib/types";
@@ -138,7 +139,12 @@ export default function VideoBoard({
     };
   }, [newest, refreshQuietly]);
 
-  const names = useMemo(() => new Map(feed?.channels.map((c) => [c.id, c.name])), [feed]);
+  // Channels by their Bangla names on Bangla pages.
+  const locale = useLocale();
+  const names = useMemo(
+    () => new Map(feed?.channels.map((c) => [c.id, channelName(c.id, c.name, locale)])),
+    [feed, locale],
+  );
   // The reader's own channels and their places; empty while "Pinned first" is off.
   const rank = useMemo(() => pinRanks(pins, new Set(names.keys())), [pins, names]);
   const pinnedIds = useMemo(() => new Set(pins.ids), [pins]);
@@ -212,7 +218,6 @@ export default function VideoBoard({
   }, []);
 
   const t = useStrings();
-  const locale = useLocale();
   const videosPath = localePath(VIDEOS_PATH, locale);
   const failed = feed?.channels.filter((c) => !c.ok) ?? [];
   const tabs = feed
@@ -221,7 +226,7 @@ export default function VideoBoard({
         // Pinned channels first in the rail too, in the reader's order.
         ...[...feed.channels]
           .sort((a, b) => (rank.get(a.id) ?? MAX_PINS) - (rank.get(b.id) ?? MAX_PINS))
-          .map((c) => ({ id: c.id, label: c.name, href: videosPath, count: counts.get(c.id) ?? 0 })),
+          .map((c) => ({ id: c.id, label: names.get(c.id)!, href: videosPath, count: counts.get(c.id) ?? 0 })),
       ]
     : [];
 
@@ -346,7 +351,7 @@ export default function VideoBoard({
       <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title={t.myChannels}>
         <PinPicker
           kind="channel"
-          options={(feed?.channels ?? []).map((c) => ({ id: c.id, name: c.name }))}
+          options={(feed?.channels ?? []).map((c) => ({ id: c.id, name: names.get(c.id)! }))}
           pins={pins}
           onChange={updatePins}
         />

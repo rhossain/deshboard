@@ -1,7 +1,8 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { CATEGORIES, type Category } from "./categories";
-import type { DirectoryEntry, DirectoryGroup, Outlet } from "./directory";
+import { type DirectoryEntry, type DirectoryGroup, type Outlet, outletName } from "./directory";
 import { type Locale, languageAlternates, LANG_TAG, localDigits, localePath, OG_LOCALE } from "./i18n";
+import { possessive } from "./bn-names";
 import { faq } from "./intros";
 import { CHANNELS } from "./channels";
 import { ACTIVE_SOURCES } from "./sources";
@@ -104,18 +105,52 @@ export const SOURCES_DESCRIPTION =
   `news sites, ${KIND_COUNT("TV")} TV stations and ${KIND_COUNT("Agency")} agencies, plus ${CHANNELS.length} TV ` +
   "channels on YouTube.";
 
+/** The sources page's title and description in each language (the English ones are the constants above). */
+export function sourcesTitle(locale: Locale = "en"): string {
+  return locale === "bn"
+    ? `সব বাংলা পত্রিকা ও সংবাদ সাইট (${n(ACTIVE_SOURCES.length, locale)}টি) | ${SITE_NAME}`
+    : SOURCES_TITLE;
+}
+
+export function sourcesDescription(locale: Locale = "en"): string {
+  if (locale !== "bn") return SOURCES_DESCRIPTION;
+  return (
+    `${SITE_NAME}-এর সব বাংলা ও ইংরেজি সংবাদ উৎস: ${n(KIND_COUNT("Newspaper"), locale)}টি সংবাদপত্র, ` +
+    `${n(KIND_COUNT("Online"), locale)}টি অনলাইন সংবাদ সাইট, ${n(KIND_COUNT("TV"), locale)}টি টিভি স্টেশন ও ` +
+    `${n(KIND_COUNT("Agency"), locale)}টি সংবাদ সংস্থা, সঙ্গে ইউটিউবে ${n(CHANNELS.length, locale)}টি টিভি চ্যানেল।`
+  );
+}
+
 /** An outlet's own page: a news site's latest headlines, or a channel's latest videos. */
-export function outletTitle(o: Outlet): string {
+export function outletTitle(o: Outlet, locale: Locale = "en"): string {
+  if (locale === "bn") {
+    const name = outletName(o, locale);
+    const whose = possessive(name);
+    return o.source ? `${whose} আজকের সর্বশেষ খবর | ${SITE_NAME}` : `${whose} আজকের সংবাদ ভিডিও | ${SITE_NAME}`;
+  }
   return o.source
     ? `${o.name} Latest News Headlines Today | ${SITE_NAME}`
     : `${o.name} News Today: Latest Videos | ${SITE_NAME}`;
 }
 
-export function outletHeading(o: Outlet): string {
+export function outletHeading(o: Outlet, locale: Locale = "en"): string {
+  if (locale === "bn") {
+    const name = outletName(o, locale);
+    return o.source ? `${possessive(name)} সর্বশেষ খবর` : `${possessive(name)} আজকের সংবাদ ভিডিও`;
+  }
   return o.source ? `${o.name} latest news headlines` : `${o.name} news today: latest videos`;
 }
 
-export function outletDescription(o: Outlet): string {
+export function outletDescription(o: Outlet, locale: Locale = "en"): string {
+  if (locale === "bn") {
+    const name = outletName(o, locale);
+    if (!o.source) {
+      return `ইউটিউবে ${possessive(name)} সর্বশেষ সংবাদ ভিডিও, নতুনগুলো আগে, সঙ্গে লাইভ দেখার লিংক। ${SITE_NAME}-এ প্রতি ১৫ মিনিটে হালনাগাদ।`;
+    }
+    const host = new URL(o.source.homepage).hostname.replace(/^www\./, "");
+    const videos = o.channel ? " ও ভিডিও" : "";
+    return `${possessive(name)} আজকের সর্বশেষ শিরোনাম${videos}, ${SITE_NAME}-এ প্রতি ১৫ মিনিটে হালনাগাদ। প্রতিটি খবর ${host}-এ নিয়ে যায়।`;
+  }
   if (!o.source) {
     return `The latest news videos from ${o.name}'s YouTube channel, newest first, with a link to its live stream. Updated every 15 minutes on ${SITE_NAME}.`;
   }
@@ -130,6 +165,17 @@ export const ABOUT_TITLE = `About ${SITE_NAME}, the Bangladesh News Aggregator`;
 export const ABOUT_DESCRIPTION =
   `${SITE_NAME} puts the latest headlines from ${ACTIVE_SOURCES.length} Bangladeshi news sites and videos from ` +
   `${CHANNELS.length} TV channels on one free board, refreshed every 15 minutes.`;
+
+export function aboutTitle(locale: Locale = "en"): string {
+  return locale === "bn" ? `${SITE_NAME} সম্পর্কে: বাংলাদেশের সব খবর এক জায়গায়` : ABOUT_TITLE;
+}
+
+export function aboutDescription(locale: Locale = "en"): string {
+  return locale === "bn"
+    ? `${SITE_NAME} বাংলাদেশের ${n(ACTIVE_SOURCES.length, locale)}টি সংবাদ সাইটের সর্বশেষ শিরোনাম আর ` +
+        `${n(CHANNELS.length, locale)}টি টিভি চ্যানেলের ভিডিও একটি বিনা মূল্যের বোর্ডে রাখে, প্রতি ১৫ মিনিটে হালনাগাদ।`
+    : ABOUT_DESCRIPTION;
+}
 
 /** The page's visible heading: what it holds, in the words people search for. */
 export function boardHeading(category?: Category | "", videos = false, locale: Locale = "en"): string {
@@ -281,8 +327,8 @@ export function localeAlternates(path: string, locale: Locale): { canonical: str
 }
 
 /** Structured data for the sources page: the outlets, as news organisations. */
-export function sourcesJsonLd(groups: DirectoryGroup[]): string {
-  const url = `${SITE_URL}${SOURCES_PATH}`;
+export function sourcesJsonLd(groups: DirectoryGroup[], locale: Locale = "en"): string {
+  const url = `${SITE_URL}${localePath(SOURCES_PATH, locale)}`;
   const entries = groups.flatMap((g) => g.entries);
   const youtube = (id: string) => `https://www.youtube.com/channel/${id}`;
   return jsonLd({
@@ -291,9 +337,9 @@ export function sourcesJsonLd(groups: DirectoryGroup[]): string {
         "@type": "CollectionPage",
         "@id": url,
         url,
-        name: SOURCES_TITLE,
-        description: SOURCES_DESCRIPTION,
-        inLanguage: ["en", "bn"],
+        name: sourcesTitle(locale),
+        description: sourcesDescription(locale),
+        inLanguage: locale === "bn" ? "bn" : ["en", "bn"],
         isPartOf: { "@id": `${SITE_URL}/#website` },
         mainEntity: {
           "@type": "ItemList",
@@ -313,8 +359,8 @@ export function sourcesJsonLd(groups: DirectoryGroup[]): string {
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
-          { "@type": "ListItem", position: 2, name: "All newspapers", item: url },
+          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}${localePath("/", locale)}` },
+          { "@type": "ListItem", position: 2, name: locale === "bn" ? "সব পত্রিকা" : "All newspapers", item: url },
         ],
       },
     ],
@@ -322,7 +368,7 @@ export function sourcesJsonLd(groups: DirectoryGroup[]): string {
 }
 
 /** Structured data for an outlet's page: about the outlet, under the sources page. */
-export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string): string {
+export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string, locale: Locale = "en"): string {
   const url = `${SITE_URL}${entry.href}`;
   const youtube = entry.youtubeId && `https://www.youtube.com/channel/${entry.youtubeId}`;
   return jsonLd({
@@ -331,14 +377,15 @@ export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string)
         "@type": "CollectionPage",
         "@id": url,
         url,
-        name: outletTitle(o),
-        description: outletDescription(o),
-        inLanguage: o.source?.lang ?? "bn",
+        name: outletTitle(o, locale),
+        description: outletDescription(o, locale),
+        inLanguage: locale === "bn" ? "bn" : (o.source?.lang ?? "bn"),
         dateModified: updated,
         isPartOf: { "@id": `${SITE_URL}/#website` },
         about: {
           "@type": "NewsMediaOrganization",
           name: o.name,
+          ...(locale === "bn" && outletName(o, locale) !== o.name && { alternateName: outletName(o, locale) }),
           url: entry.homepage ?? youtube,
           ...(entry.homepage && youtube && { sameAs: [youtube] }),
         },
@@ -346,9 +393,14 @@ export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string)
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
-          { "@type": "ListItem", position: 2, name: "All newspapers", item: `${SITE_URL}${SOURCES_PATH}` },
-          { "@type": "ListItem", position: 3, name: o.name, item: url },
+          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}${localePath("/", locale)}` },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: locale === "bn" ? "সব পত্রিকা" : "All newspapers",
+            item: `${SITE_URL}${localePath(SOURCES_PATH, locale)}`,
+          },
+          { "@type": "ListItem", position: 3, name: outletName(o, locale), item: url },
         ],
       },
     ],
@@ -356,15 +408,15 @@ export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string)
 }
 
 /** Structured data for the about page: an AboutPage about the organisation behind the site. */
-export function aboutJsonLd(): string {
-  const url = `${SITE_URL}${ABOUT_PATH}`;
+export function aboutJsonLd(locale: Locale = "en"): string {
+  const url = `${SITE_URL}${localePath(ABOUT_PATH, locale)}`;
   return jsonLd({
     "@type": "AboutPage",
     "@id": url,
     url,
-    name: ABOUT_TITLE,
-    description: ABOUT_DESCRIPTION,
-    inLanguage: "en",
+    name: aboutTitle(locale),
+    description: aboutDescription(locale),
+    inLanguage: LANG_TAG[locale],
     isPartOf: { "@id": `${SITE_URL}/#website` },
     about: { "@id": `${SITE_URL}/#organization` },
   });

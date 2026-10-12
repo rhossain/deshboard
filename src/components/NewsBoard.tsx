@@ -23,6 +23,7 @@ import { sectionIntro, VIDEOS_INTRO } from "@/lib/intros";
 import { boardHeading, categoryPath, categoryTitle, siteTitle, VIDEOS_PATH, videosTitle } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { countSince, findStories, itemTime, newestFirst } from "@/lib/stories";
+import { sourceName } from "@/lib/bn-names";
 import { type Locale, localePath } from "@/lib/i18n";
 import { STRINGS, type Strings } from "@/lib/strings";
 import type { Theme } from "@/lib/theme";
@@ -34,7 +35,7 @@ import { LocaleProvider, useStrings } from "./locale";
 import { byNewest, LatestList } from "./LatestList";
 import { Avatar, useAccount } from "./account";
 import { BartaboardLogo } from "./BartaboardLogo";
-import { InspiredBy, SITE_LINKS } from "./InfoPage";
+import { InspiredBy, SITE_LINKS, siteLinkHref } from "./InfoPage";
 import { PageNotes } from "./PageNotes";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinButton, PinPicker } from "./PinPicker";
@@ -262,7 +263,7 @@ export function NewsBoardFromUrl({
  * `locale` is the interface language: Bangla on /bn/ pages (see src/lib/i18n.ts).
  */
 export function NewsBoard({
-  sources,
+  sources: listed,
   initial,
   seed,
   videoSeed,
@@ -275,6 +276,11 @@ export function NewsBoard({
   locale?: Locale;
 }) {
   const t = STRINGS[locale];
+  // Outlets by their Bangla names on Bangla pages (in the filters, pin picker, Latest and Top stories).
+  const sources = useMemo(
+    () => (locale === "bn" ? listed.map((s) => ({ ...s, name: sourceName(s.id, s.name, locale) })) : listed),
+    [listed, locale],
+  );
   // Latest result per source; on refresh each one is replaced as its new result arrives.
   const [results, setResults] = useState<Map<string, SourceResult>>(() => (seed ? byId(seed) : new Map()));
   // On the Videos page, which has no headlines baked in, the status line starts with the videos' time.
@@ -1271,7 +1277,7 @@ export function NewsBoard({
 
             <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
               {SITE_LINKS.map((l) => (
-                <a key={l.href} href={l.bn ? localePath(l.href, locale) : l.href} className="hover:text-foreground">
+                <a key={l.href} href={siteLinkHref(l, locale)} className="hover:text-foreground">
                   {t.links[l.id]}
                 </a>
               ))}
