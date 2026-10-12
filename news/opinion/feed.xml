@@ -5,9 +5,25 @@
     <link>https://bartaboard.com/news/opinion/</link>
     <description>Latest opinion news from Bangladesh: মতামত headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 08:45:52 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 09:01:17 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/opinion/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>কৃষকের মাঠ থেকে মানুষের পাতে: বিএডিসি’র ৬৫ বছরের অভিযাত্রা</title>
+      <link>https://www.tbsnews.net/bangla/opinion/news-details-551291</link>
+      <description>TBS Bangla · Opinion</description>
+      <guid isPermaLink="true">https://www.tbsnews.net/bangla/opinion/news-details-551291</guid>
+      <pubDate>Mon, 12 Oct 2026 09:01:09 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
+    <item>
+      <title>Delhi and the difference in exercising power and exercising authority</title>
+      <link>https://en.prothomalo.com/opinion/op-ed/urum59ndg4</link>
+      <description>Prothom Alo English · Opinion</description>
+      <guid isPermaLink="true">https://en.prothomalo.com/opinion/op-ed/urum59ndg4</guid>
+      <pubDate>Mon, 12 Oct 2026 08:51:43 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
     <item>
       <title>চুয়েটকে কি আরও উত্তপ্ত পরিস্থিতির দিকে ঠেলে দেওয়া হলো না</title>
       <link>https://www.prothomalo.com/opinion/column/67bb37izr1</link>
@@ -390,22 +406,6 @@
       <description>Ajker Patrika · Opinion</description>
       <guid isPermaLink="true">https://www.ajkerpatrika.com/analysis/ajpoczoggokwy</guid>
       <pubDate>Sun, 11 Oct 2026 16:32:33 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>দ্বিধাবেলায় হারিয়ে যাওয়া কিশোররা</title>
-      <link>https://dailynayadiganta.com/post/op-ed/1060535</link>
-      <description>Naya Diganta · Opinion</description>
-      <guid isPermaLink="true">https://dailynayadiganta.com/post/op-ed/1060535</guid>
-      <pubDate>Sun, 11 Oct 2026 16:30:52 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>Bangladesh's untapped asset: The talent of retired military personnel</title>
-      <link>https://www.dhakatribune.com/opinion/op-ed/421864/bangladesh-s-untapped-asset-the-talent-of-retired</link>
-      <description>Dhaka Tribune · Opinion</description>
-      <guid isPermaLink="true">https://www.dhakatribune.com/opinion/op-ed/421864/bangladesh-s-untapped-asset-the-talent-of-retired</guid>
-      <pubDate>Sun, 11 Oct 2026 12:32:37 GMT</pubDate>
       <category>Opinion</category>
     </item>
   </channel>
