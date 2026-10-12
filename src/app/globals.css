@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/*
+ * The reader's Videos layout, when they picked one (src/lib/video-layout.ts); unprefixed classes are the
+ * default. :is() adds the attribute's weight, so a picked layout wins over the default's `sm:` classes.
+ */
+@custom-variant vgrid (&:is([data-video-layout="grid"] *));
+@custom-variant vlist (&:is([data-video-layout="list"] *));
+
 :root {
   --background: #f6f4ef;
   --surface: #ffffff;

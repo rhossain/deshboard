@@ -2,13 +2,15 @@
 
 import { memo, useEffect, useRef } from "react";
 import type { Video } from "@/lib/types";
+import { VIDEO_ITEM, VIDEO_TEXT, VIDEO_THUMB } from "@/lib/video-layout";
 import { useLocale, useStrings } from "./locale";
 import { compactCount, fullTime, timeAgo } from "./time";
 import { ArrowUpRightIcon, CloseIcon, ItemMenu, StarIcon } from "./ui";
 import { thumb, watchUrl } from "./youtube";
 
 /**
- * One video: a row (thumbnail beside the title) on phones, a card in a grid on larger screens. A
+ * One video: a row (thumbnail beside the title) on phones, a card in a grid on larger screens, unless
+ * the reader picked a layout (see video-layout.ts; `sizes` follows it). A
  * plain click plays it here; modified clicks open YouTube as links do. The ⋮ menu beside the title
  * shares or saves it, as for headlines, and pins its channel when `onTogglePin` is given.
  */
@@ -17,6 +19,7 @@ export const VideoCard = memo(function VideoCard({
   channelName,
   now,
   eager,
+  sizes,
   saved,
   onPlay,
   onToggleSave,
@@ -28,6 +31,8 @@ export const VideoCard = memo(function VideoCard({
   channelName: string;
   now: number;
   eager: boolean;
+  /** The thumbnail's `sizes`, for the layout in use (videoThumbSizes). */
+  sizes: string;
   saved: boolean;
   onPlay: (video: Video) => void;
   onToggleSave: (video: Video, channelName: string) => void;
@@ -46,7 +51,7 @@ export const VideoCard = memo(function VideoCard({
   };
   return (
     // Off-screen cards skip layout and paint until they come near.
-    <li className="flex gap-3 [contain-intrinsic-size:auto_92px] [content-visibility:auto] sm:block sm:[contain-intrinsic-size:auto_290px]">
+    <li className={`${VIDEO_ITEM} [contain-intrinsic-size:auto_92px] [content-visibility:auto] sm:[contain-intrinsic-size:auto_290px] vgrid:[contain-intrinsic-size:auto_290px] vlist:[contain-intrinsic-size:auto_92px] sm:vlist:[contain-intrinsic-size:auto_135px]`}>
       <a
         href={href}
         target="_blank"
@@ -54,14 +59,14 @@ export const VideoCard = memo(function VideoCard({
         onClick={open}
         tabIndex={-1}
         aria-hidden
-        className="group relative block w-40 shrink-0 self-start overflow-hidden rounded-xl bg-surface-2 sm:w-full"
+        className={`group relative block self-start overflow-hidden rounded-xl bg-surface-2 ${VIDEO_THUMB}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- YouTube's own thumbnails, already sized */}
         <img
           src={thumb(video.id, "mqdefault")}
           // hqdefault is 4:3 with bars above and below; cropped to 16:9, the bars fall outside.
           srcSet={`${thumb(video.id, "mqdefault")} 320w, ${thumb(video.id, "hqdefault")} 480w`}
-          sizes="(min-width: 1280px) 22vw, (min-width: 1024px) 30vw, (min-width: 640px) 46vw, 160px"
+          sizes={sizes}
           width={320}
           height={180}
           alt=""
@@ -76,7 +81,7 @@ export const VideoCard = memo(function VideoCard({
           </span>
         </span>
       </a>
-      <div className="flex min-w-0 flex-1 sm:mt-2.5">
+      <div className={`flex ${VIDEO_TEXT}`}>
         <div className="min-w-0 flex-1">
           <a
             data-headline
@@ -85,7 +90,7 @@ export const VideoCard = memo(function VideoCard({
             target="_blank"
             rel="noopener noreferrer"
             onClick={open}
-            className="line-clamp-3 text-[15px] font-medium leading-[1.5] transition hover:text-accent sm:line-clamp-2"
+            className="line-clamp-3 text-[15px] font-medium leading-[1.5] transition hover:text-accent sm:line-clamp-2 vgrid:line-clamp-2 sm:vlist:text-base"
           >
             {video.title}
           </a>

@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { preconnect } from "react-dom";
 import type { NewsItem, NewsSource, Video } from "@/lib/types";
+import { VIDEO_LIST, videoThumbSizes } from "@/lib/video-layout";
 import { ItemTime } from "./ItemTime";
 import { useLocale, useStrings } from "./locale";
 import type { SavedEntry, SavedVideo } from "./saved";
 import { formatCount, timeAgo } from "./time";
 import { BookmarkIcon, ItemMenu } from "./ui";
+import { useVideoLayoutChoice } from "./video-layout";
 import { Player, VideoCard } from "./VideoCard";
 
 /** Headlines and videos the reader saved on this device, most recently saved first. */
@@ -36,6 +38,7 @@ export function SavedList({
   onShareVideo: (video: Video, channelName: string) => void;
 }) {
   const t = useStrings();
+  const sizes = videoThumbSizes(useVideoLayoutChoice());
   const locale = useLocale();
   const [playing, setPlaying] = useState<SavedVideo | null>(null);
   const matching = entries.length + videos.length;
@@ -86,7 +89,7 @@ export function SavedList({
       )}
       {both && <h2 className="mb-3 mt-8 px-1 font-display text-lg">{t.videos}</h2>}
       {videos.length > 0 && (
-        <ul className="grid gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-y-7 lg:grid-cols-3 xl:grid-cols-4">
+        <ul className={VIDEO_LIST}>
           {videos.map((e) => (
             <VideoCard
               key={e.video.id}
@@ -94,6 +97,7 @@ export function SavedList({
               channelName={e.channelName}
               now={now}
               eager={false}
+              sizes={sizes}
               saved
               onPlay={() => {
                 preconnect("https://www.youtube-nocookie.com");
