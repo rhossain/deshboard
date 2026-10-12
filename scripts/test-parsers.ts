@@ -165,6 +165,30 @@ test("Categories from URL sections and feed tags", () => {
   assert.equal(categorize("https://www.mzamin.com/article/47008"), "other");
 });
 
+test("Categories from the headline when the URL and feed name no section", () => {
+  const none = "https://www.mzamin.com/article/49197";
+  assert.equal(categorize(none, [], "বিএনপির দুই নেতার পদ স্থগিত"), "politics");
+  assert.equal(categorize(none, [], "5-phase UP elections to begin on Jan 21"), "politics");
+  assert.equal(categorize(none, [], "ডিএমপির অভিযানে ২৪ ঘণ্টায় গ্রেপ্তার ৪৬৪, মামলা ৪২"), "crime");
+  assert.equal(categorize(none, [], "Dengue death toll crosses 300"), "health");
+  assert.equal(categorize(none, [], "বিশ্ববাজারে বাড়ল স্বর্ণের দাম"), "business");
+  assert.equal(categorize(none, [], "রাঙ্গামাটির ঝুলন্ত সেতু ‘ডুবন্ত’"), "national");
+  // A country in a sports headline is the opponent; an attack abroad is foreign news, not crime
+  assert.equal(categorize(none, [], "রেকর্ড গড়ে শ্রীলঙ্কাকে উড়িয়ে সিরিজ জিতল পাকিস্তান"), "sports");
+  assert.equal(categorize(none, [], "রিয়াদ বিমানবন্দরে আবারও ক্ষেপণাস্ত্র হামলা"), "international");
+  // Whole words only: গোলাগুলি is not a goal, "us" is not the US, করে is not a tax
+  assert.equal(categorize(none, [], "দুই পক্ষের গোলাগুলি"), "crime");
+  assert.equal(categorize(none, [], "Tell us what you think"), "other");
+  assert.equal(categorize(none, [], "তিনি কাজ করে যাচ্ছেন"), "other");
+  // Filed as national: moves only on strong evidence, and never abroad
+  const national = "https://www.prothomalo.com/bangladesh/district/abc";
+  assert.equal(categorize(national, [], "চুয়েটের উপাচার্যকে ভবনে অবরুদ্ধ করে শিক্ষার্থীদের তালা"), "education");
+  assert.equal(categorize(national, [], "এলপি গ্যাসের দোকান দুদিন বন্ধ রাখার ঘোষণা"), "national");
+  assert.equal(categorize(national, [], "সৌদির বিমানবন্দরে হামলায় দুই বাংলাদেশির মৃত্যু, পরিবারে মাতম"), "national");
+  // A section from the URL always wins over the headline
+  assert.equal(categorize("https://barta24.com/details/politics/1", [], "ক্রিকেট ম্যাচে বাংলাদেশের জয়"), "politics");
+});
+
 test("Logo candidates: header logo first, social icons and parking pages skipped", () => {
   const html = `<html><head>
     <link rel="icon" href="/favicon.ico">

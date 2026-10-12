@@ -1,3 +1,5 @@
+import { headlineScores } from "./headline-keywords";
+
 export type Category =
   | "national"
   | "politics"
@@ -38,18 +40,18 @@ const SYNONYMS: Record<Exclude<Category, "other">, string[]> = {
     "national", "bangladesh", "country", "countries", "country-news", "national-news", "capital", "dhaka",
     "samagrabangladesh", "whole-country", "district", "ctg", "chittagong", "chittagong24", "rajshahi", "khulna",
     "barisal", "sylhet", "rangpur", "mymensingh", "city", "environment", "weather",
-    "capital-city", "capital-news", "national-others", "tp-city", "tp-ten-horizon", "chattogram", "sohor-nogor", "desh", "জাতীয়", "দেশ", "সারাদেশ", "সারা দেশ", "রাজধানী", "বাংলাদেশ", "আবহাওয়া", "পরিবেশ",
+    "capital-city", "capital-news", "national-others", "all-bangladesh", "saradesh", "transport", "minister-speech", "tp-city", "tp-ten-horizon", "chattogram", "sohor-nogor", "desh", "জাতীয়", "দেশ", "সারাদেশ", "সারা দেশ", "রাজধানী", "বাংলাদেশ", "আবহাওয়া", "পরিবেশ",
   ],
-  politics: ["politics", "politics-news", "election", "ncp", "jamat", "jamaat-e-islami", "রাজনীতি", "নির্বাচন"],
+  politics: ["politics", "politics-news", "election", "ncp", "bnp", "awami-league", "jamat", "jamaat-e-islami", "governance", "রাজনীতি", "নির্বাচন"],
   international: [
     "international", "interrnational", "international-news", "world", "worldbiz", "foreign", "abroad", "probash",
     "durporobash", "neighbours", "asia", "america", "india", "middleeast", "united-state", "europe",
-    "middle-east", "south-asia", "bbc", "আন্তর্জাতিক", "বিশ্ব", "বিশ্ব সংবাদ", "দেশান্তর", "বিদেশ", "প্রবাস",
+    "middle-east", "south-asia", "pakistan", "foreign-policy", "bbc", "আন্তর্জাতিক", "বিশ্ব", "বিশ্ব সংবাদ", "দেশান্তর", "বিদেশ", "প্রবাস",
   ],
   business: [
     "business", "economy", "economics", "economics-business-news", "trade", "stock", "share-market", "bangla-economy",
     "corporate", "banking", "finance", "finance-n-commerce", "jobs", "job", "jobs-career", "job-corner", "chakri",
-    "employment", "চাকরি", "করপোরেট", "অর্থনীতি", "বাণিজ্য", "অর্থ-বাণিজ্য", "শেয়ারবাজার", "ব্যাংক",
+    "employment", "job-seek", "career", "power-and-energy", "energy", "চাকরি", "করপোরেট", "অর্থনীতি", "বাণিজ্য", "অর্থ-বাণিজ্য", "শেয়ারবাজার", "ব্যাংক",
   ],
   sports: [
     "sports", "sport", "cricket", "football", "more-sports", "tp-sports", "khela",
@@ -57,7 +59,7 @@ const SYNONYMS: Record<Exclude<Category, "other">, string[]> = {
   ],
   entertainment: [
     "entertainment", "entertainment-other", "showtime", "glitz", "bollywood", "hollywood", "drama", "music",
-    "binodon", "tp-anando-nagar", "culture", "celeb", "literature", "বিনোদন", "সাহিত্য", "গান", "নাটক", "চলচ্চিত্র", "সিনেমা",
+    "binodon", "dhallywood", "tp-anando-nagar", "culture", "celeb", "literature", "বিনোদন", "সাহিত্য", "গান", "নাটক", "চলচ্চিত্র", "সিনেমা",
   ],
   tech: [
     "tech", "technology", "tech-and-gadget", "information-technology", "science", "physics", "science-tech",
@@ -65,16 +67,16 @@ const SYNONYMS: Record<Exclude<Category, "other">, string[]> = {
     "প্রযুক্তি", "বিজ্ঞান", "তথ্যপ্রযুক্তি", "বিজ্ঞান-প্রযুক্তি",
   ],
   education: [
-    "education", "educations", "education-news", "campus", "my-campus", "শিক্ষা", "ক্যাম্পাস",
+    "education", "educations", "education-news", "campus", "my-campus", "campus-online", "শিক্ষা", "ক্যাম্পাস",
   ],
-  health: ["health", "health-news", "health-medical", "স্বাস্থ্য"],
+  health: ["health", "health-news", "health-medical", "doctor-available", "স্বাস্থ্য"],
   lifestyle: [
     "lifestyle", "life-living", "fashion", "travel", "travelandtourism", "journey", "food", "tp-suranjona",
-    "religion", "islam", "জীবনযাপন", "লাইফস্টাইল", "ভ্রমণ", "ধর্ম", "ইসলাম", "দৈনন্দিন ইসলাম",
+    "religion", "islam", "islam-life", "জীবনযাপন", "লাইফস্টাইল", "ভ্রমণ", "ধর্ম", "ইসলাম", "দৈনন্দিন ইসলাম",
   ],
   crime: [
     "crime", "law-and-crime", "law-court", "law-courts", "law-and-justice-news", "court", "law-justice", "law-n-judiciary",
-    "court-law", "law-and-court", "crime-justice", "অপরাধ", "আদালত", "আইন-আদালত", "আইন আদালত",
+    "court-law", "law-and-court", "crime-justice", "law-order", "অপরাধ", "আদালত", "আইন-আদালত", "আইন আদালত",
   ],
   opinion: [
     "opinion", "opinions", "op-ed", "views", "columns", "editorial", "thoughts", "analysis", "roundtable", "tp-editorial", "tp-ub-editorial", "চিন্তা",
@@ -111,8 +113,11 @@ function sectionWords(link: string, tags: string[]): string[] {
   return [...segments.slice(0, -1), ...tags];
 }
 
-/** Pick a main category from the article URL's path sections, then from feed tags. */
-export function categorize(link: string, tags: string[] = []): Category {
+/**
+ * Pick a main category from the article URL's path sections, then from feed tags, then from the
+ * headline's words when neither names a section.
+ */
+export function categorize(link: string, tags: string[] = [], title = ""): Category {
   // "National" is often a parent (/bangladesh/politics/...), so a more specific match wins.
   let broad: Category | undefined;
   for (const word of sectionWords(link, tags)) {
@@ -120,7 +125,37 @@ export function categorize(link: string, tags: string[] = []): Category {
     if (c && c !== "national") return c;
     broad ??= c;
   }
-  return broad ?? "other";
+  return categoryFromHeadline(title, broad === "national") ?? broad ?? "other";
+}
+
+/** When two categories have as many keywords in a headline, the earlier one wins. */
+const TIE_ORDER: Category[] = [
+  "sports", "entertainment", "international", "politics", "crime", "education", "health", "business", "tech",
+  "lifestyle", "opinion",
+];
+
+/**
+ * The category a headline's words point to. A headline the site filed as national (most papers file
+ * district crime and party news there) moves only on two or more keywords, and never abroad: a
+ * national story about Bangladeshis in Saudi Arabia stays national.
+ */
+function categoryFromHeadline(title: string, filedAsNational: boolean): Category | undefined {
+  if (!title) return undefined;
+  const scores = headlineScores(title);
+  // In "ভারতকে হারিয়ে সিরিজ জিতল বাংলাদেশ" the country is the opponent, not the news.
+  if (scores.has("sports") || scores.has("entertainment")) scores.delete("international");
+  // An attack, arrest or vote abroad is foreign news.
+  else if (scores.has("international")) for (const c of ["crime", "politics"] as const) scores.delete(c);
+  let best: Category | undefined;
+  let top = 0;
+  for (const c of TIE_ORDER) {
+    const n = scores.get(c) ?? 0;
+    if (n > top) [best, top] = [c, n];
+  }
+  const national = scores.get("national") ?? 0;
+  if (filedAsNational) return top >= 2 && top > national && best !== "international" ? best : undefined;
+  if (best && top >= national) return best;
+  return national ? "national" : undefined;
 }
 
 /**
