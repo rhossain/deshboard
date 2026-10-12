@@ -30,6 +30,11 @@ AddType application/manifest+json .webmanifest
   <FilesMatch "\.(json|html|txt)$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
+  # The headlines as data (the board's feed, 30 days of day files): for the board and the search, not
+  # for search engines.
+  <FilesMatch "\.json$">
+    Header set X-Robots-Tag "noindex"
+  </FilesMatch>
   # Scripts, styles and fonts all live under /_next/static/, named after their contents, so a file
   # never changes at its address. (Keep it that way: an unhashed .js or .css in public/ would be cached too.)
   <FilesMatch "\.(js|css|woff2)$">

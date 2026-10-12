@@ -157,7 +157,7 @@ export function OutletPage({ id, locale }: { id: string; locale: Locale }) {
                   className="rounded-full border border-line bg-surface px-3 py-1 text-muted transition hover:text-foreground"
                 >
                   {locale === "bn" ? c.bn : c.label}{" "}
-                  <span className="tabular-nums text-muted/70">{localDigits(String(c.count), locale)}</span>
+                  <span className="tabular-nums text-muted">{localDigits(String(c.count), locale)}</span>
                 </a>
               ))}
             </p>
