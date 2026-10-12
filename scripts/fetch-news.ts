@@ -4,7 +4,7 @@
  * Fetches every active source and each outlet's logo, then writes what the static site serves:
  *   public/data/news.json   the board's headlines (see NewsFeed)
  *   public/data/head/<all|category>.json the newest of them for each page, read first (see NewsSeed)
- *   public/data/days/<date>.json every headline of the last 72 hours, by day (see NewsDay)
+ *   public/data/days/<date>.json every headline of the last 30 days, by day (see NewsDay, archive.ts)
  *   public/data/videos.json the Videos view: TV channels' latest YouTube videos (see VideoFeed)
  *   public/logos/<id>.<ext> logos, resized for the cards (see prepareLogo)
  * and updates `.data/` (first-seen times, source health, which `next build` reads for /health, and
@@ -15,13 +15,12 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { getLogo, prepareLogo } from "../src/lib/logos";
-import { dhakaDay } from "../src/components/time";
+import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { toSeed } from "../src/lib/feed";
 import { CATEGORY_PAGES } from "../src/lib/site";
 import { cachedResult, getNews } from "../src/lib/news";
 import { getVideos } from "../src/lib/videos";
 import { ACTIVE_SOURCES, SOURCES } from "../src/lib/sources";
-import { itemTime, newestFirst } from "../src/lib/stories";
 import { flushStores } from "../src/lib/store";
 import type { LogoShape, NewsDay, NewsFeed, NewsItem, SourceResult } from "../src/lib/types";
 
@@ -96,30 +95,60 @@ async function publishLogos(originals: Record<string, string>): Promise<Pick<New
   return { logos, logoShapes };
 }
 
+/** The day files kept between runs (the Actions cache keeps .data), so they outlast the 72-hour cache. */
+const DAYS_ARCHIVE = path.join(process.cwd(), ".data", "days");
+const DAY_DOWNLOAD_TIMEOUT_MS = 10_000;
+
 /**
- * Writes every source's cached headlines (all of the last 72 hours, not just the board's share) as
- * one file per Dhaka day, replacing the last run's. Undated headlines are left out: they are on the
- * board while they are on their homepage. Returns how many days were written.
+ * A day file from the live site, for a day the archive is missing (the Actions cache was lost or is new):
+ * the site serves every kept day, so it is the backup. Null when SITE_URL isn't set or the site lacks it.
  */
-function writeDays(): number {
-  const days = new Map<string, NewsItem[]>();
-  for (const s of ACTIVE_SOURCES) {
-    for (const it of cachedResult(s.id)?.items ?? []) {
-      const time = itemTime(it);
-      if (!time) continue;
-      const day = dhakaDay(time);
-      if (!days.has(day)) days.set(day, []);
-      days.get(day)!.push(it);
-    }
+async function downloadDay(date: string): Promise<NewsDay | null> {
+  const site = process.env.SITE_URL?.replace(/\/+$/, "");
+  if (!site) return null;
+  try {
+    const res = await fetch(`${site}/data/days/${date}.json`, { signal: AbortSignal.timeout(DAY_DOWNLOAD_TIMEOUT_MS) });
+    if (!res.ok) return null;
+    const day = (await res.json()) as NewsDay;
+    return day.date === date && Array.isArray(day.items) ? day : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes one file per Dhaka day for the last KEEP_DAYS days (see archive.ts): every source's cached
+ * headlines (all of the last 72 hours, not just the board's share), merged into what was kept of each
+ * day before. Returns how many days were written.
+ */
+async function writeDays(): Promise<number> {
+  const keep = keptDates();
+  mkdirSync(DAYS_ARCHIVE, { recursive: true });
+  const archived = (date: string) => path.join(DAYS_ARCHIVE, `${date}.json`);
+  const read = (date: string): NewsItem[] =>
+    existsSync(archived(date)) ? (JSON.parse(readFileSync(archived(date), "utf8")) as NewsDay).items : [];
+
+  const missing = keep.filter((date) => !existsSync(archived(date)));
+  for (const day of await Promise.all(missing.map(downloadDay))) {
+    if (day) writeFileSync(archived(day.date), JSON.stringify(day));
+  }
+
+  const cached = ACTIVE_SOURCES.flatMap((s) => cachedResult(s.id)?.items ?? []);
+  for (const [date, items] of byDay(cached)) {
+    if (!keep.includes(date)) continue;
+    const day: NewsDay = { date, items: mergeDay(read(date), items) };
+    writeFileSync(archived(date), JSON.stringify(day));
+  }
+
+  for (const file of readdirSync(DAYS_ARCHIVE)) {
+    if (!keep.includes(file.replace(/\.json$/, ""))) rmSync(path.join(DAYS_ARCHIVE, file));
   }
   const dir = path.join(PUBLIC, "data", "days");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  for (const [date, items] of days) {
-    const day: NewsDay = { date, items: items.sort((a, b) => newestFirst(itemTime(a), itemTime(b))) };
-    writeFileSync(path.join(dir, `${date}.json`), JSON.stringify(day));
-  }
-  return days.size;
+  const files = readdirSync(DAYS_ARCHIVE);
+  for (const file of files) writeFileSync(path.join(dir, file), readFileSync(path.join(DAYS_ARCHIVE, file)));
+  return files.length;
 }
 
 /**
@@ -149,7 +178,7 @@ async function main() {
   writeFileSync(path.join(PUBLIC, "data", "news.json"), JSON.stringify(feed));
   writeFileSync(path.join(PUBLIC, "data", "videos.json"), JSON.stringify(videos));
   writeHeads(feed);
-  const days = writeDays();
+  const days = await writeDays();
   flushStores();
 
   const ok = news.statuses.filter((s) => s.ok).length;

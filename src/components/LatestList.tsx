@@ -202,8 +202,8 @@ export function LatestList({
   );
 }
 
-/** One headline; the first and last of a group round off the group's card. */
-function Headline({
+/** One headline; the first and last of a group round off the group's card. Also the rows of OlderResults. */
+export function Headline({
   row,
   sourceById,
   now,

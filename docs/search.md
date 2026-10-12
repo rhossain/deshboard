@@ -1,4 +1,4 @@
-# Search: better matching now, 30 days of headlines next, AI later
+# Search: across Bangla and English, 30 days back, AI later
 
 A plan for the search box. It fills in step 5 of [subscriptions.md](subscriptions.md) ("Search and archive").
 
@@ -8,12 +8,12 @@ extras that the search still works without.
 
 ## 1. What was there
 
-The search box filtered the headlines already in the browser (the last 72 hours) by plain text. It couldn't:
+The search box filtered the headlines on the board (each outlet's newest) by plain text. It couldn't:
 
 - Match across languages: "flood" didn't find "বন্যা", "bnp" didn't find "বিএনপি"
 - Match other forms or spellings: "নির্বাচনে" vs "নির্বাচনের", "Chittagong" vs "Chattogram", ি vs ী
 - Match words in any order: "dhaka rain" found nothing
-- Find anything older than 3 days
+- Find anything that had left the board
 
 ## 2. Step 1: smarter matching (done)
 
@@ -53,35 +53,42 @@ education, sports, technology. Grow it from what readers search for. Every word 
 or "রেল" would find "used", "aid", "জেলা", "জেনারেল". `npm test` checks that every word in a group finds every
 other.
 
-## 3. Step 2: the last 30 days (next)
+## 3. Step 2: the last 30 days (done)
 
-The build already writes every headline of the last 72 hours to `public/data/days/<date>.json`, one file per Dhaka
-day, so shared links to older headlines still work. Keep 30 days instead of 3, and search them in the browser.
+The board holds each outlet's newest headlines (about 3,500 in all), which for the busiest is less than a day. The
+search now carries on past it into every headline of the last 30 days.
 
-**On the page.** The board searches what it has loaded, instantly, as now. Below the results, an **"Older
-headlines"** section searches the day files, newest first. It loads one day at a time, shows matches as each day
-arrives, and stops at 50 matches. "Search further back" carries on.
+**The day files.** One file per Dhaka day, `/data/days/<date>.json` (`NewsDay`), with every headline the fetch has
+seen that day. The build used to keep 72 hours of them, for shared links; it now keeps 30 days (`src/lib/archive.ts`).
+The fetch's cache only reaches back 72 hours, so each run merges what it has into the day files kept before
+(`.data/days`, which the Actions cache carries from run to run). A slimmer search-only file was measured and isn't
+worth it: compressed, it is 3% smaller.
 
-**Size.** A full day is about 1.4 MB, or about 230 KB compressed (what the browser actually downloads), for about 3,000
-headlines. A search that finds its 50 matches in the last week downloads about 1.5 MB; all 30 days would be about
-7 MB. So:
+**If the Actions cache is lost.** `npm run fetch` downloads any kept day it is missing from the live site
+(`SITE_URL`, set for the fetch step in `deploy.yml`). The live site is the backup; nothing else stores the archive.
 
-- Write a slimmer file just for searching, `public/data/search/<date>.json`, with only what a result row needs: the
-  title, link, source id, time and language. Measure it; dropping fields and repeated text should make it a lot
-  smaller.
-- Fetch only once the reader stops typing (500 ms) and the query has at least 2 letters, and cancel when it changes.
-- The files never change once the day is over, so browsers and Cloudflare cache them (`Cache-Control: immutable` for
-  past days).
+**On the page** (`src/components/OlderResults.tsx`). Once the board has every headline, an **"Earlier headlines"**
+section under its results searches the day files:
 
-**Keeping 30 days through rebuilds.** Each run starts from the GitHub Actions cache (`.data`), which can be lost. So
-before writing, `npm run fetch` downloads any missing past day from the live site
-(`https://bartaboard.com/data/search/<date>.json`). The live site is the archive; nothing else stores it.
+- From today back, a day at a time, leaving out what the board already shows and repeats of the same headline
+- Half a second after the reader stops typing; a new search or filter starts over
+- A round stops after 7 days or 20 more matches; "Search further back" runs the next one
+- Ends at the first missing day, and says how far back it looked ("Searched back to Friday 9 October")
+- Rows look and work like the Latest list's: highlighted, with Save and Share
+- When the board itself has nothing, it says "Nothing among the latest headlines" rather than "Nothing found"
 
-**Hosting.** Cloudflare Pages serves any amount of traffic for free. 30 more small files stay far below its 20,000
-files per site.
+**Size.** A full day is about 3 MB, or about 290 KB compressed (what the browser downloads). A search that finds
+its first 20 matches today downloads about 300 KB; a full round of 7 days, about 2 MB. Files are downloaded once
+per visit, and only when someone searches.
 
-**Both branches.** `static-export` builds the files in `npm run fetch`. `main` writes the same files from its own fetch
-loop and serves them the same way.
+**Hosting.** Cloudflare Pages serves any amount of traffic for free; 30 files are far below its 20,000 per site. On
+the `deploy` branch, a past day's file stops changing once its headlines have left the cache, so it adds no commits.
+
+**`main`.** The server merges each background refresh into the same day files under its data folder (`.data/days`,
+or `NEWS_DATA_DIR`), and serves them at the same address (`src/app/data/days/[file]/route.ts`). The page code is the
+same on both branches.
+
+The archive fills up from the day this goes live: 30 days after, it holds a full 30 days.
 
 ## 4. Step 3: AI, later (when there is money or a clear need)
 
@@ -102,10 +109,10 @@ paid plan), and add a line to the Privacy page before any of this goes live.
 
 | Where | What |
 | --- | --- |
-| `src/lib/search.ts` | Matching and highlight ranges (step 1) |
-| `src/lib/search-terms.ts` | The word list (step 1) |
+| `src/lib/search.ts`, `src/lib/search-terms.ts` | Matching, highlight ranges, the word list (step 1) |
 | `src/components/Highlight.tsx` | Marks the matched words (step 1) |
 | `src/components/NewsBoard.tsx`, `VideoBoard.tsx` and the lists | Use the new matching and highlighting (step 1) |
-| `scripts/test-parsers.ts` | Search tests (step 1) |
-| `scripts/fetch-news.ts`, `src/lib/news.ts` | 30 days of search files, refilled from the live site (step 2) |
-| `src/components/OlderResults.tsx` (new) | The "Older headlines" section (step 2) |
+| `src/lib/archive.ts` | Which days are kept, and merging a day (step 2) |
+| `scripts/fetch-news.ts` (static-export), `src/lib/news.ts` and `src/app/data/days/` (main) | Writing and serving the day files (step 2) |
+| `src/components/OlderResults.tsx` | The "Earlier headlines" section (step 2) |
+| `scripts/test-parsers.ts` | Search and archive tests |

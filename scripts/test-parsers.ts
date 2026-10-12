@@ -24,6 +24,7 @@ import { findLogoCandidates } from "../src/lib/logos";
 import { forBoard, mergeNews } from "../src/lib/news";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
 import { articleUrl, linkKey, SHARE_TARGETS, sharedVideoId, sharePath, videoSharePath } from "../src/lib/share";
+import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { compileSearch } from "../src/lib/search";
 import { SEARCH_TERMS } from "../src/lib/search-terms";
 import { findStories, keywords } from "../src/lib/stories";
@@ -250,6 +251,29 @@ test("search: ranges mark whole words, merged and in order", () => {
   const marked = compileSearch("rain dhaka")!.ranges(text).map(([a, b]) => text.slice(a, b));
   assert.deepEqual(marked, ["ঢাকায়", "বৃষ্টির"]);
   assert.deepEqual(compileSearch("ভোট")!.ranges("গণভোটের বিধান"), [[2, 7]]);
+});
+
+test("archive: 30 Dhaka days kept, merged with what was kept before", () => {
+  const dates = keptDates(Date.parse("2026-10-12T20:00:00Z")); // 02:00 on the 13th in Dhaka
+  assert.equal(dates.length, 30);
+  assert.equal(dates[0], "2026-10-13");
+  assert.equal(dates[29], "2026-09-14");
+  const days = byDay([
+    item("a", "Late", { publishedAt: "2026-10-12T19:00:00Z" }), // 01:00 on the 13th in Dhaka
+    item("a", "Early", { publishedAt: "2026-10-12T05:00:00Z" }),
+    item("a", "Undated"),
+  ]);
+  assert.deepEqual([...days.keys()], ["2026-10-13", "2026-10-12"]);
+  // The cache has lost the day's first headline; the archive still has it. A fresh copy wins.
+  const kept = [
+    item("a", "Gone from the cache", { link: "https://a.test/1", publishedAt: "2026-10-12T01:00:00Z" }),
+    item("a", "Old title", { link: "https://a.test/2", publishedAt: "2026-10-12T03:00:00Z" }),
+  ];
+  const fresh = [
+    item("a", "New title", { link: "https://a.test/2", publishedAt: "2026-10-12T03:00:00Z" }),
+    item("a", "Newest", { link: "https://a.test/3", publishedAt: "2026-10-12T09:00:00Z" }),
+  ];
+  assert.deepEqual(mergeDay(kept, fresh).map((it) => it.title), ["Newest", "New title", "Gone from the cache"]);
 });
 
 test("keywords: Bangla suffixes, digits and stopwords", () => {

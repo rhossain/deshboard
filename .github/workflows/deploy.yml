@@ -40,9 +40,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      # First-seen times, source health and logos carry over from run to run. Original logos now live in
-      # .data/logos (public/logos is made from them); public/logos stays listed because changing the list
-      # starts the cache over, and its old files seed .data/logos once.
+      # First-seen times, source health, 30 days of headlines (.data/days) and logos carry over from run
+      # to run. Original logos now live in .data/logos (public/logos is made from them); public/logos stays
+      # listed because changing the list starts the cache over, and its old files seed .data/logos once.
       - uses: actions/cache@v4
         with:
           path: |
@@ -50,7 +50,10 @@ jobs:
             public/logos
           key: news-data-${{ github.run_id }}
           restore-keys: news-data-
+      # SITE_URL: a day file missing from the cache (see .data/days) is downloaded from the live site.
       - run: npm run fetch
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
       - run: npm run build
         env:
           SITE_URL: ${{ vars.SITE_URL }}

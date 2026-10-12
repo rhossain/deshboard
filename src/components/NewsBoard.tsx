@@ -40,6 +40,7 @@ import { InspiredBy, SITE_LINKS, siteLinkHref } from "./InfoPage";
 import { PageNotes } from "./PageNotes";
 import { setNewsDensity, useNewsDensity } from "./news-density";
 import { SearchProvider } from "./Highlight";
+import { OlderResults } from "./OlderResults";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinPicker, PinsButton } from "./PinPicker";
 import { useSaved, useSavedVideos } from "./saved";
@@ -556,6 +557,7 @@ export function NewsBoard({
 
   // Two outlets can list the same article (e.g. a homepage linking a sister site), so keep the first.
   const allItems = useMemo(() => dedupeByLink([...results.values()].flatMap((r) => r.items)), [results]);
+  const boardLinks = useMemo(() => new Set(allItems.map((it) => it.link)), [allItems]);
   const statuses = useMemo(() => [...results.values()], [results]);
   const hasData = results.size > 0;
 
@@ -582,6 +584,8 @@ export function NewsBoard({
   // A search runs on what the board has. Until every headline is here, it may not have found everything
   // yet, so the board says it is still searching rather than "Nothing found". A failed load ends the wait.
   const searching = !!search && !whole && !error;
+  // Once the board has every headline, the search carries on into the last 30 days (OlderResults).
+  const searchOlder = !!search && whole && !onlyNew && (view === "sources" || view === "top" || view === "latest");
 
   // Everything except the category filter, so the chips can show counts.
   const matching = useMemo(
@@ -1189,8 +1193,8 @@ export function NewsBoard({
                     </p>
                   ) : (
                     <>
-                      <p className="font-display text-xl">{t.nothingFound}</p>
-                      <p className="mt-1 text-sm text-muted">{t.tryAnother}</p>
+                      <p className="font-display text-xl">{searchOlder ? t.nothingRecent : t.nothingFound}</p>
+                      {!searchOlder && <p className="mt-1 text-sm text-muted">{t.tryAnother}</p>}
                     </>
                   )}
                 </div>
@@ -1236,6 +1240,22 @@ export function NewsBoard({
                   sourceById={sourceById}
                   now={now}
                   isNew={isNew}
+                  savedLinks={savedLinks}
+                  onToggleSave={toggleSaved}
+                  onShare={shareItem}
+                />
+              )}
+
+              {hasData && searchOlder && search && (
+                <OlderResults
+                  key={filtersToSearch({ ...DEFAULT_FILTERS, lang, source: onlySource, category, query: searchQuery })}
+                  search={search}
+                  boardLinks={boardLinks}
+                  lang={lang}
+                  source={onlySource}
+                  category={category}
+                  sourceById={sourceById}
+                  now={now}
                   savedLinks={savedLinks}
                   onToggleSave={toggleSaved}
                   onShare={shareItem}
