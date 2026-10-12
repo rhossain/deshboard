@@ -23,10 +23,9 @@ section 4 now carries its status: ✅ done, 🟡 partly done, ⬜ open, 🔁 ong
 - ✅ **Done:** Search Console and Bing set up, sitemap submitted, Crawler Hints and HSTS on (#1, #2, #4–#6).
   All on-page work: H1 and headings, titles and descriptions, freshness markup, small fixes (#7–#11).
   New pages: `/videos/`, `/sources/`, `/about/`, intros and the FAQ, and 80 per-outlet pages
-  (#12–#18). RSS feeds (#19).
+  (#12–#18). RSS feeds (#19). The Bangla version of every indexable page (#21).
 - 🟡 **Partly done:** indexing requests (#3: 10 of the 12 sections; `/news/crime/`, `/news/opinion/` and the
   new pages not yet requested). Speed (#20: the logo fix and the feed split are in; PageSpeed not yet run on a section page).
-- 🟡 **In progress:** the Bangla version (#21: board, sections and Videos done).
 - ⬜ **Open:** links and presence off the site (#22), and the monthly Search Console
   review (#23). `Organization.sameAs` and `twitter:site` wait for the first social profile.
 
@@ -93,7 +92,7 @@ account) and, after a month, in Search Console's own query report, which is the 
    sentence if visit counts are wanted.
    ✅ **Done**: Search Console and Bing collect the data. No page analytics added.
 
-### P1: why it would not rank well even once indexed *(all fixed but #8, in progress)*
+### P1: why it would not rank well even once indexed *(all fixed)*
 
 4. **Almost no content of our own.** The board has 274 outbound links and 17 internal ones; to a crawler
    it is a list of other sites' titles. There is no page explaining what Bartaboard is, no page listing
@@ -112,7 +111,7 @@ account) and, after a month, in Search Console's own query report, which is the 
    ✅ **Done** (plan 9).
 8. **No Bangla page for Bangla searches.** Most Bangladeshi searches are typed in Bangla; the interface
    is English, and the Bangla keywords live only in `<meta name="keywords">`, which Google ignores.
-   🟡 **Partly done** (plan 21): Bangla board, sections and Videos.
+   ✅ **Done** (plan 21): every indexable page has a Bangla twin.
 9. **No freshness signals in the markup.** Headlines carry no `<time datetime>`, the JSON-LD has no
    `dateModified`, and every sitemap `lastmod` is the build time rather than the newest headline's.
    ✅ **Done** (plan 10).
@@ -248,14 +247,17 @@ Code (one commit each, on `static-export`):
     source's newest 8 (~40 KB) and the whole feed (~950 KB as served, 15,000 headlines) only when a view needs it.
     Still to do: run PageSpeed on a section page.
 
-### Month 2: Bangla, links, iteration 🟡 *(#21 in progress)*
+### Month 2: Bangla, links, iteration 🟡 *(#21 done)*
 
 21. **Bangla version**: `/bn/`, `/bn/news/<section>/`, `/bn/sources/`, same data, Bangla interface strings,
     `<html lang="bn">`, `hreflang` `en` / `bn` / `x-default` across every pair. This is the single
     biggest step for Bangladeshi search traffic and is a UI-strings job, not a content job.
-    🟡 **Partly done** (c9e85b41): the board, every section and Videos in Bangla (`/bn`…), Bangla titles,
-    descriptions, intros and FAQ, hreflang between each pair and in the sitemap, a language switch in the
-    masthead. Still English only: `/sources/`, the outlet pages, `/about/`, privacy and terms.
+    ✅ **Done**: c9e85b41 (board, sections, Videos), fcf0b7eb (the rest). Every indexable page has a Bangla twin
+    under `/bn`: board, 12 sections, Videos, sources, every outlet page, about, privacy and terms, with
+    Bangla titles, descriptions, headings, intros, FAQ and structured data; outlets by their Bangla names
+    (প্রথম আলো, যমুনা টিভি) with correct case endings; hreflang between each pair and in the sitemap; a
+    language switch on every page. `<html lang>` is set to bn before paint (one root layout serves both).
+    Left in English: `/health` and `/account` (noindex) and shared `/s/` links (noindex).
 22. **Links and presence**: Facebook page (post the section pages, not only the board), link from
     rshossain.me and the GitHub profile/README, a "Show HN"/Product Hunt post, r/bangladesh, Bangladeshi
     developer communities, and a note to two or three BD tech blogs/YouTubers. Register the
