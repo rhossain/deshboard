@@ -48,6 +48,7 @@ import { AUTO_REFRESH_MS } from "./schedule";
 import { type Shareable, ShareOptions, shareUrl, videoShareUrl } from "./ShareOptions";
 import { LogoShapes, SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
+import { markTourSeen, Tour, TourInvite } from "./Tour";
 import { setTheme, useTheme } from "./theme";
 import { cachedVideos, loadVideoBoard, prefetchVideos } from "./videos";
 import { VideoSkeleton } from "./VideoSkeleton";
@@ -265,6 +266,7 @@ export function NewsBoard({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [pinsOpen, setPinsOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const [sharing, setSharing] = useState<Shareable | null>(null);
   // An automatic refresh that brought new headlines, held back until the reader asks for it.
   const [pending, setPending] = useState<Pending | null>(null);
@@ -768,6 +770,13 @@ export function NewsBoard({
     window.scrollTo({ top: 0 });
   }, []);
   const openSection = (section: Section) => changeView(section === "news" ? lastNewsView : section);
+  /** The site tour walks through News, so it starts there, at the top of the page. */
+  const startTour = () => {
+    markTourSeen();
+    if (sectionOf(view) === "news") window.scrollTo({ top: 0 });
+    else openSection("news");
+    setTourOpen(true);
+  };
   /** Where a section's link goes when opened in a new tab (or followed by a search engine). */
   const sectionHref = (section: Section) =>
     localePath(
@@ -897,6 +906,7 @@ export function NewsBoard({
                     href={otherLocaleHref}
                     hrefLang={otherLocale}
                     lang={otherLocale}
+                    data-tour="language"
                     aria-label={t.switchLanguageLabel}
                     title={t.switchLanguageLabel}
                     className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-line px-3 text-sm font-semibold text-foreground transition hover:bg-surface-2 active:scale-95"
@@ -908,6 +918,7 @@ export function NewsBoard({
                     type="button"
                     onClick={() => load(true)}
                     disabled={loading}
+                    data-tour="refresh"
                     aria-label={loading ? t.fetchingHeadlines : t.refreshHeadlines}
                     className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3 text-sm font-semibold text-background transition hover:opacity-90 active:scale-95 disabled:opacity-70 sm:px-4"
                   >
@@ -980,7 +991,7 @@ export function NewsBoard({
             >
               <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 pt-3 sm:px-6 md:h-16 md:pt-0">
                 {/* Views and filters live in the bottom bar and filter sheet on phones. */}
-                <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={t.sectionsLabel}>
+                <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={t.sectionsLabel} data-tour="sections">
                   {SECTIONS.map(({ value, Icon }) => {
                     const active = sectionOf(view) === value;
                     return (
@@ -1010,7 +1021,7 @@ export function NewsBoard({
                   })}
                 </nav>
 
-                <label className="relative min-w-0 flex-1 md:ml-auto md:max-w-xs">
+                <label className="relative min-w-0 flex-1 md:ml-auto md:max-w-xs" data-tour="search">
                   <span className="sr-only">{view === "videos" ? t.searchVideos : t.searchHeadlines}</span>
                   <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
                   <input
@@ -1052,7 +1063,7 @@ export function NewsBoard({
                 // The channel rail, from the Videos view; its height is kept while that loads.
                 <div ref={setVideoRail} className="relative mx-auto -mb-px min-h-12 max-w-7xl md:-mt-1" />
               ) : hasData ? (
-                <div className="relative mx-auto -mb-px max-w-7xl md:-mt-1">
+                <div className="relative mx-auto -mb-px max-w-7xl md:-mt-1" data-tour="categories">
                   <CategoryTabs
                     tabs={categoryTabs}
                     value={category}
@@ -1070,13 +1081,15 @@ export function NewsBoard({
               {view !== "videos" && (
                 <div className={`mb-4 items-center gap-3 sm:mb-5 ${sectionOf(view) === "news" ? "flex" : "hidden md:flex"}`}>
                   {sectionOf(view) === "news" && (
-                    <div className="min-w-0 flex-1 sm:flex-none">
+                    <div className="min-w-0 flex-1 sm:flex-none" data-tour="views">
                       <Segmented label={t.newsView} value={view} onChange={changeView} options={newsViews(t)} full />
                     </div>
                   )}
                   <div className="ml-auto flex items-center gap-3">
                     {sectionOf(view) === "news" && (
-                      <PinsButton label={t.myNews} count={pinsNow.ids.length} onClick={() => setPinsOpen(true)} compact />
+                      <div className="flex" data-tour="pins">
+                        <PinsButton label={t.myNews} count={pinsNow.ids.length} onClick={() => setPinsOpen(true)} compact />
+                      </div>
                     )}
                     <FilterPopover count={activeFilters.length}>
                       {view === "sources" && <Field label={t.orderSources}>{orderControl}</Field>}
@@ -1286,6 +1299,9 @@ export function NewsBoard({
                 >
                   {t.switchLanguage}
                 </a>
+                <button type="button" onClick={startTour} className="hover:text-foreground">
+                  {t.tour.footer}
+                </button>
                 <button
                   type="button"
                   onClick={() => setShortcutsOpen(true)}
@@ -1327,7 +1343,13 @@ export function NewsBoard({
                 <NavButton active={view === "saved"} onClick={() => openSection("saved")} label={t.sections.saved}>
                   <BookmarkIcon />
                 </NavButton>
-                <NavButton active={false} onClick={() => setFiltersOpen(true)} label={t.filters} badge={activeFilters.length}>
+                <NavButton
+                  active={false}
+                  onClick={() => setFiltersOpen(true)}
+                  label={t.filters}
+                  badge={activeFilters.length}
+                  tour="filters-phone"
+                >
                   <SlidersIcon />
                 </NavButton>
               </div>
@@ -1396,6 +1418,9 @@ export function NewsBoard({
             <Sheet open={!!sharing} onClose={() => setSharing(null)} title={sharing?.video ? t.shareVideo : t.shareHeadline}>
               {sharing && <ShareOptions shared={sharing} />}
             </Sheet>
+
+            <Tour open={tourOpen} onClose={() => setTourOpen(false)} />
+            {!tourOpen && <TourInvite onStart={startTour} />}
 
             <Sheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title={t.shortcuts.title}>
               <dl className="grid grid-cols-[auto_1fr] items-center gap-x-5 gap-y-3 text-sm">
@@ -1476,6 +1501,7 @@ function NavButton({
   onClick,
   label,
   badge = 0,
+  tour,
   children,
   ...intent
 }: {
@@ -1483,6 +1509,8 @@ function NavButton({
   onClick: () => void;
   label: string;
   badge?: number;
+  /** Where the site tour points (see Tour.tsx). */
+  tour?: string;
   children: React.ReactNode;
   onPointerEnter?: () => void;
   onPointerDown?: () => void;
@@ -1493,6 +1521,7 @@ function NavButton({
       type="button"
       onClick={onClick}
       {...intent}
+      data-tour={tour}
       aria-current={active ? "page" : undefined}
       className={`relative flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition active:scale-95 ${
         active ? "text-accent" : "text-muted"
@@ -1548,6 +1577,7 @@ function FilterPopover({ count, children }: { count: number; children: React.Rea
         type="button"
         popoverTarget={id}
         aria-expanded={open}
+        data-tour="filters"
         className={`hidden h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition active:scale-[0.97] md:inline-flex ${
           open || count > 0
             ? "border-accent/40 bg-accent-soft text-accent"
