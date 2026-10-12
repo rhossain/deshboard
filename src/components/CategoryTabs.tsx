@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLocale, useStrings } from "./locale";
 import { compactCount } from "./time";
 import { ChevronIcon } from "./ui";
 
@@ -31,6 +32,8 @@ export function CategoryTabs({
   onChange: (id: string) => void;
   label?: string;
 }) {
+  const words = useStrings();
+  const locale = useLocale();
   const rail = useRef<HTMLDivElement>(null);
   const indicator = useRef<HTMLSpanElement>(null);
   const buttons = useRef(new Map<string, HTMLAnchorElement>());
@@ -140,7 +143,7 @@ export function CategoryTabs({
                   active ? "bg-accent-soft text-accent" : "text-muted/80"
                 }`}
               >
-                {compactCount(t.count)}
+                {compactCount(t.count, locale)}
               </span>
             </a>
           );
@@ -159,7 +162,7 @@ export function CategoryTabs({
             key={side}
             type="button"
             onClick={() => scrollBy(side === "start" ? -1 : 1)}
-            aria-label={side === "start" ? "Scroll categories left" : "Scroll categories right"}
+            aria-label={side === "start" ? words.scrollLeft : words.scrollRight}
             className={`absolute top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-card transition hover:text-foreground [@media(hover:hover)]:flex ${
               side === "start" ? "left-1" : "right-1"
             }`}

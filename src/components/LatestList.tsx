@@ -6,23 +6,27 @@ import { CATEGORIES } from "@/lib/categories";
 import { itemTime, newestFirst } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
+import { useLocale, useStrings } from "./locale";
 import { dhakaDay, formatCount } from "./time";
 import { ItemMenu, NewDot, StarIcon } from "./ui";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
+const CATEGORY_BN = new Map(CATEGORIES.map((c) => [c.id, c.bn]));
 
 /** ISO dates sort as strings; items without a time (publish or first seen) go last. */
 export function byNewest(a: NewsItem, b: NewsItem): number {
   return newestFirst(itemTime(a), itemTime(b));
 }
 
-function groupLabel(iso: string, now: number): string {
+type Group = "lastHour" | "earlierToday" | "yesterday" | "older";
+
+function groupLabel(iso: string, now: number): Group {
   const t = new Date(iso).getTime();
-  if (now - t < 3600_000) return "Last hour";
+  if (now - t < 3600_000) return "lastHour";
   const day = dhakaDay(t);
-  if (day === dhakaDay(now)) return "Earlier today";
-  if (day === dhakaDay(now - 86400_000)) return "Yesterday";
-  return "Older";
+  if (day === dhakaDay(now)) return "earlierToday";
+  if (day === dhakaDay(now - 86400_000)) return "yesterday";
+  return "older";
 }
 
 /**
@@ -30,8 +34,8 @@ function groupLabel(iso: string, now: number): string {
  * sources, a section row starts their part and the everyone-else part, each grouped on its own.
  */
 type Row =
-  | { kind: "section"; label: string; count: number; first: boolean }
-  | { kind: "heading"; label: string; part: number; first: boolean }
+  | { kind: "section"; label: "yourNews" | "otherNews"; count: number; first: boolean }
+  | { kind: "heading"; label: Group; part: number; first: boolean }
   | { kind: "item"; item: NewsItem; first: boolean; last: boolean };
 
 /** Rows are measured once rendered; these only place the ones not yet seen. */
@@ -68,16 +72,18 @@ export function LatestList({
   /** The reader's pinned sources (see pinned.ts); their headlines come first. */
   pinned?: Map<string, number>;
 }) {
+  const t = useStrings();
+  const locale = useLocale();
   const [shown, setShown] = useState(PAGE);
   // The parts, each newest first: just one unless some, but not all, headlines are from pinned sources.
   const { parts, dated } = useMemo(() => {
     const dated = items.filter(itemTime).sort(byNewest);
     const mine = pinned?.size ? dated.filter((it) => pinned.has(it.sourceId)) : [];
-    const parts: { label?: string; items: NewsItem[] }[] =
+    const parts: { label?: "yourNews" | "otherNews"; items: NewsItem[] }[] =
       mine.length && mine.length < dated.length
         ? [
-            { label: "Your news", items: mine },
-            { label: "Other news", items: dated.filter((it) => !pinned!.has(it.sourceId)) },
+            { label: "yourNews", items: mine },
+            { label: "otherNews", items: dated.filter((it) => !pinned!.has(it.sourceId)) },
           ]
         : [{ items: dated }];
     return { parts, dated: dated.length };
@@ -93,7 +99,7 @@ export function LatestList({
       const page = part.items.slice(0, left);
       left -= page.length;
       if (part.label) rows.push({ kind: "section", label: part.label, count: part.items.length, first: p === 0 });
-      let label: string | undefined;
+      let label: Group | undefined;
       page.forEach((item, i) => {
         const next = groupLabel(itemTime(item)!, now);
         if (next !== label) {
@@ -152,14 +158,14 @@ export function LatestList({
                 {row.kind === "section" ? (
                   <h2 className={`flex items-center gap-2 px-1 pb-3 font-display text-xl ${row.first ? "" : "pt-10"}`}>
                     {row.first && <StarIcon filled className="h-[18px] w-[18px] text-gold" />}
-                    {row.label}
-                    <span className="font-sans text-sm tabular-nums text-muted">{formatCount(row.count)}</span>
+                    {t[row.label]}
+                    <span className="font-sans text-sm tabular-nums text-muted">{formatCount(row.count, locale)}</span>
                   </h2>
                 ) : row.kind === "heading" ? (
                   <h2
                     className={`flex items-center gap-3 px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted ${row.first ? "" : "pt-6"}`}
                   >
-                    {row.label}
+                    {t[row.label]}
                     <span className="h-px flex-1 bg-line" />
                   </h2>
                 ) : (
@@ -180,13 +186,12 @@ export function LatestList({
       </div>
       {dated === 0 && (
         <p className="rounded-2xl border border-dashed border-line px-4 py-12 text-center text-sm text-muted">
-          No headlines match.
+          {t.noneMatch}
         </p>
       )}
       {!more && undated > 0 && (
         <p className="px-1 pt-6 text-center text-xs leading-relaxed text-muted">
-          {formatCount(undated)} headlines from homepage-scraped sources have no time yet — find them in
-          “Newsstand”. New ones are timed from when they first appear on the homepage.
+          {t.undated(formatCount(undated, locale))}
         </p>
       )}
     </section>
@@ -212,6 +217,7 @@ function Headline({
   onShare: (item: NewsItem) => void;
 }) {
   const it = row.item;
+  const bn = useLocale() === "bn";
   const edge = `${row.first ? "rounded-t-2xl border-t" : ""} ${row.last ? "rounded-b-2xl" : ""}`;
   return (
     <div className={`flex overflow-hidden border-x border-b border-line bg-surface ${edge}`}>
@@ -227,7 +233,9 @@ function Headline({
         <div className="min-w-0">
           <div className="mb-1 flex flex-wrap items-center gap-x-2 text-xs">
             <span className="font-semibold text-accent">{sourceById.get(it.sourceId)?.name ?? it.sourceName}</span>
-            {it.category !== "other" && <span className="text-muted">· {CATEGORY_LABEL.get(it.category)}</span>}
+            {it.category !== "other" && (
+              <span className="text-muted">· {(bn ? CATEGORY_BN : CATEGORY_LABEL).get(it.category)}</span>
+            )}
             <span className="text-muted sm:hidden">
               · <ItemTime item={it} now={now} />
             </span>

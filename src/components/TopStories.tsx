@@ -4,7 +4,8 @@ import { useState } from "react";
 import type { Story } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
-import { timeAgo } from "./time";
+import { useLocale, useStrings } from "./locale";
+import { formatCount, timeAgo } from "./time";
 import { ChevronIcon, ItemMenu, NewDot } from "./ui";
 
 /** Other outlets' headlines shown before "Show all". */
@@ -33,6 +34,7 @@ export function TopStories({
   emptyHint: string;
 }) {
   const [limit, setLimit] = useState(PAGE);
+  const t = useStrings();
 
   if (!stories.length) {
     return (
@@ -44,10 +46,9 @@ export function TopStories({
 
   return (
     <section>
-      <h2 className="sr-only">Top stories</h2>
+      <h2 className="sr-only">{t.topStories}</h2>
       <p className="mb-4 px-1 text-[13px] text-muted">
-        The same event reported by several outlets, grouped by matching headlines. The more outlets, the higher it
-        ranks.
+        {t.topExplainer}
       </p>
       <ol className="grid items-start gap-4 sm:gap-5 lg:grid-cols-2">
         {stories.slice(0, limit).map((s, i) => (
@@ -70,7 +71,7 @@ export function TopStories({
           onClick={() => setLimit((n) => n + PAGE)}
           className="mx-auto mt-6 flex h-11 items-center gap-1.5 rounded-full border border-line bg-surface px-5 text-sm font-semibold text-accent shadow-card transition active:scale-95"
         >
-          Show more stories
+          {t.moreStories}
           <ChevronIcon className="h-4 w-4" />
         </button>
       )}
@@ -98,6 +99,8 @@ function StoryCard({
   onShare: (item: NewsItem) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const t = useStrings();
+  const locale = useLocale();
   const [lead, ...others] = story.items;
   const shown = open ? others : others.slice(0, PREVIEW);
   const name = (it: NewsItem) => sourceById.get(it.sourceId)?.name ?? it.sourceName;
@@ -114,11 +117,11 @@ function StoryCard({
           className="group block min-w-0 flex-1 pb-3.5 pl-4 pt-4 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5"
         >
           <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <span className="font-display text-sm font-semibold tabular-nums text-gold">{rank}</span>
+            <span className="font-display text-sm font-semibold tabular-nums text-gold">{formatCount(rank, locale)}</span>
             <span className="rounded-full bg-accent-soft px-2.5 py-0.5 font-semibold text-accent">
-              {story.outlets} outlets
+              {t.outlets(formatCount(story.outlets, locale))}
             </span>
-            {story.latest && <span className="text-muted">updated {timeAgo(story.latest, now)}</span>}
+            {story.latest && <span className="text-muted">{t.storyUpdated(timeAgo(story.latest, now, locale))}</span>}
           </div>
           <p className="text-[18px] font-semibold leading-[1.5] group-hover:text-accent">
             {story.items.some(isNew) && <NewDot className="mr-2 -mt-0.5" />}
@@ -169,7 +172,7 @@ function StoryCard({
           aria-expanded={open}
           className="flex min-h-11 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2"
         >
-          {open ? "Show less" : `All ${others.length + 1} outlets`}
+          {open ? t.showLess : t.allOutlets(formatCount(others.length + 1, locale))}
           <ChevronIcon className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} />
         </button>
       )}

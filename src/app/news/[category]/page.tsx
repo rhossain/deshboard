@@ -10,6 +10,7 @@ import {
   categoryPath,
   categoryTitle,
   INDEXABLE,
+  localeAlternates,
   shareMetadata,
 } from "@/lib/site";
 import { SOURCES } from "@/lib/sources";
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
     title: { absolute: title },
     description,
     alternates: {
-      canonical: url,
+      ...localeAlternates(url, "en"),
       types: feedLink(url, `Bangladesh ${CATEGORY_PAGES.find((c) => c.id === category)!.label.toLowerCase()} news`),
     },
     robots: INDEXABLE,

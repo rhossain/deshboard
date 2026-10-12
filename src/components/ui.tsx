@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode, type KeyboardEvent, type ToggleEvent } from "react";
 import { flushSync } from "react-dom";
+import { useStrings } from "./locale";
 
 export function Segmented<T extends string>({
   value,
@@ -176,12 +177,13 @@ export const StackIcon = (p: { className?: string }) => (
 
 /** The small dot that marks a headline published since the reader's last visit. */
 export function NewDot({ className = "" }: { className?: string }) {
+  const t = useStrings();
   return (
     <span
       className={`inline-block h-2 w-2 shrink-0 rounded-full bg-gold align-middle ${className}`}
-      title="New since your last visit"
+      title={t.newSinceVisit}
     >
-      <span className="sr-only">New: </span>
+      <span className="sr-only">{t.newPrefix}</span>
     </span>
   );
 }
@@ -260,6 +262,7 @@ export function ItemMenu({
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const t = useStrings();
 
   // The menu is pinned to where the button was; any scroll or resize closes it rather than leaving it behind.
   useEffect(() => {
@@ -317,8 +320,8 @@ export function ItemMenu({
         popoverTarget={id}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={saved ? "More actions (saved)" : "More actions"}
-        title="More actions"
+        aria-label={saved ? t.moreActionsSaved : t.moreActions}
+        title={t.moreActions}
         className={`flex w-10 shrink-0 items-start justify-center pt-3 transition active:scale-90 ${
           saved ? "text-gold" : open ? "text-foreground" : "text-muted/60 hover:text-foreground"
         } ${className}`}
@@ -343,11 +346,11 @@ export function ItemMenu({
           <>
             <button type="button" role="menuitem" onClick={run(onShare)} className={row}>
               <ShareIcon className="h-[18px] w-[18px] text-muted" />
-              Share
+              {t.share}
             </button>
             <button type="button" role="menuitem" onClick={run(onToggleSave)} className={row}>
               <BookmarkIcon filled={saved} className={`h-[18px] w-[18px] ${saved ? "text-gold" : "text-muted"}`} />
-              {saved ? "Remove from saved" : "Save for later"}
+              {saved ? t.removeFromSaved : t.saveForLater}
             </button>
             {extra && (
               <button type="button" role="menuitem" onClick={run(extra.onSelect)} className={row}>
@@ -375,6 +378,7 @@ export function Sheet({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useStrings();
 
   useEffect(() => {
     const dialog = ref.current;
@@ -401,7 +405,7 @@ export function Sheet({
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={t.close}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-muted hover:text-foreground"
               >
                 <CloseIcon className="h-5 w-5" />

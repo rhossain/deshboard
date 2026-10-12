@@ -2,9 +2,11 @@
 
 import { Fragment, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, preconnect } from "react-dom";
+import { localePath } from "@/lib/i18n";
 import { VIDEOS_PATH } from "@/lib/site";
 import type { Video, VideoFeed } from "@/lib/types";
 import { CategoryTabs } from "./CategoryTabs";
+import { useLocale, useStrings } from "./locale";
 import { MAX_PINS, pinRanks, togglePin, usePinnedChannels } from "./pinned";
 import { PinPicker } from "./PinPicker";
 import { AT_TOP_PX, PUBLISH_LAG_MS, RETRY_MS, UPDATE_EVERY_MS } from "./schedule";
@@ -209,24 +211,29 @@ export default function VideoBoard({
     setPlaying(video);
   }, []);
 
+  const t = useStrings();
+  const locale = useLocale();
+  const videosPath = localePath(VIDEOS_PATH, locale);
   const failed = feed?.channels.filter((c) => !c.ok) ?? [];
   const tabs = feed
     ? [
-        { id: "", label: "All", href: VIDEOS_PATH, count: matching.length },
+        { id: "", label: t.allChannels, href: videosPath, count: matching.length },
         // Pinned channels first in the rail too, in the reader's order.
         ...[...feed.channels]
           .sort((a, b) => (rank.get(a.id) ?? MAX_PINS) - (rank.get(b.id) ?? MAX_PINS))
-          .map((c) => ({ id: c.id, label: c.name, href: VIDEOS_PATH, count: counts.get(c.id) ?? 0 })),
+          .map((c) => ({ id: c.id, label: c.name, href: videosPath, count: counts.get(c.id) ?? 0 })),
       ]
     : [];
 
   return (
     <section>
-      {rail && feed && createPortal(<CategoryTabs tabs={tabs} value={channel} onChange={pickChannel} label="Filter by channel" />, rail)}
+      {rail &&
+        feed &&
+        createPortal(<CategoryTabs tabs={tabs} value={channel} onChange={pickChannel} label={t.filterByChannel} />, rail)}
 
       {error && !feed && (
         <div className="rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
-          Could not load videos: {error}{" "}
+          {t.couldNotLoadVideos(error)}{" "}
           <button
             type="button"
             onClick={() => {
@@ -235,7 +242,7 @@ export default function VideoBoard({
             }}
             className="font-semibold underline"
           >
-            Try again
+            {t.tryAgain}
           </button>
         </div>
       )}
@@ -244,8 +251,8 @@ export default function VideoBoard({
 
       {feed && list.length === 0 && (
         <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
-          <p className="font-display text-xl">No videos found</p>
-          <p className="mt-1 text-sm text-muted">{q ? "Try another word or channel." : "Nothing from this channel today."}</p>
+          <p className="font-display text-xl">{t.noVideos}</p>
+          <p className="mt-1 text-sm text-muted">{q ? t.tryAnotherChannel : t.nothingFromChannel}</p>
         </div>
       )}
 
@@ -261,10 +268,10 @@ export default function VideoBoard({
             }`}
           >
             <StarIcon filled={pins.ids.length > 0} className="h-4 w-4" />
-            My channels
+            {t.myChannels}
             {pins.ids.length > 0 && (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold tabular-nums text-accent-ink">
-                {pins.ids.length}
+                {formatCount(pins.ids.length, locale)}
               </span>
             )}
           </button>
@@ -281,9 +288,9 @@ export default function VideoBoard({
                   {mine > 0 && (
                     <h2 className={`mb-3 flex items-center gap-2 px-1 font-display text-xl ${p ? "pt-10" : ""}`}>
                       {p === 0 && <StarIcon filled className="h-[18px] w-[18px] text-gold" />}
-                      {p === 0 ? "From your channels" : "Everything else"}
+                      {p === 0 ? t.fromYourChannels : t.everythingElse}
                       <span className="font-sans text-sm tabular-nums text-muted">
-                        {formatCount(p === 0 ? mine : list.length - mine)}
+                        {formatCount(p === 0 ? mine : list.length - mine, locale)}
                       </span>
                     </h2>
                   )}
@@ -313,12 +320,11 @@ export default function VideoBoard({
 
       {feed && !more && (
         <p className="px-1 pt-8 text-center text-xs leading-relaxed text-muted">
-          The last day&rsquo;s videos from {formatCount(feed.channels.length - failed.length)} TV news channels on
-          YouTube, without Shorts.
+          {t.videosNote(formatCount(feed.channels.length - failed.length, locale))}
           {failed.length > 0 && (
             <span title={failed.map((c) => `${c.name}: ${c.error}`).join("\n")}>
               {" "}
-              Not reachable this time: {failed.map((c) => c.name).join(", ")}.
+              {t.unreachable(failed.map((c) => c.name).join(", "))}
             </span>
           )}
         </p>
@@ -337,9 +343,9 @@ export default function VideoBoard({
         </div>
       )}
 
-      <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title="My channels">
+      <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title={t.myChannels}>
         <PinPicker
-          noun="channel"
+          kind="channel"
           options={(feed?.channels ?? []).map((c) => ({ id: c.id, name: c.name }))}
           pins={pins}
           onChange={updatePins}

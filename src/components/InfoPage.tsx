@@ -1,22 +1,28 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import type { Locale } from "@/lib/i18n";
+import { STRINGS } from "@/lib/strings";
 import { BartaboardLogo } from "./BartaboardLogo";
 
-/** The site's own pages, linked from the foot of every page. */
-export const SITE_LINKS = [
-  { href: "/sources/", label: "All newspapers" },
-  { href: "/videos/", label: "TV news videos" },
-  { href: "/about/", label: "About" },
-  { href: "/health/", label: "Source health" },
-  { href: "/privacy/", label: "Privacy" },
-  { href: "/terms/", label: "Terms" },
+/**
+ * The site's own pages, linked from the foot of every page. `bn`: the page has a Bangla twin under
+ * /bn/, which Bangla pages link to instead.
+ */
+export const SITE_LINKS: { id: keyof (typeof STRINGS)["en"]["links"]; href: string; bn?: boolean }[] = [
+  { id: "sources", href: "/sources/" },
+  { id: "videos", href: "/videos/", bn: true },
+  { id: "about", href: "/about/" },
+  { id: "health", href: "/health/" },
+  { id: "privacy", href: "/privacy/" },
+  { id: "terms", href: "/terms/" },
 ];
 
 /** Thanks to the site whose idea Bartaboard builds on, at the foot of every page. */
-export function InspiredBy() {
+export function InspiredBy({ locale = "en" }: { locale?: Locale }) {
+  const [before, after] = STRINGS[locale].thanks;
   return (
     <p className="mt-3 text-center text-xs text-muted">
-      With thanks to 24 Live Newspaper (
+      {before}
       <a
         href="https://www.24livenewspaper.com/"
         target="_blank"
@@ -25,7 +31,7 @@ export function InspiredBy() {
       >
         24livenewspaper.com
       </a>
-      ), whose idea of every Bangladeshi paper in one place inspired Bartaboard.
+      {after}
     </p>
   );
 }
@@ -80,7 +86,7 @@ export function InfoPage({
         <nav aria-label="Site" className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2">
           {SITE_LINKS.map((l) => (
             <Link key={l.href} href={l.href} className="hover:text-foreground">
-              {l.label}
+              {STRINGS.en.links[l.id]}
             </Link>
           ))}
         </nav>

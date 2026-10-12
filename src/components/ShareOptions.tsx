@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SHARE_TARGETS, sharePath, videoSharePath } from "@/lib/share";
 import type { NewsItem } from "@/lib/types";
+import { useStrings } from "./locale";
 import { LinkIcon, ShareIcon } from "./ui";
 
 // Brand marks from Simple Icons (CC0), 24×24.
@@ -39,6 +40,7 @@ export interface Shareable {
 export function ShareOptions({ shared }: { shared: Shareable }) {
   const { title, url, sourceName } = shared;
   const [copied, setCopied] = useState(false);
+  const t = useStrings();
   // Only rendered after a tap on Share, never on the server.
   const canNativeShare = typeof navigator.share === "function";
 
@@ -79,7 +81,7 @@ export function ShareOptions({ shared }: { shared: Shareable }) {
             <span className={disc}>
               <ShareIcon className="h-6 w-6" />
             </span>
-            More
+            {t.more}
           </button>
         )}
       </div>
@@ -89,7 +91,7 @@ export function ShareOptions({ shared }: { shared: Shareable }) {
         <input
           readOnly
           value={url}
-          aria-label="Share link"
+          aria-label={t.shareLink}
           onFocus={(e) => e.currentTarget.select()}
           className="min-w-0 flex-1 bg-transparent text-sm text-muted outline-none"
         />
@@ -98,13 +100,11 @@ export function ShareOptions({ shared }: { shared: Shareable }) {
           onClick={copy}
           className="h-9 shrink-0 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink transition active:scale-95"
         >
-          {copied ? "Copied" : "Copy"}
+          {copied ? t.copied : t.copy}
         </button>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        {shared.video
-          ? "The link opens a Bartaboard page for this video, with a button to watch it on YouTube."
-          : `The link opens a Bartaboard page for this headline, with a button to the article on ${sourceName}.`}
+        {shared.video ? t.shareVideoNote : t.shareHeadlineNote(sourceName)}
       </p>
     </div>
   );

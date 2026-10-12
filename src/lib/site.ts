@@ -1,7 +1,8 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { CATEGORIES, type Category } from "./categories";
 import type { DirectoryEntry, DirectoryGroup, Outlet } from "./directory";
-import { FAQ } from "./intros";
+import { type Locale, languageAlternates, LANG_TAG, localDigits, localePath, OG_LOCALE } from "./i18n";
+import { faq } from "./intros";
 import { CHANNELS } from "./channels";
 import { ACTIVE_SOURCES } from "./sources";
 import { itemTime, newestFirst } from "./stories";
@@ -39,8 +40,40 @@ export function categoryPath(category: Category | ""): string | undefined {
   return category && PAGE_BY_ID.has(category) ? `/news/${category}/` : undefined;
 }
 
-export function categoryTitle(category: Category): string {
+/** A section's news as Bangla says it: "খেলার খবর", not "খেলা খবর". */
+const BN_NEWS: Record<Exclude<Category, "other">, string> = {
+  national: "জাতীয় খবর",
+  politics: "রাজনীতির খবর",
+  international: "আন্তর্জাতিক খবর",
+  business: "অর্থনীতির খবর",
+  sports: "খেলার খবর",
+  entertainment: "বিনোদনের খবর",
+  tech: "বিজ্ঞান-প্রযুক্তির খবর",
+  education: "শিক্ষার খবর",
+  health: "স্বাস্থ্যের খবর",
+  lifestyle: "জীবনযাপনের খবর",
+  crime: "আইন-অপরাধের খবর",
+  opinion: "মতামত ও কলাম",
+};
+const bnNews = (category: Category) => BN_NEWS[category as Exclude<Category, "other">];
+/** A count in the page's digits: "59", "৫৯". */
+const n = (count: number, locale: Locale) => localDigits(String(count), locale);
+
+/** The board's title and description, in each language (the English ones are SITE_TITLE and SITE_DESCRIPTION). */
+export function siteTitle(locale: Locale = "en"): string {
+  return locale === "bn" ? `আজকের খবর: সব বাংলা পত্রিকা এক জায়গায় | ${SITE_NAME}` : SITE_TITLE;
+}
+
+export function siteDescription(locale: Locale = "en"): string {
+  return locale === "bn"
+    ? `বাংলাদেশের ${n(ACTIVE_SOURCES.length, locale)}টি সংবাদপত্র ও নিউজ সাইটের সর্বশেষ বাংলা ও ইংরেজি শিরোনাম এক পাতায়: ` +
+        "প্রথম আলো, যুগান্তর, দ্য ডেইলি স্টার, বিডিনিউজ২৪ সহ, সঙ্গে শীর্ষ খবর।"
+    : SITE_DESCRIPTION;
+}
+
+export function categoryTitle(category: Category, locale: Locale = "en"): string {
   const c = PAGE_BY_ID.get(category)!;
+  if (locale === "bn") return `আজকের ${bnNews(category)}: সব পত্রিকা এক জায়গায় | ${SITE_NAME}`;
   return `Bangladesh ${c.label} News Today (${c.bn}) | ${SITE_NAME}`;
 }
 
@@ -50,6 +83,17 @@ export const VIDEOS_TITLE = `Bangla TV News Videos Today, ${CHANNELS.length} Cha
 export const VIDEOS_DESCRIPTION =
   `Latest Bangladesh TV news videos from ${CHANNELS.length} channels on YouTube, including Jamuna TV, Somoy TV, ` +
   "Channel 24 and BBC News Bangla, newest first, free to watch.";
+
+export function videosTitle(locale: Locale = "en"): string {
+  return locale === "bn" ? `আজকের টিভি সংবাদ ভিডিও, ${n(CHANNELS.length, locale)}টি চ্যানেল | ${SITE_NAME}` : VIDEOS_TITLE;
+}
+
+export function videosDescription(locale: Locale = "en"): string {
+  return locale === "bn"
+    ? `ইউটিউবে ${n(CHANNELS.length, locale)}টি টিভি চ্যানেলের সর্বশেষ সংবাদ ভিডিও: যমুনা টিভি, সময় টিভি, চ্যানেল ২৪, ` +
+        "বিবিসি নিউজ বাংলা সহ, নতুনগুলো আগে, বিনা খরচে।"
+    : VIDEOS_DESCRIPTION;
+}
 
 /** The sources page: every outlet Bartaboard reads. */
 export const SOURCES_PATH = "/sources/";
@@ -88,7 +132,13 @@ export const ABOUT_DESCRIPTION =
   `${CHANNELS.length} TV channels on one free board, refreshed every 15 minutes.`;
 
 /** The page's visible heading: what it holds, in the words people search for. */
-export function boardHeading(category?: Category | "", videos = false): string {
+export function boardHeading(category?: Category | "", videos = false, locale: Locale = "en"): string {
+  if (locale === "bn") {
+    if (videos) return "আজকের টিভি সংবাদ ভিডিও";
+    return category && PAGE_BY_ID.has(category)
+      ? `আজকের ${bnNews(category)}`
+      : `${n(ACTIVE_SOURCES.length, locale)}টি সংবাদপত্রের সর্বশেষ খবর`;
+  }
   if (videos) return "Bangladesh TV news videos today";
   const c = category ? PAGE_BY_ID.get(category) : undefined;
   return c
@@ -96,8 +146,14 @@ export function boardHeading(category?: Category | "", videos = false): string {
     : `Latest Bangladesh news headlines from ${ACTIVE_SOURCES.length} newspapers`;
 }
 
-export function categoryDescription(category: Category): string {
+export function categoryDescription(category: Category, locale: Locale = "en"): string {
   const c = PAGE_BY_ID.get(category)!;
+  if (locale === "bn") {
+    return (
+      `বাংলাদেশের ${n(ACTIVE_SOURCES.length, locale)}টি সংবাদপত্র ও নিউজ সাইট থেকে আজকের সর্বশেষ ${bnNews(category)}, ` +
+      "বাংলা ও ইংরেজিতে, এক পাতায়।"
+    );
+  }
   return (
     `Latest ${c.label.toLowerCase()} news from Bangladesh: ${c.bn} headlines in Bangla and English from ` +
     `${ACTIVE_SOURCES.length} news portals, on one board.`
@@ -153,7 +209,7 @@ function jsonLd(data: object): string {
  */
 export async function shareMetadata(
   parent: ResolvingMetadata,
-  { title, description, url }: { title: string; description: string; url: string },
+  { title, description, url, locale = "en" }: { title: string; description: string; url: string; locale?: Locale },
 ): Promise<Pick<Metadata, "openGraph" | "twitter">> {
   const { openGraph, twitter } = await parent;
   return {
@@ -163,8 +219,8 @@ export async function shareMetadata(
       url,
       siteName: SITE_NAME,
       type: "website",
-      locale: "en_US",
-      alternateLocale: ["bn_BD"],
+      locale: OG_LOCALE[locale],
+      alternateLocale: [OG_LOCALE[locale === "bn" ? "en" : "bn"]],
       images: openGraph?.images,
     },
     twitter: { card: "summary_large_image", title, description, images: twitter?.images },
@@ -175,30 +231,53 @@ export async function shareMetadata(
  * Structured data for a section's page: what it is, and where it sits under the board. `updated` is
  * when the headlines were last collected.
  */
-export function categoryJsonLd(category: Category, updated?: string): string {
+export function categoryJsonLd(category: Category, updated?: string, locale: Locale = "en"): string {
   const c = PAGE_BY_ID.get(category)!;
-  const url = `${SITE_URL}${categoryPath(category)}`;
+  const url = `${SITE_URL}${localePath(categoryPath(category)!, locale)}`;
   return jsonLd({
     "@graph": [
       {
         "@type": "CollectionPage",
         "@id": url,
         url,
-        name: categoryTitle(category),
-        description: categoryDescription(category),
-        inLanguage: ["en", "bn"],
+        name: categoryTitle(category, locale),
+        description: categoryDescription(category, locale),
+        inLanguage: LANG_TAG[locale],
         dateModified: updated,
         isPartOf: { "@id": `${SITE_URL}/#website` },
       },
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
-          { "@type": "ListItem", position: 2, name: `${c.label} news`, item: url },
+          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}${localePath("/", locale)}` },
+          { "@type": "ListItem", position: 2, name: locale === "bn" ? bnNews(category) : `${c.label} news`, item: url },
         ],
       },
     ],
   });
+}
+
+/** Structured data for the Bangla board (/bn/): a page of the site, in Bangla. */
+export function bnBoardJsonLd(updated?: string): string {
+  const url = `${SITE_URL}${localePath("/", "bn")}`;
+  return jsonLd({
+    "@type": "CollectionPage",
+    "@id": url,
+    url,
+    name: siteTitle("bn"),
+    description: siteDescription("bn"),
+    inLanguage: "bn",
+    dateModified: updated,
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+  });
+}
+
+/**
+ * A page's canonical address and its other-language twin, for metadata `alternates`. `path` is the
+ * English address; the Bangla page canonicalises to its own /bn/ address.
+ */
+export function localeAlternates(path: string, locale: Locale): { canonical: string; languages: Record<string, string> } {
+  return { canonical: localePath(path, locale), languages: languageAlternates(path) };
 }
 
 /** Structured data for the sources page: the outlets, as news organisations. */
@@ -292,33 +371,34 @@ export function aboutJsonLd(): string {
 }
 
 /** The board's questions and answers, as FAQPage data. */
-export function faqJsonLd(): string {
+export function faqJsonLd(locale: Locale = "en"): string {
   return jsonLd({
     "@type": "FAQPage",
-    mainEntity: FAQ.map(({ q, a }) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
+    inLanguage: LANG_TAG[locale],
+    mainEntity: faq(locale).map(({ q, a }) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
   });
 }
 
 /** Structured data for the Videos page; `updated` is when the videos were last collected. */
-export function videosJsonLd(updated?: string): string {
-  const url = `${SITE_URL}${VIDEOS_PATH}`;
+export function videosJsonLd(updated?: string, locale: Locale = "en"): string {
+  const url = `${SITE_URL}${localePath(VIDEOS_PATH, locale)}`;
   return jsonLd({
     "@graph": [
       {
         "@type": "CollectionPage",
         "@id": url,
         url,
-        name: VIDEOS_TITLE,
-        description: VIDEOS_DESCRIPTION,
-        inLanguage: ["bn", "en"],
+        name: videosTitle(locale),
+        description: videosDescription(locale),
+        inLanguage: locale === "bn" ? "bn" : ["bn", "en"],
         dateModified: updated,
         isPartOf: { "@id": `${SITE_URL}/#website` },
       },
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
-          { "@type": "ListItem", position: 2, name: "TV news videos", item: url },
+          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}${localePath("/", locale)}` },
+          { "@type": "ListItem", position: 2, name: locale === "bn" ? "টিভি সংবাদ ভিডিও" : "TV news videos", item: url },
         ],
       },
     ],
