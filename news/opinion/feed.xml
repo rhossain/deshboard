@@ -5,9 +5,25 @@
     <link>https://bartaboard.com/news/opinion/</link>
     <description>Latest opinion news from Bangladesh: মতামত headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 03:00:57 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 03:15:48 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/opinion/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>‘নানা’বিধ চারিত্রিক বিহ্বলতা</title>
+      <link>https://www.dhakapost.com/opinion/489772</link>
+      <description>Dhaka Post · Opinion</description>
+      <guid isPermaLink="true">https://www.dhakapost.com/opinion/489772</guid>
+      <pubDate>Mon, 12 Oct 2026 03:10:09 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
+    <item>
+      <title>রাজনৈতিক প্রভাবে দখলদারি বন্ধ করুন</title>
+      <link>https://www.prothomalo.com/opinion/editorial/aq64tu8972</link>
+      <description>Prothom Alo · Opinion</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/opinion/editorial/aq64tu8972</guid>
+      <pubDate>Mon, 12 Oct 2026 03:03:20 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
     <item>
       <title>Execution capability matters, not the number of projects</title>
       <link>https://en.prothomalo.com/opinion/op-ed/z3glecl29b</link>
@@ -390,22 +406,6 @@
       <description>Amar Desh · Opinion</description>
       <guid isPermaLink="true">https://www.dailyamardesh.com/op-ed/sub-editorial/amdgqvoavofru</guid>
       <pubDate>Sun, 11 Oct 2026 04:48:19 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>Child marriage must be eradicated</title>
-      <link>https://www.dhakatribune.com/opinion/editorial/421817/child-marriage-must-be-eradicated</link>
-      <description>Dhaka Tribune · Opinion</description>
-      <guid isPermaLink="true">https://www.dhakatribune.com/opinion/editorial/421817/child-marriage-must-be-eradicated</guid>
-      <pubDate>Sun, 11 Oct 2026 04:46:02 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>Subsidize people, not things</title>
-      <link>https://www.dhakatribune.com/opinion/op-ed/421769/subsidize-people-not-things</link>
-      <description>Dhaka Tribune · Opinion</description>
-      <guid isPermaLink="true">https://www.dhakatribune.com/opinion/op-ed/421769/subsidize-people-not-things</guid>
-      <pubDate>Sun, 11 Oct 2026 04:41:28 GMT</pubDate>
       <category>Opinion</category>
     </item>
   </channel>
