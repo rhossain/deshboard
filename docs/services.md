@@ -36,8 +36,8 @@ and styloviz project; leave them alone.
 
 ## GitHub Actions and cron-job.org
 
-`.github/workflows/deploy.yml` (see the README's Deploy section) builds the `static-export` branch, commits `out/` to
-the `deploy` branch for Hostinger, then runs `wrangler pages deploy out --project-name=bartaboard --branch=main`.
+`.github/workflows/deploy.yml` (see the README's Deploy section) builds the `static-export` branch, then runs
+`wrangler pages deploy out --project-name=bartaboard --branch=main`.
 
 - Repository variables: `SITE_URL` = `https://bartaboard.com`, `CLOUDFLARE_ACCOUNT_ID`. The Cloudflare upload step is
   skipped without the latter.
