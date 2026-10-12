@@ -10,6 +10,7 @@ import { useNewsDensity } from "./news-density";
 import { useLocale, useStrings } from "./locale";
 import { dhakaDay, formatCount } from "./time";
 import { ItemMenu, NewDot, StarIcon } from "./ui";
+import { Highlight } from "./Highlight";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 const CATEGORY_BN = new Map(CATEGORIES.map((c) => [c.id, c.bn]));
@@ -249,7 +250,7 @@ function Headline({
           </div>
           <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent compact:text-[15px] compact:leading-[1.45]">
             {isNew(it) && <NewDot className="mr-2 -mt-0.5" />}
-            {it.title}
+            <Highlight text={it.title} />
           </p>
         </div>
       </a>

@@ -7,6 +7,7 @@ import { useLocale, useStrings } from "./locale";
 import { compactCount, fullTime, timeAgo } from "./time";
 import { ArrowUpRightIcon, CloseIcon, ItemMenu, StarIcon } from "./ui";
 import { thumb, watchUrl } from "./youtube";
+import { Highlight } from "./Highlight";
 
 /**
  * One video: a row (thumbnail beside the title) on phones, a card in a grid on larger screens, unless
@@ -92,7 +93,7 @@ export const VideoCard = memo(function VideoCard({
             onClick={open}
             className="line-clamp-3 text-[15px] font-medium leading-[1.5] transition hover:text-accent sm:line-clamp-2 vgrid:line-clamp-2 sm:vlist:text-base"
           >
-            {video.title}
+            <Highlight text={video.title} />
           </a>
           <p className="mt-1 text-xs text-muted">
             <span className="font-semibold text-accent">{channelName}</span>

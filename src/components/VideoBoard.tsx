@@ -7,6 +7,7 @@ import { localePath } from "@/lib/i18n";
 import { VIDEOS_PATH } from "@/lib/site";
 import type { Video, VideoFeed } from "@/lib/types";
 import { VIDEO_LIST, videoThumbSizes } from "@/lib/video-layout";
+import { compileSearch } from "@/lib/search";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLocale, useStrings } from "./locale";
 import { MAX_PINS, pinRanks, togglePin, usePinnedChannels } from "./pinned";
@@ -164,10 +165,10 @@ export default function VideoBoard({
     },
     [pins, updatePins],
   );
-  const q = query.trim().toLowerCase();
+  const search = useMemo(() => compileSearch(query), [query]);
   const matching = useMemo(
-    () => (q ? (feed?.videos ?? []).filter((v) => v.title.toLowerCase().includes(q)) : (feed?.videos ?? [])),
-    [feed, q],
+    () => (search ? (feed?.videos ?? []).filter((v) => search.matches(v.title)) : (feed?.videos ?? [])),
+    [feed, search],
   );
   const counts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -183,7 +184,7 @@ export default function VideoBoard({
   }, [matching, channel, rank]);
 
   // A new channel, search or set of pins starts again from the first page.
-  const listKey = `${channel}\n${q}\n${[...rank.keys()].join()}`;
+  const listKey = `${channel}\n${query.trim()}\n${[...rank.keys()].join()}`;
   const [paging, setPaging] = useState({ key: listKey, shown: PAGE });
   const shown = paging.key === listKey ? paging.shown : PAGE;
   const more = shown < list.length;
@@ -261,7 +262,7 @@ export default function VideoBoard({
       {feed && list.length === 0 && (
         <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
           <p className="font-display text-xl">{t.noVideos}</p>
-          <p className="mt-1 text-sm text-muted">{q ? t.tryAnotherChannel : t.nothingFromChannel}</p>
+          <p className="mt-1 text-sm text-muted">{search ? t.tryAnotherChannel : t.nothingFromChannel}</p>
         </div>
       )}
 

@@ -105,11 +105,11 @@ const STOPWORDS = new Set([
   "নতুন","বিষয়","মতো","বেশি","কম","সব","সবার","শেষ","ভিডিও","ছবি","লাইভ",
 ]);
 
-// Longest first. Stripped only when at least two letters remain.
+// Longest first. Stripped only when at least two letters remain. The search box (search.ts) stems with these too.
 const BN_SUFFIXES = ["গুলোর", "গুলো", "দের", "য়ের", "য়", "ের", "েরা", "কে", "তে", "টির", "টি", "টা", "র", "রা", "ে"];
 const BN_DIGITS = /[০-৯]/g;
 
-function stem(word: string): string {
+export function stem(word: string): string {
   if (/^[a-z0-9]+$/.test(word)) {
     if (word.length > 3 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
     return word;

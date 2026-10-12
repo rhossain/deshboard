@@ -315,6 +315,6 @@ notice saying so.
 3. **Alerts on Telegram, free tier only** (1 keyword, daily digest), so the matching and delivery get tested on real
    users before anyone pays.
 4. **Payments + Plus**: instant alerts, 10 keywords, email digests.
-5. **Search and archive**: keep headlines in Postgres beyond 72 hours, using full-text search with a trigram index for
-   Bangla.
+5. **Search and archive**: keep headlines in Postgres beyond 72 hours, with full-text search that handles
+   Bangla (PGroonga). Designed in [search.md](search.md).
 6. **Monitor**: several seats per account, scheduled PDF/Excel reports, CSV export and an API.
