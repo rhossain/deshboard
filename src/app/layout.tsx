@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, Noto_Sans_Bengali } from "next/font/google";
 import { KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { THEME_SCRIPT } from "@/lib/theme";
+import { VIDEO_LAYOUT_SCRIPT } from "@/lib/video-layout";
 
 /**
  * One root layout serves both languages (the static 404 page, which shared links rely on, needs a
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: LANG_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: VIDEO_LAYOUT_SCRIPT }} />
       </head>
       <body className="min-h-full">
         {children}

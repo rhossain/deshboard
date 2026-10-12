@@ -97,6 +97,14 @@ export const GridIcon = (p: { className?: string }) => (
   </Icon>
 );
 
+export const ListIcon = (p: { className?: string }) => (
+  <Icon {...p}>
+    <rect x="4" y="5" width="6" height="5" rx="1.5" />
+    <rect x="4" y="14" width="6" height="5" rx="1.5" />
+    <path d="M13 6.5h7M13 9h4M13 15.5h7M13 18h4" />
+  </Icon>
+);
+
 export const NewspaperIcon = (p: { className?: string }) => (
   <Icon {...p}>
     <path d="M5 5.5A1.5 1.5 0 0 1 6.5 4h10A1.5 1.5 0 0 1 18 5.5V18a2 2 0 0 0 2 2H7a2 2 0 0 1-2-2z" />

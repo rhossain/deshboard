@@ -6,6 +6,7 @@ import { channelName } from "@/lib/bn-names";
 import { localePath } from "@/lib/i18n";
 import { VIDEOS_PATH } from "@/lib/site";
 import type { Video, VideoFeed } from "@/lib/types";
+import { VIDEO_LIST, videoThumbSizes } from "@/lib/video-layout";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLocale, useStrings } from "./locale";
 import { MAX_PINS, pinRanks, togglePin, usePinnedChannels } from "./pinned";
@@ -13,9 +14,10 @@ import { PinPicker, PinsButton } from "./PinPicker";
 import { AT_TOP_PX, PUBLISH_LAG_MS, RETRY_MS, UPDATE_EVERY_MS } from "./schedule";
 import { useSavedVideos } from "./saved";
 import { formatCount } from "./time";
-import { ChevronIcon, Sheet, StarIcon } from "./ui";
+import { ChevronIcon, GridIcon, ListIcon, Sheet, StarIcon } from "./ui";
 import { Player, VideoCard } from "./VideoCard";
 import { cachedVideos, loadVideos } from "./videos";
+import { setVideoLayout, useVideoLayout, useVideoLayoutChoice } from "./video-layout";
 import { VideoSkeleton } from "./VideoSkeleton";
 
 /** Videos drawn at first, and added each time the reader nears the end. */
@@ -60,6 +62,8 @@ export default function VideoBoard({
   const { savedVideoIds, toggleSavedVideo } = useSavedVideos();
   const [pins, updatePins] = usePinnedChannels();
   const [pinsOpen, setPinsOpen] = useState(false);
+  const layout = useVideoLayout();
+  const sizes = videoThumbSizes(useVideoLayoutChoice());
   const feedRef = useRef(feed);
   // The seed is only the start of its build's feed, so the first load replaces it.
   const partialRef = useRef(feed === seed && !!seed);
@@ -262,7 +266,8 @@ export default function VideoBoard({
       )}
 
       {feed && (
-        <div className="mb-4 flex justify-end sm:mb-5">
+        <div className="mb-4 flex items-center justify-end gap-2 sm:mb-5">
+          <LayoutSwitch value={layout} />
           <PinsButton label={t.myChannels} count={pins.ids.length} onClick={() => setPinsOpen(true)} />
         </div>
       )}
@@ -283,7 +288,7 @@ export default function VideoBoard({
                       </span>
                     </h2>
                   )}
-                  <ul className="grid gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-y-7 lg:grid-cols-3 xl:grid-cols-4">
+                  <ul className={VIDEO_LIST}>
                     {part.map((v, i) => (
                       <VideoCard
                         key={v.id}
@@ -291,6 +296,7 @@ export default function VideoBoard({
                         channelName={names.get(v.channel) ?? v.channel}
                         now={now}
                         eager={p === 0 && i < EAGER}
+                        sizes={sizes}
                         saved={savedVideoIds.has(v.id)}
                         onPlay={play}
                         onToggleSave={toggleSavedVideo}
@@ -350,5 +356,33 @@ export default function VideoBoard({
         />
       )}
     </section>
+  );
+}
+
+/** Grid or List, beside My channels. The layout itself comes from CSS (see video-layout.ts). */
+function LayoutSwitch({ value }: { value: "grid" | "list" }) {
+  const t = useStrings();
+  const options = [
+    { value: "grid", label: t.videoLayout.grid, Icon: GridIcon },
+    { value: "list", label: t.videoLayout.list, Icon: ListIcon },
+  ] as const;
+  return (
+    <div className="inline-flex h-10 rounded-full border border-line bg-surface p-1" role="group" aria-label={t.videoLayout.label}>
+      {options.map(({ value: v, label, Icon }) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => setVideoLayout(v)}
+          aria-pressed={value === v}
+          aria-label={label}
+          title={label}
+          className={`flex w-9 items-center justify-center rounded-full transition ${
+            value === v ? "bg-accent-soft text-accent" : "text-muted hover:text-foreground"
+          }`}
+        >
+          <Icon className="h-4 w-4" />
+        </button>
+      ))}
+    </div>
   );
 }
