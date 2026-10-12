@@ -2,13 +2,13 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 <url>
 <loc>https://bartaboard.com/</loc>
-<lastmod>2026-10-12T00:01:03.239Z</lastmod>
+<lastmod>2026-10-12T00:15:52.796Z</lastmod>
 <changefreq>always</changefreq>
 <priority>1</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/national/</loc>
-<lastmod>2026-10-12T00:01:02.514Z</lastmod>
+<lastmod>2026-10-12T00:07:01.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
@@ -32,13 +32,13 @@
 </url>
 <url>
 <loc>https://bartaboard.com/news/sports/</loc>
-<lastmod>2026-10-12T00:00:00.000Z</lastmod>
+<lastmod>2026-10-12T00:15:48.562Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/news/entertainment/</loc>
-<lastmod>2026-10-11T21:03:12.000Z</lastmod>
+<lastmod>2026-10-11T23:11:28.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
@@ -80,13 +80,13 @@
 </url>
 <url>
 <loc>https://bartaboard.com/videos/</loc>
-<lastmod>2026-10-11T23:30:08.000Z</lastmod>
+<lastmod>2026-10-12T00:00:36.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.8</priority>
 </url>
 <url>
 <loc>https://bartaboard.com/sources/</loc>
-<lastmod>2026-10-12T00:01:03.239Z</lastmod>
+<lastmod>2026-10-12T00:15:52.796Z</lastmod>
 <changefreq>daily</changefreq>
 <priority>0.7</priority>
 </url>
@@ -110,7 +110,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/dailystar/</loc>
-<lastmod>2026-10-11T19:15:42.242Z</lastmod>
+<lastmod>2026-10-12T00:15:48.562Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -152,7 +152,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/banglanews24/</loc>
-<lastmod>2026-10-11T23:27:49.000Z</lastmod>
+<lastmod>2026-10-11T23:55:26.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -236,7 +236,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/banglatribune/</loc>
-<lastmod>2026-10-11T23:00:00.000Z</lastmod>
+<lastmod>2026-10-12T00:00:00.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -254,7 +254,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/samakal/</loc>
-<lastmod>2026-10-11T23:51:23.000Z</lastmod>
+<lastmod>2026-10-12T00:00:00.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -278,7 +278,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/dhakapost/</loc>
-<lastmod>2026-10-11T23:58:31.000Z</lastmod>
+<lastmod>2026-10-12T00:07:01.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -320,7 +320,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/channeli/</loc>
-<lastmod>2026-10-11T23:30:08.000Z</lastmod>
+<lastmod>2026-10-12T00:00:36.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -356,7 +356,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/dbc/</loc>
-<lastmod>2026-10-11T23:05:23.000Z</lastmod>
+<lastmod>2026-10-11T23:54:26.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>
@@ -530,7 +530,7 @@
 </url>
 <url>
 <loc>https://bartaboard.com/sources/gtv/</loc>
-<lastmod>2026-10-11T21:00:11.000Z</lastmod>
+<lastmod>2026-10-11T23:55:13.000Z</lastmod>
 <changefreq>hourly</changefreq>
 <priority>0.6</priority>
 </url>

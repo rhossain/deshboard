@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/national/</link>
     <description>Latest national news from Bangladesh: জাতীয় headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 00:01:03 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 00:15:52 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/national/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>পাংশায় বিদেশি রিভলবার ও ৮ রাউন্ড গুলিসহ যুবক আটক</title>
+      <link>https://www.dhakapost.com/country/489750</link>
+      <description>Dhaka Post · National</description>
+      <guid isPermaLink="true">https://www.dhakapost.com/country/489750</guid>
+      <pubDate>Mon, 12 Oct 2026 00:07:01 GMT</pubDate>
+      <category>National</category>
+    </item>
     <item>
       <title>চট্টগ্রামে নকশাবহির্ভূত ৩ ভবন সিলগালা, জরিমানা ২০ লাখ টাকা</title>
       <link>https://www.ntvbd.com/bangladesh/news-1817933</link>
@@ -398,14 +406,6 @@
       <description>Kaler Kantho · National</description>
       <guid isPermaLink="true">https://www.kalerkantho.com/multimedia/capital/2026/10/12/1751674</guid>
       <pubDate>Sun, 11 Oct 2026 20:43:50 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>যেভাবে উদ্ধার হল জার্মান পর্যটকের ল্যাপটপ</title>
-      <link>https://www.kalerkantho.com/multimedia/capital/2026/10/12/1751659</link>
-      <description>Kaler Kantho · National</description>
-      <guid isPermaLink="true">https://www.kalerkantho.com/multimedia/capital/2026/10/12/1751659</guid>
-      <pubDate>Sun, 11 Oct 2026 20:40:04 GMT</pubDate>
       <category>National</category>
     </item>
   </channel>
