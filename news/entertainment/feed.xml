@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/entertainment/</link>
     <description>Latest entertainment news from Bangladesh: বিনোদন headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 04:15:48 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 04:31:05 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/entertainment/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>দৃশ্যম ৩: ইতিহাস গড়লেন অজয়</title>
+      <link>https://www.dhakapost.com/entertainment/489785</link>
+      <description>Dhaka Post · Entertainment</description>
+      <guid isPermaLink="true">https://www.dhakapost.com/entertainment/489785</guid>
+      <pubDate>Mon, 12 Oct 2026 04:23:26 GMT</pubDate>
+      <category>Entertainment</category>
+    </item>
     <item>
       <title>Actor Nasima Khan passes away, leaving behind anguish over missing son</title>
       <link>https://www.thedailystar.net/culture/entertainment/news/actor-nasima-khan-passes-away-leaving-behind-anguish-over-missing-son-4296641</link>
@@ -41,7 +49,7 @@
       <category>Entertainment</category>
     </item>
     <item>
-      <title>ভারতের আন্দোলনে আটক হয়েছিলেন, ইমরান খানের প্রেমিকা কে এই লেখা</title>
+      <title>মুম্বাইয়ে আন্দোলনে আটক হয়েছিলেন, ইমরান খানের প্রেমিকা কে এই লেখা</title>
       <link>https://www.prothomalo.com/entertainment/bollywood/rcnp38k0os</link>
       <description>Prothom Alo · Entertainment</description>
       <guid isPermaLink="true">https://www.prothomalo.com/entertainment/bollywood/rcnp38k0os</guid>
@@ -61,6 +69,14 @@
       <link>https://www.prothomalo.com/entertainment/entertainment-interview/98vx51jxq7</link>
       <description>Prothom Alo · Entertainment</description>
       <guid isPermaLink="true">https://www.prothomalo.com/entertainment/entertainment-interview/98vx51jxq7</guid>
+      <pubDate>Mon, 12 Oct 2026 02:30:00 GMT</pubDate>
+      <category>Entertainment</category>
+    </item>
+    <item>
+      <title>কত কোটি টাকার সম্পদ রেখে গেলেন নানা পাটেকর?</title>
+      <link>https://www.risingbd.com/entertainment/news/666325</link>
+      <description>Rising BD · Entertainment</description>
+      <guid isPermaLink="true">https://www.risingbd.com/entertainment/news/666325</guid>
       <pubDate>Mon, 12 Oct 2026 02:30:00 GMT</pubDate>
       <category>Entertainment</category>
     </item>
@@ -390,22 +406,6 @@
       <description>Protidiner Sangbad · Entertainment</description>
       <guid isPermaLink="true">https://www.protidinersangbad.com/entertainment/590233</guid>
       <pubDate>Sun, 11 Oct 2026 15:45:35 GMT</pubDate>
-      <category>Entertainment</category>
-    </item>
-    <item>
-      <title>রাফীকে ধন্যবাদ জানিয়ে যা লিখলেন তমা মির্জা</title>
-      <link>https://www.banglatribune.com/entertainment/television/973883/%E0%A6%B0%E0%A6%BE%E0%A6%AB%E0%A7%80%E0%A6%95%E0%A7%87-%E0%A6%A7%E0%A6%A8%E0%A7%8D%E0%A6%AF%E0%A6%AC%E0%A6%BE%E0%A6%A6-%E0%A6%9C%E0%A6%BE%E0%A6%A8%E0%A6%BF%E0%A7%9F%E0%A7%87-%E0%A6%AF%E0%A6%BE-%E0%A6%B2%E0%A6%BF%E0%A6%96%E0%A6%B2%E0%A7%87%E0%A6%A8-%E0%A6%A4%E0%A6%AE%E0%A6%BE-%E0%A6%AE%E0%A6%BF%E0%A6%B0%E0%A7%8D%E0%A6%9C%E0%A6%BE</link>
-      <description>Bangla Tribune · Entertainment</description>
-      <guid isPermaLink="true">https://www.banglatribune.com/entertainment/television/973883/%E0%A6%B0%E0%A6%BE%E0%A6%AB%E0%A7%80%E0%A6%95%E0%A7%87-%E0%A6%A7%E0%A6%A8%E0%A7%8D%E0%A6%AF%E0%A6%AC%E0%A6%BE%E0%A6%A6-%E0%A6%9C%E0%A6%BE%E0%A6%A8%E0%A6%BF%E0%A7%9F%E0%A7%87-%E0%A6%AF%E0%A6%BE-%E0%A6%B2%E0%A6%BF%E0%A6%96%E0%A6%B2%E0%A7%87%E0%A6%A8-%E0%A6%A4%E0%A6%AE%E0%A6%BE-%E0%A6%AE%E0%A6%BF%E0%A6%B0%E0%A7%8D%E0%A6%9C%E0%A6%BE</guid>
-      <pubDate>Sun, 11 Oct 2026 15:42:07 GMT</pubDate>
-      <category>Entertainment</category>
-    </item>
-    <item>
-      <title>মারা গেলেন অভিনেত্রী নাসিমা খান</title>
-      <link>https://barta24.com/details/entertainment/342509</link>
-      <description>Barta24 · Entertainment</description>
-      <guid isPermaLink="true">https://barta24.com/details/entertainment/342509</guid>
-      <pubDate>Sun, 11 Oct 2026 15:25:47 GMT</pubDate>
       <category>Entertainment</category>
     </item>
   </channel>

@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/health/</link>
     <description>Latest health news from Bangladesh: স্বাস্থ্য headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 04:15:48 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 04:31:05 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/health/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>শিশুর ক্যানসারের যেসব লক্ষণ চোখে পড়লে যা করা জরুরি</title>
+      <link>https://www.banglanews24.com/health/news/bd/1686115.details</link>
+      <description>Banglanews24 · Health</description>
+      <guid isPermaLink="true">https://www.banglanews24.com/health/news/bd/1686115.details</guid>
+      <pubDate>Mon, 12 Oct 2026 04:11:27 GMT</pubDate>
+      <category>Health</category>
+    </item>
     <item>
       <title>ডেঙ্গু: ২৪ ঘণ্টায় ৮ জনের মৃত্যু, হাসপাতালে ১৮৬০</title>
       <link>https://bangla.thedailystar.net/health/disease/news-3968451</link>
@@ -398,14 +406,6 @@
       <description>Ekattor TV · Health</description>
       <guid isPermaLink="true">https://ekattor.tv/amp/health/96100/%E0%A6%B9%E0%A6%BE%E0%A6%AE-%E0%A6%89%E0%A6%AA%E0%A6%B8%E0%A6%B0%E0%A7%8D%E0%A6%97%E0%A7%87-%E0%A6%86%E0%A6%B0%E0%A6%93-%E0%A6%B8%E0%A6%BE%E0%A6%A4-%E0%A6%AE%E0%A7%83%E0%A6%A4%E0%A7%8D%E0%A6%AF%E0%A7%81-%E0%A6%AE%E0%A7%8B%E0%A6%9F-%E0%A7%A7%E0%A7%A7%E0%A7%AC%E0%A7%A8</guid>
       <pubDate>Sun, 11 Oct 2026 10:19:47 GMT</pubDate>
-      <category>Health</category>
-    </item>
-    <item>
-      <title>হামে আরও ৭ শিশুর মৃত্যু</title>
-      <link>https://www.channelionline.com/7-more-deaths-from-measles/</link>
-      <description>Channel i Online · Health</description>
-      <guid isPermaLink="true">https://www.channelionline.com/7-more-deaths-from-measles/</guid>
-      <pubDate>Sun, 11 Oct 2026 10:18:48 GMT</pubDate>
       <category>Health</category>
     </item>
   </channel>
