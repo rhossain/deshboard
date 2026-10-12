@@ -520,6 +520,9 @@ export function NewsBoard({
   const searchQuery = useDeferredValue(query);
   const search = useMemo(() => compileSearch(searchQuery), [searchQuery]);
   const filtering = !!search || !!category || onlyNew;
+  // A search runs on what the board has. Until every headline is here, it may not have found everything
+  // yet, so the board says it is still searching rather than "Nothing found". A failed load ends the wait.
+  const searching = !!search && !whole && !error;
 
   // Everything except the category filter, so the chips can show counts.
   const matching = useMemo(
@@ -1115,10 +1118,26 @@ export function NewsBoard({
               {view !== "videos" && !hasData && loading && <SkeletonGrid />}
 
               {hasData && view !== "saved" && view !== "videos" && filtering && filtered.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
-                  <p className="font-display text-xl">{t.nothingFound}</p>
-                  <p className="mt-1 text-sm text-muted">{t.tryAnother}</p>
+                <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center" aria-live="polite">
+                  {searching ? (
+                    <p className="flex items-center justify-center gap-2 text-sm text-muted">
+                      <RefreshIcon spinning className="h-4 w-4" />
+                      {t.searchingAll}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="font-display text-xl">{t.nothingFound}</p>
+                      <p className="mt-1 text-sm text-muted">{t.tryAnother}</p>
+                    </>
+                  )}
                 </div>
+              )}
+
+              {hasData && view !== "saved" && view !== "videos" && searching && filtered.length > 0 && (
+                <p className="mb-3 flex items-center gap-2 text-sm text-muted" aria-live="polite">
+                  <RefreshIcon spinning className="h-4 w-4" />
+                  {t.searchingAll}
+                </p>
               )}
 
               {hasData && view === "top" && !(filtering && filtered.length === 0) && (
@@ -1142,7 +1161,7 @@ export function NewsBoard({
                 />
               )}
 
-              {hasData && view === "latest" && (
+              {hasData && view === "latest" && !(filtering && filtered.length === 0) && (
                 <LatestList
                   key={
                     filtersToSearch({ view, lang, source: onlySource, category, query: searchQuery, order }) +
