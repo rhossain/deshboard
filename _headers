@@ -30,3 +30,8 @@
   Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox
 /brand/*
   Cache-Control: public, max-age=86400
+
+# The headlines as data (the board's feed, 30 days of day files): other sites' titles for the board and the
+# search to read, not pages for search engines.
+/data/*
+  X-Robots-Tag: noindex
