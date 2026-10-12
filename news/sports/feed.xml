@@ -5,7 +5,7 @@
     <link>https://bartaboard.com/news/sports/</link>
     <description>Latest sports news from Bangladesh: খেলা headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 05:15:55 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 05:31:06 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/sports/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
@@ -22,6 +22,14 @@
       <description>bdnews24 Bangla · Sports</description>
       <guid isPermaLink="true">https://bangla.bdnews24.com/sport/utk6rp7tbh</guid>
       <pubDate>Mon, 12 Oct 2026 05:15:50 GMT</pubDate>
+      <category>Sports</category>
+    </item>
+    <item>
+      <title>‘লর্ড’ শব্দটা কিন্তু মিঠুনকে দিয়েই শুরু হয়েছিল: হাবিবুল</title>
+      <link>https://www.jugantor.com/sports/1167853</link>
+      <description>Jugantor · Sports</description>
+      <guid isPermaLink="true">https://www.jugantor.com/sports/1167853</guid>
+      <pubDate>Mon, 12 Oct 2026 05:14:30 GMT</pubDate>
       <category>Sports</category>
     </item>
     <item>
@@ -398,14 +406,6 @@
       <description>bdnews24 Bangla · Sports</description>
       <guid isPermaLink="true">https://bangla.bdnews24.com/sport/pkssjznqw2</guid>
       <pubDate>Mon, 12 Oct 2026 02:30:48 GMT</pubDate>
-      <category>Sports</category>
-    </item>
-    <item>
-      <title>আজকের খেলা: ১২ অক্টোবর ২০২৬</title>
-      <link>https://www.jugantor.com/sports/1167793</link>
-      <description>Jugantor · Sports</description>
-      <guid isPermaLink="true">https://www.jugantor.com/sports/1167793</guid>
-      <pubDate>Mon, 12 Oct 2026 02:08:41 GMT</pubDate>
       <category>Sports</category>
     </item>
   </channel>
