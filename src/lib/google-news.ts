@@ -10,6 +10,8 @@ import type { NewsSource } from "./types";
  * other source). Finding an address takes two requests to Google, so addresses are kept on disk
  * and looked up within a budget: newest articles first, a share for every source, and a pause if
  * Google asks us to slow down. Articles still waiting for their address appear on a later fetch.
+ * The feeds themselves are read a few at a time, and tried again after a pause when Google is busy
+ * (503 or 429): it turns away bursts from shared servers such as GitHub's now and then.
  */
 
 const STORE = "google-news-links";
@@ -25,6 +27,10 @@ const BUDGET = 400;
 const BUDGET_WINDOW_MS = 10 * 60_000;
 /** Lookups running at once. */
 const CONCURRENCY = 3;
+/** Feeds read at once. */
+const FEED_CONCURRENCY = 2;
+/** The pauses before trying a feed again when Google is busy, give or take a quarter. */
+const FEED_RETRY_MS = [3_000, 10_000];
 /** A lookup that failed is tried again after this long. */
 const RETRY_FAILED_MS = 60 * 60_000;
 /** Addresses are kept this long (the feed only lists the last day). */
@@ -37,11 +43,14 @@ type Link = { url?: string; at: number };
 const g = globalThis as unknown as {
   __googleLinks?: Record<string, Link>;
   __googleBudget?: { since: number; used: number; pausedUntil: number };
-  __googleSlots?: { running: number; waiting: (() => void)[] };
+  __googleSlots?: Slots;
+  __googleFeedSlots?: Slots;
 };
+type Slots = { running: number; waiting: (() => void)[] };
 const links = (g.__googleLinks ??= readStore<Record<string, Link>>(STORE, {}));
 const budget = (g.__googleBudget ??= { since: 0, used: 0, pausedUntil: 0 });
 const slots = (g.__googleSlots ??= { running: 0, waiting: [] });
+const feedSlots = (g.__googleFeedSlots ??= { running: 0, waiting: [] });
 
 /** One lookup from the budget, if any are left. */
 function takeLookup(now = Date.now()): boolean {
@@ -52,14 +61,15 @@ function takeLookup(now = Date.now()): boolean {
   return true;
 }
 
-async function inSlot<T>(fn: () => Promise<T>): Promise<T> {
-  if (slots.running >= CONCURRENCY) await new Promise<void>((resolve) => slots.waiting.push(resolve));
-  slots.running++;
+/** Runs `fn` once fewer than `limit` others are running in `pool`. */
+async function inSlot<T>(fn: () => Promise<T>, limit = CONCURRENCY, pool: Slots = slots): Promise<T> {
+  if (pool.running >= limit) await new Promise<void>((resolve) => pool.waiting.push(resolve));
+  pool.running++;
   try {
     return await fn();
   } finally {
-    slots.running--;
-    slots.waiting.shift()?.();
+    pool.running--;
+    pool.waiting.shift()?.();
   }
 }
 
@@ -82,11 +92,29 @@ function prune(now = Date.now()): void {
   for (const [id, link] of Object.entries(links)) if (now - link.at > KEEP_MS) delete links[id];
 }
 
+/** A Google News feed, waiting its turn, and tried again after a pause while Google is busy. */
+async function fetchFeed(url: string) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await inSlot(
+        () => fetchText(url, { accept: "application/rss+xml, application/xml, text/xml, */*" }),
+        FEED_CONCURRENCY,
+        feedSlots,
+      );
+    } catch (err) {
+      const busy = err instanceof FetchError && (err.status === 503 || err.status === 429);
+      if (!busy || attempt >= FEED_RETRY_MS.length) throw err;
+      // Outside the slot, so other feeds go ahead meanwhile.
+      await new Promise((resolve) => setTimeout(resolve, FEED_RETRY_MS[attempt] * (0.75 + Math.random() / 2)));
+    }
+  }
+}
+
 /** The source's articles from Google News; throws when it has none we can show yet. */
 export async function googleNewsFallback(source: NewsSource): Promise<{ items: RawItem[]; url: string }> {
   const url = googleNewsFeedUrl(source.homepage, source.lang);
   const host = siteHost(source.homepage);
-  const res = await fetchText(url, { accept: "application/rss+xml, application/xml, text/xml, */*" });
+  const res = await fetchFeed(url);
   const entries = parseGoogleNewsFeed(res.text, host)
     .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""))
     .slice(0, PER_SOURCE);

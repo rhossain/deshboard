@@ -14,9 +14,10 @@ on:
   #   POST /repos/rhossain/deshboard/actions/workflows/deploy.yml/dispatches  {"ref":"main"}
   # with a fine-grained token limited to this repo's Actions. GitHub's own `schedule` never fired
   # here, and runs late even when it works. Keep UPDATE_EVERY_MS in src/components/schedule.ts in step.
+  # Pushes don't start it: every run fetches all the news, and extra runs between the timer's make
+  # Google News (the fallback for sites that refuse GitHub) turn us away. A push goes live with the
+  # next timed run, within 15 minutes; to publish at once: gh workflow run deploy.yml --ref main
   workflow_dispatch:
-  push:
-    branches: [static-export]
 
 concurrency:
   group: deploy
