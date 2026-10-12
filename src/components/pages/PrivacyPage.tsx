@@ -8,12 +8,12 @@ const WORDS = {
   en: {
     title: "Privacy policy",
     description: "What Bartaboard stores about you, where, and how to delete it.",
-    updated: "10 October 2026",
+    updated: "12 October 2026",
   },
   bn: {
     title: "গোপনীয়তা নীতি",
     description: "বার্তাবোর্ড আপনার সম্পর্কে কী রাখে, কোথায় রাখে, আর কীভাবে মুছবেন।",
-    updated: "১০ অক্টোবর ২০২৬",
+    updated: "১২ অক্টোবর ২০২৬",
   },
 };
 
@@ -52,7 +52,7 @@ function English() {
 
       <h2>Reading without an account</h2>
       <ul>
-        <li>There are no ads, no analytics and no tracking cookies.</li>
+        <li>There are no ads, no analytics and no tracking cookies today. Ads are planned; see below.</li>
         <li>
           Your theme, saved stories, pinned sources, card settings and the time of your last visit are kept only in your
           own browser&apos;s storage. They never reach us, and clearing your browser&apos;s site data removes them.
@@ -82,6 +82,13 @@ function English() {
         Accounts are stored with <a href="https://supabase.com/privacy" rel="noopener">Supabase</a> in Singapore.
         Sign-in emails are sent through <a href="https://resend.com/legal/privacy-policy" rel="noopener">Resend</a>. We
         don&apos;t sell or share your information with anyone else, and we don&apos;t use it for advertising.
+      </p>
+
+      <h2>Ads</h2>
+      <p>
+        Bartaboard doesn&apos;t show ads yet, but plans to. Before the first ad appears, this policy will be updated to
+        name who shows them, what they collect (such as cookies or your IP address) and the choices you have, and the
+        date at the top will change. We won&apos;t give advertisers your email address, saved stories or alerts.
       </p>
 
       <h2>Signing in with Google</h2>
@@ -124,7 +131,7 @@ function Bangla() {
 
       <h2>অ্যাকাউন্ট ছাড়া পড়লে</h2>
       <ul>
-        <li>কোনো বিজ্ঞাপন, অ্যানালিটিক্স বা ট্র্যাকিং কুকি নেই।</li>
+        <li>এখন কোনো বিজ্ঞাপন, অ্যানালিটিক্স বা ট্র্যাকিং কুকি নেই। বিজ্ঞাপনের পরিকল্পনা আছে; নিচে দেখুন।</li>
         <li>
           আপনার থিম, সংরক্ষিত খবর, পিন করা উৎস, কার্ডের সেটিংস আর শেষবার আসার সময় শুধু আপনার নিজের ব্রাউজারের স্টোরেজে
           থাকে। এগুলো কখনো আমাদের কাছে আসে না, আর ব্রাউজারের সাইট ডেটা মুছলে এগুলোও মুছে যায়।
@@ -151,6 +158,13 @@ function Bangla() {
         অ্যাকাউন্ট সিঙ্গাপুরে <a href="https://supabase.com/privacy" rel="noopener">সুপাবেস</a>-এ রাখা হয়। সাইন-ইন ইমেইল
         পাঠানো হয় <a href="https://resend.com/legal/privacy-policy" rel="noopener">রিসেন্ডের</a> মাধ্যমে। আমরা আপনার তথ্য
         আর কারও কাছে বিক্রি বা শেয়ার করি না, বিজ্ঞাপনের কাজেও ব্যবহার করি না।
+      </p>
+
+      <h2>বিজ্ঞাপন</h2>
+      <p>
+        বার্তাবোর্ডে এখনো বিজ্ঞাপন নেই, তবে দেখানোর পরিকল্পনা আছে। প্রথম বিজ্ঞাপন আসার আগে এই নীতি হালনাগাদ করে জানানো হবে
+        কারা বিজ্ঞাপন দেখাবে, তারা কী তথ্য নেয় (যেমন কুকি বা আপনার আইপি ঠিকানা) আর আপনার কী কী বেছে নেওয়ার সুযোগ থাকবে;
+        ওপরের তারিখও বদলাবে। আপনার ইমেইল ঠিকানা, সংরক্ষিত খবর বা অ্যালার্ট আমরা বিজ্ঞাপনদাতাদের দেব না।
       </p>
 
       <h2>গুগল দিয়ে সাইন ইন</h2>

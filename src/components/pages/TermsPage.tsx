@@ -8,12 +8,12 @@ const WORDS = {
   en: {
     title: "Terms of service",
     description: "The rules for using Bartaboard and its accounts.",
-    updated: "10 October 2026",
+    updated: "12 October 2026",
   },
   bn: {
     title: "ব্যবহারের শর্তাবলি",
     description: "বার্তাবোর্ড ও এর অ্যাকাউন্ট ব্যবহারের নিয়ম।",
-    updated: "১০ অক্টোবর ২০২৬",
+    updated: "১২ অক্টোবর ২০২৬",
   },
 };
 
@@ -65,11 +65,18 @@ function English() {
         </li>
       </ul>
 
-      <h2>Paid plans</h2>
-      <p>
-        Paid plans aren&apos;t on sale yet. When they are, their price, what they include and how refunds work will be
-        shown before you pay.
-      </p>
+      <h2>Ads and paid plans</h2>
+      <ul>
+        <li>
+          Reading Bartaboard is free. We plan to show ads to pay for it. They will be marked as ads and kept apart from
+          the headlines. Ads come from their advertisers, not from us or the publishers we list.
+        </li>
+        <li>
+          Paid plans for extras such as keyword alerts are planned but not on sale yet. When they are, their price, what
+          they include and how refunds work will be shown before you pay. Headlines, Videos, saving and pinning stay
+          free.
+        </li>
+      </ul>
 
       <h2>No guarantees</h2>
       <p>
@@ -109,10 +116,18 @@ function Bangla() {
         </li>
       </ul>
 
-      <h2>পেইড প্ল্যান</h2>
-      <p>
-        পেইড প্ল্যান এখনো বিক্রি শুরু হয়নি। শুরু হলে দাম, কী কী থাকছে আর ফেরতের নিয়ম টাকা দেওয়ার আগেই দেখানো হবে।
-      </p>
+      <h2>বিজ্ঞাপন ও পেইড প্ল্যান</h2>
+      <ul>
+        <li>
+          বার্তাবোর্ড পড়া বিনা মূল্যের। এর খরচ মেটাতে আমরা বিজ্ঞাপন দেখানোর পরিকল্পনা করছি। বিজ্ঞাপনে &ldquo;বিজ্ঞাপন&rdquo;
+          লেখা থাকবে আর সেগুলো শিরোনাম থেকে আলাদা থাকবে। বিজ্ঞাপন আসে বিজ্ঞাপনদাতাদের কাছ থেকে, আমাদের বা তালিকার
+          প্রকাশকদের কাছ থেকে নয়।
+        </li>
+        <li>
+          কিওয়ার্ড অ্যালার্টের মতো বাড়তি সুবিধার জন্য পেইড প্ল্যানের পরিকল্পনা আছে, তবে এখনো বিক্রি শুরু হয়নি। শুরু হলে দাম,
+          কী কী থাকছে আর ফেরতের নিয়ম টাকা দেওয়ার আগেই দেখানো হবে। শিরোনাম, ভিডিও, সংরক্ষণ আর পিন করা বিনা মূল্যেই থাকবে।
+        </li>
+      </ul>
 
       <h2>কোনো নিশ্চয়তা নেই</h2>
       <p>
