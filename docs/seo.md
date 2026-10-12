@@ -12,7 +12,7 @@ Sections 1–3 are the audit as it stood on 11 October; each plan item in sectio
   New pages: `/videos/`, `/sources/`, `/about/`, intros and the FAQ, and 80 per-outlet pages
   (#12–#18). RSS feeds (#19).
 - **Partly done:** indexing requests (#3: 10 of the 12 sections; `/news/crime/`, `/news/opinion/` and the
-  new pages not yet requested). Speed (#20: one Lighthouse finding fixed; `news.json` not yet split).
+  new pages not yet requested). Speed (#20: the logo fix and the feed split are in; PageSpeed not yet run on a section page).
 - **Open:** the Bangla version (#21), links and presence off the site (#22), and the monthly Search Console
   review (#23). `Organization.sameAs` and `twitter:site` wait for the first social profile.
 
@@ -216,7 +216,9 @@ Code (one commit each, on `static-export`):
     *Done*: dc2b4f95.
 20. **PageSpeed Insights** on `/` and one section, mobile; fix what it names. Expected: split
     `news.json` by section, defer the rest, keep the prerendered seed as it is.
-    *Partly done:* Lighthouse on `/` found both theme logos downloading, fixed in a2342bd5. The `news.json` split is next.
+    *Partly done:* both theme logos downloading, fixed in a2342bd5; the feed split in e9666294: the board loads each
+    source's newest 8 (~40 KB) and the whole feed (~950 KB as served, 15,000 headlines) only when a view needs it.
+    Still to do: run PageSpeed on a section page.
 
 ### Month 2: Bangla, links, iteration
 
