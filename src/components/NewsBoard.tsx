@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { sourceName } from "@/lib/bn-names";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { DEFAULT_FILTERS, type Filters, filtersToSearch, type LangFilter, type Order, type View } from "@/lib/filters";
 import { usePlansVisible } from "@/lib/plans";
@@ -33,7 +34,7 @@ import { LocaleProvider, useStrings } from "./locale";
 import { byNewest, LatestList } from "./LatestList";
 import { Avatar, useAccount } from "./account";
 import { BartaboardLogo } from "./BartaboardLogo";
-import { InspiredBy, SITE_LINKS } from "./InfoPage";
+import { InspiredBy, SITE_LINKS, siteLinkHref } from "./InfoPage";
 import { PageNotes } from "./PageNotes";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinButton, PinPicker } from "./PinPicker";
@@ -201,7 +202,7 @@ const NO_SHAPES: Record<string, LogoShape | null> = {};
  * `seed` is shown from the first paint; each source's result is replaced as the stream delivers it.
  */
 export function NewsBoard({
-  sources,
+  sources: listed,
   initial,
   seed,
   videoSeed,
@@ -216,6 +217,11 @@ export function NewsBoard({
   locale?: Locale;
 }) {
   const t = STRINGS[locale];
+  // Outlets by their Bangla names on Bangla pages (in the filters, pin picker, Latest and Top stories).
+  const sources = useMemo(
+    () => (locale === "bn" ? listed.map((s) => ({ ...s, name: sourceName(s.id, s.name, locale) })) : listed),
+    [listed, locale],
+  );
   // Latest result per source; on refresh each one is replaced as its new result arrives.
   const [results, setResults] = useState<Map<string, SourceResult>>(
     () => new Map(seed?.results.map((r) => [r.sourceId, r])),
@@ -1210,7 +1216,7 @@ export function NewsBoard({
 
             <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
               {SITE_LINKS.map((l) => (
-                <a key={l.href} href={l.bn ? localePath(l.href, locale) : l.href} className="hover:text-foreground">
+                <a key={l.href} href={siteLinkHref(l, locale)} className="hover:text-foreground">
                   {t.links[l.id]}
                 </a>
               ))}
@@ -1369,7 +1375,7 @@ function AccountButton() {
   const label = account ? t.account(account.email) : t.signIn;
   return (
     <a
-      href="/account/"
+      href="/account"
       aria-label={label}
       title={label}
       className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line text-foreground transition hover:bg-surface-2 active:scale-95"

@@ -1,3 +1,4 @@
+import { locative, possessive } from "./bn-names";
 import type { Locale } from "./i18n";
 
 /**
@@ -215,7 +216,10 @@ const en = {
   videosNote: (count: string) => `The last day’s videos from ${count} TV news channels on YouTube, without Shorts.`,
   unreachable: (names: string) => `Not reachable this time: ${names}.`,
 
-  // Page foot
+  // Page foot, and the text pages (sources, about, privacy, terms)
+  backToHeadlines: "← Back to the headlines",
+  lastUpdated: (date: string) => `Last updated ${date}`,
+  siteNav: "Site",
   aboutThisPage: "About this page",
   questions: "Questions",
   thanks: ["With thanks to 24 Live Newspaper (", "), whose idea of every Bangladeshi paper in one place inspired Bartaboard."],
@@ -301,7 +305,7 @@ const bn: Strings = {
   nothingFound: "কিছু পাওয়া যায়নি",
   tryAnother: "অন্য শব্দ বা বিভাগ দিয়ে চেষ্টা করুন।",
   topEmpty: {
-    source: (name) => `${name}-এর কোনো খবর এই মুহূর্তে অন্য কোনো মাধ্যমে নেই।`,
+    source: (name) => `${possessive(name)} কোনো খবর এই মুহূর্তে অন্য কোনো মাধ্যমে নেই।`,
     thisSource: "এই উৎস",
     filtered: "একাধিক মাধ্যমে প্রকাশিত কোনো খবর মেলেনি।",
     grouping: "শিরোনামগুলো খবর অনুযায়ী সাজানো হচ্ছে…",
@@ -418,7 +422,7 @@ const bn: Strings = {
   copied: "কপি হয়েছে",
   shareVideoNote: "লিংকটি এই ভিডিওর একটি বার্তাবোর্ড পাতা খুলবে, যেখান থেকে ইউটিউবে দেখা যাবে।",
   shareHeadlineNote: (source) =>
-    `লিংকটি এই শিরোনামের একটি বার্তাবোর্ড পাতা খুলবে, যেখান থেকে ${source}-এ মূল খবরটি পড়া যাবে।`,
+    `লিংকটি এই শিরোনামের একটি বার্তাবোর্ড পাতা খুলবে, যেখান থেকে ${locative(source)} মূল খবরটি পড়া যাবে।`,
 
   allChannels: "সব",
   filterByChannel: "চ্যানেল বেছে নিন",
@@ -433,6 +437,9 @@ const bn: Strings = {
   videosNote: (count) => `ইউটিউবে ${count}টি টিভি সংবাদ চ্যানেলের গত এক দিনের ভিডিও, শর্টস ছাড়া।`,
   unreachable: (names) => `এবার পৌঁছানো যায়নি: ${names}।`,
 
+  backToHeadlines: "← শিরোনামে ফিরে যান",
+  lastUpdated: (date) => `সর্বশেষ হালনাগাদ ${date}`,
+  siteNav: "সাইট",
   aboutThisPage: "এই পাতা সম্পর্কে",
   questions: "প্রশ্ন ও উত্তর",
   thanks: ["২৪ লাইভ নিউজপেপারকে (", ") ধন্যবাদ, সব বাংলাদেশি পত্রিকা এক জায়গায় রাখার যাদের ভাবনা থেকে বার্তাবোর্ডের শুরু।"],

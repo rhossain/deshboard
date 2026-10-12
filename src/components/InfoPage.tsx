@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { Locale } from "@/lib/i18n";
+import { type Locale, localePath } from "@/lib/i18n";
 import { STRINGS } from "@/lib/strings";
 import { BartaboardLogo } from "./BartaboardLogo";
 
@@ -9,13 +9,17 @@ import { BartaboardLogo } from "./BartaboardLogo";
  * /bn, which Bangla pages link to instead.
  */
 export const SITE_LINKS: { id: keyof (typeof STRINGS)["en"]["links"]; href: string; bn?: boolean }[] = [
-  { id: "sources", href: "/sources" },
+  { id: "sources", href: "/sources", bn: true },
   { id: "videos", href: "/videos", bn: true },
-  { id: "about", href: "/about" },
+  { id: "about", href: "/about", bn: true },
   { id: "health", href: "/health" },
-  { id: "privacy", href: "/privacy/" },
-  { id: "terms", href: "/terms/" },
+  { id: "privacy", href: "/privacy", bn: true },
+  { id: "terms", href: "/terms", bn: true },
 ];
+
+/** A site link's address on a page in `locale`. */
+export const siteLinkHref = (l: (typeof SITE_LINKS)[number], locale: Locale) =>
+  l.bn ? localePath(l.href, locale) : l.href;
 
 /** Thanks to the site whose idea Bartaboard builds on, at the foot of every page. */
 export function InspiredBy({ locale = "en" }: { locale?: Locale }) {
@@ -39,32 +43,55 @@ export function InspiredBy({ locale = "en" }: { locale?: Locale }) {
 /**
  * A page of text under the logo (about, sources, privacy, terms): a heading, an optional intro and
  * "last updated" line, the body, and the site's links. `wide` for pages of lists rather than prose.
+ * `locale` is the page's language; `other` is the same page in the other language, if there is one.
  */
 export function InfoPage({
   title,
   intro,
   updated,
   wide = false,
+  locale = "en",
+  other,
   children,
 }: {
   title: string;
   intro?: ReactNode;
   updated?: string;
   wide?: boolean;
+  locale?: Locale;
+  other?: string;
   children: ReactNode;
 }) {
+  const t = STRINGS[locale];
+  const otherLocale: Locale = locale === "bn" ? "en" : "bn";
   return (
     <div
+      lang={locale === "bn" ? "bn" : undefined}
       className={`mx-auto min-h-dvh px-4 pb-16 pt-[max(env(safe-area-inset-top),1.25rem)] sm:px-6 sm:pt-8 ${
         wide ? "max-w-6xl" : "max-w-2xl"
       }`}
     >
       <header>
-        <Link href="/" className="inline-block text-[26px]" aria-label="Bartaboard home">
-          <BartaboardLogo />
-        </Link>
+        <div className="flex items-center justify-between gap-4">
+          <Link href={localePath("/", locale)} className="inline-block text-[26px]" aria-label={t.home}>
+            {/* The tagline is English, in the image itself. */}
+            <BartaboardLogo tagline={locale !== "bn"} />
+          </Link>
+          {other && (
+            <a
+              href={other}
+              hrefLang={otherLocale}
+              lang={otherLocale}
+              aria-label={t.switchLanguageLabel}
+              title={t.switchLanguageLabel}
+              className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-line px-3 text-sm font-semibold text-foreground transition hover:bg-surface-2 active:scale-95"
+            >
+              {t.switchLanguageShort}
+            </a>
+          )}
+        </div>
         <h1 className="mt-6 font-display text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
-        {updated && <p className="mt-2 text-sm text-muted">Last updated {updated}</p>}
+        {updated && <p className="mt-2 text-sm text-muted">{t.lastUpdated(updated)}</p>}
         {intro && <div className="mt-4 max-w-2xl space-y-3 text-[15px] leading-relaxed text-muted">{intro}</div>}
       </header>
 
@@ -80,17 +107,22 @@ export function InfoPage({
       </div>
 
       <footer className="mt-12 text-center text-xs text-muted">
-        <Link href="/" className="font-semibold text-accent hover:underline">
-          ← Back to the headlines
+        <Link href={localePath("/", locale)} className="font-semibold text-accent hover:underline">
+          {t.backToHeadlines}
         </Link>
-        <nav aria-label="Site" className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2">
+        <nav aria-label={t.siteNav} className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2">
           {SITE_LINKS.map((l) => (
-            <Link key={l.href} href={l.href} className="hover:text-foreground">
-              {STRINGS.en.links[l.id]}
+            <Link key={l.href} href={siteLinkHref(l, locale)} className="hover:text-foreground">
+              {t.links[l.id]}
             </Link>
           ))}
+          {other && (
+            <a href={other} hrefLang={otherLocale} lang={otherLocale} className="font-semibold hover:text-foreground">
+              {t.switchLanguage}
+            </a>
+          )}
         </nav>
-        <InspiredBy />
+        <InspiredBy locale={locale} />
       </footer>
     </div>
   );

@@ -169,11 +169,11 @@ function SignIn({ error, onError }: { error: string | null; onError: (message: s
 
       <p className="mt-5 text-xs leading-relaxed text-muted">
         By continuing you agree to the{" "}
-        <a href="/terms/" className="font-semibold text-accent hover:underline">
+        <a href="/terms" className="font-semibold text-accent hover:underline">
           terms
         </a>{" "}
         and{" "}
-        <a href="/privacy/" className="font-semibold text-accent hover:underline">
+        <a href="/privacy" className="font-semibold text-accent hover:underline">
           privacy policy
         </a>
         .
