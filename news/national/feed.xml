@@ -5,7 +5,7 @@
     <link>https://bartaboard.com/news/national/</link>
     <description>Latest national news from Bangladesh: জাতীয় headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 01:01:01 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 01:15:51 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/national/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
@@ -118,6 +118,14 @@
       <description>NTV · National</description>
       <guid isPermaLink="true">https://www.ntvbd.com/bangladesh/news-1817933</guid>
       <pubDate>Mon, 12 Oct 2026 00:01:02 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>সোমবার রাজধানীর যেসব মার্কেট ও দোকানপাট বন্ধ</title>
+      <link>https://www.channel24bd.tv/capital/article/352442/%E0%A6%B8%E0%A7%8B%E0%A6%AE%E0%A6%AC%E0%A6%BE%E0%A6%B0-%E0%A6%B0%E0%A6%BE%E0%A6%9C%E0%A6%A7%E0%A6%BE%E0%A6%A8%E0%A7%80%E0%A6%B0-%E0%A6%AF%E0%A7%87%E0%A6%B8%E0%A6%AC-%E0%A6%AE%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%95%E0%A7%87%E0%A6%9F-%E0%A6%93-%E0%A6%A6%E0%A7%8B%E0%A6%95%E0%A6%BE%E0%A6%A8%E0%A6%AA%E0%A6%BE%E0%A6%9F-%E0%A6%AC%E0%A6%A8%E0%A7%8D%E0%A6%A7</link>
+      <description>Channel 24 · National</description>
+      <guid isPermaLink="true">https://www.channel24bd.tv/capital/article/352442/%E0%A6%B8%E0%A7%8B%E0%A6%AE%E0%A6%AC%E0%A6%BE%E0%A6%B0-%E0%A6%B0%E0%A6%BE%E0%A6%9C%E0%A6%A7%E0%A6%BE%E0%A6%A8%E0%A7%80%E0%A6%B0-%E0%A6%AF%E0%A7%87%E0%A6%B8%E0%A6%AC-%E0%A6%AE%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%95%E0%A7%87%E0%A6%9F-%E0%A6%93-%E0%A6%A6%E0%A7%8B%E0%A6%95%E0%A6%BE%E0%A6%A8%E0%A6%AA%E0%A6%BE%E0%A6%9F-%E0%A6%AC%E0%A6%A8%E0%A7%8D%E0%A6%A7</guid>
+      <pubDate>Mon, 12 Oct 2026 00:00:00 GMT</pubDate>
       <category>National</category>
     </item>
     <item>
@@ -398,14 +406,6 @@
       <description>Jugantor · National</description>
       <guid isPermaLink="true">https://www.jugantor.com/country-news/1167678</guid>
       <pubDate>Sun, 11 Oct 2026 21:38:11 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>ময়মনসিংহে হবে আন্তর্জাতিক মানের বিমানবন্দর: বিমানমন্ত্রী</title>
-      <link>https://www.dailyamardesh.com/bangladesh/mymensingh/amdg6pxf89jzf</link>
-      <description>Amar Desh · National</description>
-      <guid isPermaLink="true">https://www.dailyamardesh.com/bangladesh/mymensingh/amdg6pxf89jzf</guid>
-      <pubDate>Sun, 11 Oct 2026 21:35:02 GMT</pubDate>
       <category>National</category>
     </item>
   </channel>

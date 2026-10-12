@@ -5,7 +5,7 @@
     <link>https://bartaboard.com/news/sports/</link>
     <description>Latest sports news from Bangladesh: খেলা headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 01:01:01 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 01:15:51 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/sports/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
@@ -14,6 +14,14 @@
       <description>Amar Desh · Sports</description>
       <guid isPermaLink="true">https://www.dailyamardesh.com/sports/cricket/amdimfka32y3x</guid>
       <pubDate>Mon, 12 Oct 2026 01:00:07 GMT</pubDate>
+      <category>Sports</category>
+    </item>
+    <item>
+      <title>আজ টিভিতে যা দেখবেন (১২ অক্টোবর ২০২৬)</title>
+      <link>https://www.prothomalo.com/sports/4x497ij9vg</link>
+      <description>Prothom Alo · Sports</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/sports/4x497ij9vg</guid>
+      <pubDate>Mon, 12 Oct 2026 01:00:00 GMT</pubDate>
       <category>Sports</category>
     </item>
     <item>
@@ -398,14 +406,6 @@
       <description>Dhaka Post · Sports</description>
       <guid isPermaLink="true">https://www.dhakapost.com/sports/489730</guid>
       <pubDate>Sun, 11 Oct 2026 17:01:28 GMT</pubDate>
-      <category>Sports</category>
-    </item>
-    <item>
-      <title>৫ম এশিয়ান প্যারা গেমসে খেলতে দেশ ছাড়ল প্যারা আর্চারি দল</title>
-      <link>https://www.ntvbd.com/sports/news-1817917</link>
-      <description>NTV · Sports</description>
-      <guid isPermaLink="true">https://www.ntvbd.com/sports/news-1817917</guid>
-      <pubDate>Sun, 11 Oct 2026 17:00:59 GMT</pubDate>
       <category>Sports</category>
     </item>
   </channel>
