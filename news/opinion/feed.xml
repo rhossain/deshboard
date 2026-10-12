@@ -5,7 +5,7 @@
     <link>https://bartaboard.com/news/opinion/</link>
     <description>Latest opinion news from Bangladesh: মতামত headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 02:46:00 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 03:00:57 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/opinion/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
@@ -54,14 +54,6 @@
       <description>Ajker Patrika · Opinion</description>
       <guid isPermaLink="true">https://www.ajkerpatrika.com/op-ed/ajpvgwgning1i</guid>
       <pubDate>Mon, 12 Oct 2026 01:13:17 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>Agrivoltaics: An integrated renewable energy solution for Bangladesh’s growing energy needs</title>
-      <link>https://www.tbsnews.net/thoughts/agrivoltaics-integrated-renewable-energy-solution-bangladeshs-growing-energy-needs-1568351</link>
-      <description>The Business Standard · Opinion</description>
-      <guid isPermaLink="true">https://www.tbsnews.net/thoughts/agrivoltaics-integrated-renewable-energy-solution-bangladeshs-growing-energy-needs-1568351</guid>
-      <pubDate>Sun, 11 Oct 2026 20:06:22 GMT</pubDate>
       <category>Opinion</category>
     </item>
     <item>
@@ -406,6 +398,14 @@
       <description>Dhaka Tribune · Opinion</description>
       <guid isPermaLink="true">https://www.dhakatribune.com/opinion/editorial/421817/child-marriage-must-be-eradicated</guid>
       <pubDate>Sun, 11 Oct 2026 04:46:02 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
+    <item>
+      <title>Subsidize people, not things</title>
+      <link>https://www.dhakatribune.com/opinion/op-ed/421769/subsidize-people-not-things</link>
+      <description>Dhaka Tribune · Opinion</description>
+      <guid isPermaLink="true">https://www.dhakatribune.com/opinion/op-ed/421769/subsidize-people-not-things</guid>
+      <pubDate>Sun, 11 Oct 2026 04:41:28 GMT</pubDate>
       <category>Opinion</category>
     </item>
   </channel>
