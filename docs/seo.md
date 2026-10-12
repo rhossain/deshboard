@@ -30,6 +30,43 @@ section 4 now carries its status: ✅ done, 🟡 partly done, ⬜ open, 🔁 ong
 - ⬜ **Open:** links and presence off the site (#22), and the monthly Search Console
   review (#23). `Organization.sameAs` and `twitter:site` wait for the first social profile.
 
+## Recheck (12 October 2026, after the search work)
+
+Lighthouse 12.8.2 run locally (PageSpeed Insights' free quota was used up), simulated mid-range phone on slow 4G
+unless marked desktop. Live site, before the search changes deployed.
+
+| Page | Performance | SEO | Accessibility | Best practices | LCP | TBT | CLS |
+|---|---|---|---|---|---|---|---|
+| `/` (desktop) | 99 | 100 | 100 | 100 | 0.9 s | 0 ms | 0 |
+| `/` | 90–92 | 100 | 100 | 100 | 3.2 s | 30–50 ms | 0 |
+| `/bn/` | 97 | 100 | 100 | 100 | 2.5 s | 20 ms | 0 |
+| `/news/sports/` | 99 | 100 | 100 | 100 | 2.1 s | 10 ms | 0 |
+| `/sources/` | 94 | 100 | 96 → 100 | 100 | 3.0 s | 20 ms | 0 |
+| `/sources/prothomalo/` | 97 | 100 | 96 → 100 | 100 | 2.6 s | 10 ms | 0 |
+| `/videos/` | 93 | 100 | 100 | 100 | 3.2 s | 20 ms | 0.003 |
+
+**LCP is the one number over Google's 2.5 s line, and it is the simulation's, not the phone's.** The largest
+element is a headline in the prerendered HTML; a trace shows it painted at first paint (0.1–0.2 s unthrottled)
+and never again. Lighthouse's simulation assumes it waits for every request that starts before it, which
+includes the JavaScript (about 180 KB compressed, mostly React and Next.js). Tried and rejected: not preloading
+Noto Sans Bengali made first paint slower (1.2 → 2.0 s) and LCP no better. The search adds under 6 KB; loading
+it on demand would save about 0.1 s of simulated time, not worth the complexity. Real users' numbers are in
+Search Console → Core Web Vitals once there is enough traffic; those, not Lighthouse, are what Google ranks on.
+
+**Search typing:** on the full board, typing "chittagong police" produced no input event over 16 ms and no long
+task over 50 ms.
+
+**On-page SEO, checked on nine pages:** one H1 each, unique titles of 48–60 characters, descriptions under
+155, canonical and `en`/`bn`/`x-default` alternates on all, valid JSON-LD, 194 URLs in the sitemap. Search
+URLs (`/?q=…`) canonicalise to the page, so they can't become duplicates.
+
+**Fixed:** the counts on `/sources/` and the outlet pages were too faint (contrast 3.85:1, needs 4.5:1), and
+the day files (other sites' titles) now send `X-Robots-Tag: noindex`: `/data/*` in `_headers` on
+`static-export`, the `/data/days/` route here.
+
+**Still open, and still what moves rankings:** links and presence off the site (#22) and the monthly Search
+Console review (#23).
+
 ## 1. Where things stand
 
 ### Already right (verified on the live site)

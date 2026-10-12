@@ -7,8 +7,8 @@ import { readDay } from "@/lib/days";
 export async function GET(_request: Request, { params }: { params: Promise<{ file: string }> }) {
   const { file } = await params;
   const body = readDay(file.replace(/\.json$/, ""));
-  if (!body) return new Response("No such day", { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
-  return new Response(body, {
-    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=300" },
-  });
+  // Other sites' titles, for the search to read, not a page for search engines.
+  const headers = { "Cache-Control": "public, max-age=300", "X-Robots-Tag": "noindex" };
+  if (!body) return new Response("No such day", { status: 404, headers });
+  return new Response(body, { headers: { ...headers, "Content-Type": "application/json; charset=utf-8" } });
 }

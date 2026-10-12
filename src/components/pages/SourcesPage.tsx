@@ -84,7 +84,7 @@ export function SourcesPage({ locale }: { locale: Locale }) {
             href={`#${g.id}`}
             className="rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-medium text-muted transition hover:text-foreground"
           >
-            {g.title} <span className="tabular-nums text-muted/70">{count(g.entries.length)}</span>
+            {g.title} <span className="tabular-nums text-muted">{count(g.entries.length)}</span>
           </a>
         ))}
       </nav>
