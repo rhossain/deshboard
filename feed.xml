@@ -5,15 +5,39 @@
     <link>https://bartaboard.com/</link>
     <description>All Bangladesh news in one place: Bangla and English headlines from 59 newspapers, like Prothom Alo, The Daily Star and bdnews24, plus the top stories.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 10:36:05 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 10:46:09 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>Saudi airport struck again a day after deadly attack</title>
+      <link>https://unb.com.bd/category/World/saudi-airport-struck-again-a-day-after-deadly-attack/197675</link>
+      <description>UNB · International</description>
+      <guid isPermaLink="true">https://unb.com.bd/category/World/saudi-airport-struck-again-a-day-after-deadly-attack/197675</guid>
+      <pubDate>Mon, 12 Oct 2026 10:46:04 GMT</pubDate>
+      <category>International</category>
+    </item>
+    <item>
+      <title>Riyadh-bound passengers to be flown via Dammam, Madinah: Minister</title>
+      <link>https://thefinancialexpress.com.bd/national/riyadh-bound-passengers-to-be-flown-via-dammam-madinah-minister</link>
+      <description>The Financial Express · National</description>
+      <guid isPermaLink="true">https://thefinancialexpress.com.bd/national/riyadh-bound-passengers-to-be-flown-via-dammam-madinah-minister</guid>
+      <pubDate>Mon, 12 Oct 2026 10:46:04 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>ইটভাটায় খেলতে গিয়ে প্রাণ গেল শিশুর</title>
+      <link>https://rtvonline.com/country/409116</link>
+      <description>RTV Online · National</description>
+      <guid isPermaLink="true">https://rtvonline.com/country/409116</guid>
+      <pubDate>Mon, 12 Oct 2026 10:46:01 GMT</pubDate>
+      <category>National</category>
+    </item>
     <item>
       <title>‘কোবরা গ্রুপের’ প্রধান সোহেল অস্ত্র-হেরোইনসহ গ্রেপ্তার</title>
       <link>https://rtvonline.com/country/409114</link>
       <description>RTV Online · National</description>
       <guid isPermaLink="true">https://rtvonline.com/country/409114</guid>
-      <pubDate>Mon, 12 Oct 2026 10:36:02 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:46:01 GMT</pubDate>
       <category>National</category>
     </item>
     <item>
@@ -21,63 +45,223 @@
       <link>https://www.ntvbd.com/world/news-1818285</link>
       <description>NTV · International</description>
       <guid isPermaLink="true">https://www.ntvbd.com/world/news-1818285</guid>
-      <pubDate>Mon, 12 Oct 2026 10:36:02 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:46:01 GMT</pubDate>
       <category>International</category>
     </item>
     <item>
-      <title>অবৈধ অভিবাসন রোধে একসাথে কাজ করবে বাংলাদেশ-ইইউ</title>
-      <link>https://dailynayadiganta.com/post/national/1060644</link>
-      <description>Naya Diganta · National</description>
-      <guid isPermaLink="true">https://dailynayadiganta.com/post/national/1060644</guid>
-      <pubDate>Mon, 12 Oct 2026 10:36:01 GMT</pubDate>
+      <title>ধর্ম নয়, নাগরিক হিসেবে সবার অধিকার নিশ্চিত করা আমার দায়িত্ব: প্রধানমন্ত্রী</title>
+      <link>https://www.tbsnews.net/bangla/bangladesh/news-details-551326</link>
+      <description>TBS Bangla · National</description>
+      <guid isPermaLink="true">https://www.tbsnews.net/bangla/bangladesh/news-details-551326</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:58 GMT</pubDate>
       <category>National</category>
     </item>
     <item>
-      <title>হামের উপসর্গে আরও ২ মৃত্যু, মোট ১১৬৪</title>
-      <link>https://bangla.thedailystar.net/health/disease/news-3969926</link>
-      <description>The Daily Star Bangla · Health</description>
-      <guid isPermaLink="true">https://bangla.thedailystar.net/health/disease/news-3969926</guid>
-      <pubDate>Mon, 12 Oct 2026 10:35:59 GMT</pubDate>
-      <category>Health</category>
+      <title>মোংলা বন্দরের আধুনিকায়নে চীনের সঙ্গে ৩৩৫.৭৮ মিলিয়ন ডলারের ঋণচুক্তি</title>
+      <link>https://www.tbsnews.net/bangla/Economy/news-details-551321</link>
+      <description>TBS Bangla · Business</description>
+      <guid isPermaLink="true">https://www.tbsnews.net/bangla/Economy/news-details-551321</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:58 GMT</pubDate>
+      <category>Business</category>
     </item>
     <item>
       <title>Top oil executives dropped from event schedule after Riyadh attacks</title>
       <link>https://www.tbsnews.net/world/top-oil-executives-dropped-event-schedule-after-riyadh-attacks-1570306</link>
       <description>The Business Standard · International</description>
       <guid isPermaLink="true">https://www.tbsnews.net/world/top-oil-executives-dropped-event-schedule-after-riyadh-attacks-1570306</guid>
-      <pubDate>Mon, 12 Oct 2026 10:35:59 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
       <category>International</category>
+    </item>
+    <item>
+      <title>BNP govt believes in rule of law, stability: Rizvi</title>
+      <link>https://www.tbsnews.net/bangladesh/bnp-govt-believes-rule-law-stability-rizvi-1570321</link>
+      <description>The Business Standard · National</description>
+      <guid isPermaLink="true">https://www.tbsnews.net/bangladesh/bnp-govt-believes-rule-law-stability-rizvi-1570321</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>National</category>
     </item>
     <item>
       <title>Unity key to thwarting anti-state conspiracies: Tuku</title>
       <link>https://www.tbsnews.net/bangladesh/unity-key-thwarting-anti-state-conspiracies-tuku-1570301</link>
       <description>The Business Standard · National</description>
       <guid isPermaLink="true">https://www.tbsnews.net/bangladesh/unity-key-thwarting-anti-state-conspiracies-tuku-1570301</guid>
-      <pubDate>Mon, 12 Oct 2026 10:35:59 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
       <category>National</category>
     </item>
     <item>
-      <title>NCT deal: Port workers vow fast-unto-death</title>
-      <link>https://bdnews24.com/bangladesh/1oc3e70amt</link>
-      <description>bdnews24 English · National</description>
-      <guid isPermaLink="true">https://bdnews24.com/bangladesh/1oc3e70amt</guid>
-      <pubDate>Mon, 12 Oct 2026 10:35:59 GMT</pubDate>
+      <title>প্রত্যেকের অধিকার ও নিরাপত্তা নিশ্চিতে সরকার কাজ করছে: প্রধানমন্ত্রী</title>
+      <link>https://bangla.bdnews24.com/bangladesh/dwntaoji5z</link>
+      <description>bdnews24 Bangla · National</description>
+      <guid isPermaLink="true">https://bangla.bdnews24.com/bangladesh/dwntaoji5z</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
       <category>National</category>
     </item>
     <item>
-      <title>আভিশেকের বিপক্ষে ‘রক্ষণাত্মক বোলিং ছাড়া উপায় নেই’</title>
-      <link>https://bangla.bdnews24.com/cricket/o6l7ljipi0</link>
-      <description>bdnews24 Bangla · Sports</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/cricket/o6l7ljipi0</guid>
-      <pubDate>Mon, 12 Oct 2026 10:35:59 GMT</pubDate>
+      <title>মদ, নাচানাচি ও রাষ্ট্রের নৈতিক পাহারাদারি</title>
+      <link>https://bangla.bdnews24.com/opinion/sn9oocxdmu</link>
+      <description>bdnews24 Bangla · Opinion</description>
+      <guid isPermaLink="true">https://bangla.bdnews24.com/opinion/sn9oocxdmu</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
+    <item>
+      <title>দুর্গাপূজায় বেনাপোল বন্দরে টানা ৮ দিন আমদানি-রপ্তানি বন্ধ</title>
+      <link>https://bangla.bdnews24.com/samagrabangladesh/umus5mcwt6</link>
+      <description>bdnews24 Bangla · National</description>
+      <guid isPermaLink="true">https://bangla.bdnews24.com/samagrabangladesh/umus5mcwt6</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>অর্থনীতির ওঠানামা সামলানোর নতুন পথ দেখিয়ে নোবেল</title>
+      <link>https://bangla.bdnews24.com/economy/citihrdrei</link>
+      <description>bdnews24 Bangla · Business</description>
+      <guid isPermaLink="true">https://bangla.bdnews24.com/economy/citihrdrei</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>Business</category>
+    </item>
+    <item>
+      <title>সরকার প্রধান হিসেবে প্রত্যেকের প্রাপ্য অধিকার ও নিরাপত্তা নিশ্চিত করা আমার দায়িত্ব : প্রধানমন্ত্রী</title>
+      <link>https://dailynayadiganta.com/post/national/1060646</link>
+      <description>Naya Diganta · National</description>
+      <guid isPermaLink="true">https://dailynayadiganta.com/post/national/1060646</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>পাকিস্তানে প্রশিক্ষণ বিমান বিধ্বস্ত হয়ে ২ পাইলট নিহত</title>
+      <link>https://dailynayadiganta.com/post/south-asia/1060648</link>
+      <description>Naya Diganta · International</description>
+      <guid isPermaLink="true">https://dailynayadiganta.com/post/south-asia/1060648</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>International</category>
+    </item>
+    <item>
+      <title>বিশ্ব হিফজুল কোরআন প্রতিযোগিতা-২০২৬, বাংলাদেশের ইহতিশামূলের বিশ্ব জয়</title>
+      <link>https://dailynayadiganta.com/post/abroad/1060645</link>
+      <description>Naya Diganta · International</description>
+      <guid isPermaLink="true">https://dailynayadiganta.com/post/abroad/1060645</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>International</category>
+    </item>
+    <item>
+      <title>ভালুকায় জনসেবা হোমিও হল সিলগালা, চিকিৎসকের কারাদণ্ড</title>
+      <link>https://dailynayadiganta.com/post/country/1060647</link>
+      <description>Naya Diganta · National</description>
+      <guid isPermaLink="true">https://dailynayadiganta.com/post/country/1060647</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>অবৈধ অভিবাসন রোধে একসাথে কাজ করবে বাংলাদেশ-ইইউ</title>
+      <link>https://dailynayadiganta.com/post/national/1060644</link>
+      <description>Naya Diganta · National</description>
+      <guid isPermaLink="true">https://dailynayadiganta.com/post/national/1060644</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>সামষ্টিক অর্থনীতির মডেলে নতুন দৃষ্টিভঙ্গি অর্থনীতিতে নোবেল পেলেন রবার্ট ই হল ও মাইকেল উডফোর্ড</title>
+      <link>https://www.bhorerkagoj.net/economics/801789</link>
+      <description>Bhorer Kagoj · Business</description>
+      <guid isPermaLink="true">https://www.bhorerkagoj.net/economics/801789</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>Business</category>
+    </item>
+    <item>
+      <title>ফ্যামিলি কার্ডের তথ্য সংগ্রহ শুরু, চলতি বছরে লক্ষ্য সাড়ে ৪ কোটি পরিবার</title>
+      <link>https://barta24.com/details/national/342635</link>
+      <description>Barta24 · National</description>
+      <guid isPermaLink="true">https://barta24.com/details/national/342635</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:55 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>ডেঙ্গুতে একদিনে ৪ জনের মৃত্যু, হাসপাতালে ২১৬৭</title>
+      <link>https://bangla.thedailystar.net/health/disease/news-3969931</link>
+      <description>The Daily Star Bangla · Health</description>
+      <guid isPermaLink="true">https://bangla.thedailystar.net/health/disease/news-3969931</guid>
+      <pubDate>Mon, 12 Oct 2026 10:45:53 GMT</pubDate>
+      <category>Health</category>
+    </item>
+    <item>
+      <title>ক্লাস বন্ধ, শিক্ষার্থীরা অনুরোধ করেছে, তাই চলে এসেছি : চুয়েটের নতুন ভিসি</title>
+      <link>https://www.dhakapost.com/campus/489903</link>
+      <description>Dhaka Post · Education</description>
+      <guid isPermaLink="true">https://www.dhakapost.com/campus/489903</guid>
+      <pubDate>Mon, 12 Oct 2026 10:44:13 GMT</pubDate>
+      <category>Education</category>
+    </item>
+    <item>
+      <title>আরও ১৮ ফ্লাইট বাতিল, শাহজালাল বিমানবন্দরে আটকা ৪ হাজার ৮৫১ যাত্রী</title>
+      <link>https://barta24.com/details/national/342634</link>
+      <description>Barta24 · National</description>
+      <guid isPermaLink="true">https://barta24.com/details/national/342634</guid>
+      <pubDate>Mon, 12 Oct 2026 10:44:12 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>আমিই ইতিহাসের সেরা ফুটবলার: রোনালদো</title>
+      <link>https://www.dhakapost.com/sports/489902</link>
+      <description>Dhaka Post · Sports</description>
+      <guid isPermaLink="true">https://www.dhakapost.com/sports/489902</guid>
+      <pubDate>Mon, 12 Oct 2026 10:43:26 GMT</pubDate>
       <category>Sports</category>
     </item>
     <item>
-      <title>Thousands march in India's capital to demand election chief resign</title>
-      <link>https://www.thedailystar.net/news/world/news/thousands-march-indias-capital-demand-election-chief-resign-4296861</link>
-      <description>The Daily Star · International</description>
-      <guid isPermaLink="true">https://www.thedailystar.net/news/world/news/thousands-march-indias-capital-demand-election-chief-resign-4296861</guid>
-      <pubDate>Mon, 12 Oct 2026 10:35:57 GMT</pubDate>
+      <title>ভারতের আন্দোলন তাদের অভ্যন্তরীণ বিষয়: পররাষ্ট্র প্রতিমন্ত্রী</title>
+      <link>https://barta24.com/details/national/342610</link>
+      <description>Barta24 · National</description>
+      <guid isPermaLink="true">https://barta24.com/details/national/342610</guid>
+      <pubDate>Mon, 12 Oct 2026 10:41:12 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>ইসলামি ১২ মাসের নাম ও বৈশিষ্ট্য, কোন মাসের গুরুত্ব কতোটুকু?</title>
+      <link>https://www.bvnews24.com/religion/news/218352</link>
+      <description>Bangla Vision · Lifestyle</description>
+      <guid isPermaLink="true">https://www.bvnews24.com/religion/news/218352</guid>
+      <pubDate>Mon, 12 Oct 2026 10:40:05 GMT</pubDate>
+      <category>Lifestyle</category>
+    </item>
+    <item>
+      <title>সুন্দরবনে সম্রাট বাহিনীর কবল থেকে ৪ জেলে উদ্ধার | জাতীয় | বাংলাদেশ সংবাদ সংস্থা (বাসস)</title>
+      <link>https://www.bssnews.net/bangla/national/349469</link>
+      <description>BSS Bangla · National</description>
+      <guid isPermaLink="true">https://www.bssnews.net/bangla/national/349469</guid>
+      <pubDate>Mon, 12 Oct 2026 10:40:00 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>ফিফা থেকে অতিরিক্ত অর্থ চায় সদস্যরা, বাংলাদেশও পাবে এক কোটি ডলার</title>
+      <link>https://www.dhakapost.com/sports/489901</link>
+      <description>Dhaka Post · Sports</description>
+      <guid isPermaLink="true">https://www.dhakapost.com/sports/489901</guid>
+      <pubDate>Mon, 12 Oct 2026 10:39:18 GMT</pubDate>
+      <category>Sports</category>
+    </item>
+    <item>
+      <title>ফ্যামিলি কার্ড পেতে কোথাও যেতে হবে না: প্রতিমন্ত্রী</title>
+      <link>https://barta24.com/details/national/342633</link>
+      <description>Barta24 · National</description>
+      <guid isPermaLink="true">https://barta24.com/details/national/342633</guid>
+      <pubDate>Mon, 12 Oct 2026 10:39:01 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>হামের উপসর্গে আরো দুই জনের মৃত্যু, হাসপাতালে ১৪২১</title>
+      <link>https://www.dhakapost.com/national/489900</link>
+      <description>Dhaka Post · National</description>
+      <guid isPermaLink="true">https://www.dhakapost.com/national/489900</guid>
+      <pubDate>Mon, 12 Oct 2026 10:38:55 GMT</pubDate>
+      <category>National</category>
+    </item>
+    <item>
+      <title>অর্থনীতিতে নোবেল পেলেন রবার্ট ই. হল ও মাইকেল উডফোর্ড</title>
+      <link>https://www.ekushey-tv.com/international-news/1360873111111179665</link>
+      <description>Ekushey TV · International</description>
+      <guid isPermaLink="true">https://www.ekushey-tv.com/international-news/1360873111111179665</guid>
+      <pubDate>Mon, 12 Oct 2026 10:35:32 GMT</pubDate>
       <category>International</category>
     </item>
     <item>
@@ -97,14 +281,6 @@
       <category>National</category>
     </item>
     <item>
-      <title>সাব্বিরকে নিয়ে হংকং সিক্সেসের দল ঘোষণা বাংলাদেশের</title>
-      <link>https://samakal.com/cricket/article/377562/%E0%A6%B8%E0%A6%BE%E0%A6%AC%E0%A7%8D%E0%A6%AC%E0%A6%BF%E0%A6%B0%E0%A6%95%E0%A7%87-%E0%A6%A8%E0%A6%BF%E0%A7%9F%E0%A7%87-%E0%A6%B9%E0%A6%82%E0%A6%95%E0%A6%82-%E0%A6%B8%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B8%E0%A7%87%E0%A6%B8%E0%A7%87%E0%A6%B0-%E0%A6%A6%E0%A6%B2-%E0%A6%98%E0%A7%8B%E0%A6%B7%E0%A6%A3%E0%A6%BE-%E0%A6%AC%E0%A6%BE%E0%A6%82%E0%A6%B2%E0%A6%BE%E0%A6%A6%E0%A7%87%E0%A6%B6%E0%A7%87%E0%A6%B0</link>
-      <description>Samakal · Sports</description>
-      <guid isPermaLink="true">https://samakal.com/cricket/article/377562/%E0%A6%B8%E0%A6%BE%E0%A6%AC%E0%A7%8D%E0%A6%AC%E0%A6%BF%E0%A6%B0%E0%A6%95%E0%A7%87-%E0%A6%A8%E0%A6%BF%E0%A7%9F%E0%A7%87-%E0%A6%B9%E0%A6%82%E0%A6%95%E0%A6%82-%E0%A6%B8%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B8%E0%A7%87%E0%A6%B8%E0%A7%87%E0%A6%B0-%E0%A6%A6%E0%A6%B2-%E0%A6%98%E0%A7%8B%E0%A6%B7%E0%A6%A3%E0%A6%BE-%E0%A6%AC%E0%A6%BE%E0%A6%82%E0%A6%B2%E0%A6%BE%E0%A6%A6%E0%A7%87%E0%A6%B6%E0%A7%87%E0%A6%B0</guid>
-      <pubDate>Mon, 12 Oct 2026 10:35:04 GMT</pubDate>
-      <category>Sports</category>
-    </item>
-    <item>
       <title>ঘরে বসেই অনলাইনে ট্রেনের টিকিট কাটবেন যেভাবে</title>
       <link>https://www.jugantor.com/tech/1167972</link>
       <description>Jugantor · Science &amp; Tech</description>
@@ -113,7 +289,7 @@
       <category>Science &amp; Tech</category>
     </item>
     <item>
-      <title>সরকার প্রধান হিসেবে প্রত্যেকের প্রাপ্য অধিকার ও নিরাপত্তা নিশ্চিত</title>
+      <title>সরকার প্রধান হিসেবে প্রত্যেকের অধিকার ও নিরাপত্তা নিশ্চিত করা আমার দায়িত্ব: প্রধানমন্ত্রী</title>
       <link>https://www.bvnews24.com/national/news/218351</link>
       <description>Bangla Vision · National</description>
       <guid isPermaLink="true">https://www.bvnews24.com/national/news/218351</guid>
@@ -121,12 +297,12 @@
       <category>National</category>
     </item>
     <item>
-      <title>হুতিদের হামলা ঠেকাতে ক্ষেপণাস্ত্রের সংকটে সৌদি আরব</title>
-      <link>https://dbcnews.tv/articles/179446</link>
-      <description>DBC News · Other</description>
-      <guid isPermaLink="true">https://dbcnews.tv/articles/179446</guid>
-      <pubDate>Mon, 12 Oct 2026 10:34:01 GMT</pubDate>
-      <category>Other</category>
+      <title>সুন্দরবনে ‘সম্রাট বাহিনীর’ হাতে জিম্মি ৪ জেলে উদ্ধার</title>
+      <link>https://www.ajkerpatrika.com/bangladesh/ajpb9eifkmo6o</link>
+      <description>Ajker Patrika · National</description>
+      <guid isPermaLink="true">https://www.ajkerpatrika.com/bangladesh/ajpb9eifkmo6o</guid>
+      <pubDate>Mon, 12 Oct 2026 10:34:07 GMT</pubDate>
+      <category>National</category>
     </item>
     <item>
       <title>বিধবা কার্ড দিলে এমপির বউ সবার আগে নেবে : হাসনাত আবদুল্লাহ</title>
@@ -177,75 +353,19 @@
       <category>Politics</category>
     </item>
     <item>
-      <title>ঝিনাইদহে জাতীয় কন্যাশিশু দিবস উদযাপন</title>
-      <link>https://www.dhakatimes24.com/2026/10/12/414867</link>
-      <description>Dhaka Times 24 · Other</description>
-      <guid isPermaLink="true">https://www.dhakatimes24.com/2026/10/12/414867</guid>
-      <pubDate>Mon, 12 Oct 2026 10:32:00 GMT</pubDate>
-      <category>Other</category>
-    </item>
-    <item>
-      <title>রাশিয়া-ইউক্রেনের জ্বালানি যুদ্ধবিরতিতে সমর্থন কানাডার প্রধানমন্ত্রীর | আন্তর্জাতিক | বাংলাদেশ সংবাদ সংস্থা (বাসস)</title>
-      <link>https://www.bssnews.net/bangla/international/349460</link>
-      <description>BSS Bangla · International</description>
-      <guid isPermaLink="true">https://www.bssnews.net/bangla/international/349460</guid>
-      <pubDate>Mon, 12 Oct 2026 10:32:00 GMT</pubDate>
-      <category>International</category>
-    </item>
-    <item>
-      <title>জেলেদের ধাওয়া করতে গিয়ে মেঘনায় ডুবল নৌ-পুলিশের স্পিডবোট, হারাল শটগান উদ্ধারে ডুবুরি দল</title>
-      <link>https://www.protidinersangbad.com/whole-country/590371</link>
-      <description>Protidiner Sangbad · National</description>
-      <guid isPermaLink="true">https://www.protidinersangbad.com/whole-country/590371</guid>
-      <pubDate>Mon, 12 Oct 2026 10:30:06 GMT</pubDate>
+      <title>Bangladesh seeks global partnership to ensure every woman lives a healthier life</title>
+      <link>https://thefinancialexpress.com.bd/national/bangladesh-seeks-global-partnership-to-ensure-every-woman-lives-a-healthier-life</link>
+      <description>The Financial Express · National</description>
+      <guid isPermaLink="true">https://thefinancialexpress.com.bd/national/bangladesh-seeks-global-partnership-to-ensure-every-woman-lives-a-healthier-life</guid>
+      <pubDate>Mon, 12 Oct 2026 10:32:04 GMT</pubDate>
       <category>National</category>
-    </item>
-    <item>
-      <title>সিম্পলট্রির পরিবেশবান্ধব বাণিজ্যিক প্রকল্প</title>
-      <link>https://www.prothomalo.com/business/industry/295xh20fef</link>
-      <description>Prothom Alo · Business</description>
-      <guid isPermaLink="true">https://www.prothomalo.com/business/industry/295xh20fef</guid>
-      <pubDate>Mon, 12 Oct 2026 10:30:00 GMT</pubDate>
-      <category>Business</category>
-    </item>
-    <item>
-      <title>জ্বালানি সংকট মোকাবিলায় বিশ্বব্যাংকের সহায়তা চায় বাংলাদেশ</title>
-      <link>https://sangbad.net/news/20415/</link>
-      <description>Sangbad · Other</description>
-      <guid isPermaLink="true">https://sangbad.net/news/20415/</guid>
-      <pubDate>Mon, 12 Oct 2026 10:30:00 GMT</pubDate>
-      <category>Other</category>
-    </item>
-    <item>
-      <title>মা ইলিশ রক্ষায় বার্তা নিয়ে জেলেদের পাশে ‘ক্লিন চাঁদপুর’ | জাতীয় | বাংলাদেশ সংবাদ সংস্থা (বাসস)</title>
-      <link>https://www.bssnews.net/bangla/national/349458</link>
-      <description>BSS Bangla · National</description>
-      <guid isPermaLink="true">https://www.bssnews.net/bangla/national/349458</guid>
-      <pubDate>Mon, 12 Oct 2026 10:30:00 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>LPG distributors to suspend cylinder sales nationwide on Oct 15–16</title>
-      <link>https://unb.com.bd/category/Business/lpg-distributors-to-suspend-cylinder-sales-nationwide-on-oct-1516/197673</link>
-      <description>UNB · Business</description>
-      <guid isPermaLink="true">https://unb.com.bd/category/Business/lpg-distributors-to-suspend-cylinder-sales-nationwide-on-oct-1516/197673</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:37 GMT</pubDate>
-      <category>Business</category>
     </item>
     <item>
       <title>Protesters stage demonstration near GM Quader’s residence, demand arrest</title>
       <link>https://unb.com.bd/category/Bangladesh/protesters-stage-demonstration-near-gm-quaders-residence-demand-arrest/197674</link>
       <description>UNB · National</description>
       <guid isPermaLink="true">https://unb.com.bd/category/Bangladesh/protesters-stage-demonstration-near-gm-quaders-residence-demand-arrest/197674</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:37 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>Bangladesh seeks global partnership to ensure every woman lives a healthier life</title>
-      <link>https://thefinancialexpress.com.bd/national/bangladesh-seeks-global-partnership-to-ensure-every-woman-lives-a-healthier-life</link>
-      <description>The Financial Express · National</description>
-      <guid isPermaLink="true">https://thefinancialexpress.com.bd/national/bangladesh-seeks-global-partnership-to-ensure-every-woman-lives-a-healthier-life</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:37 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:32:03 GMT</pubDate>
       <category>National</category>
     </item>
     <item>
@@ -253,7 +373,7 @@
       <link>https://www.ntvbd.com/world/news-1818273</link>
       <description>NTV · International</description>
       <guid isPermaLink="true">https://www.ntvbd.com/world/news-1818273</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:35 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:32:03 GMT</pubDate>
       <category>International</category>
     </item>
     <item>
@@ -261,7 +381,7 @@
       <link>https://www.ntvbd.com/bangladesh/news-1818277</link>
       <description>NTV · National</description>
       <guid isPermaLink="true">https://www.ntvbd.com/bangladesh/news-1818277</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:35 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:32:03 GMT</pubDate>
       <category>National</category>
     </item>
     <item>
@@ -269,7 +389,7 @@
       <link>https://www.ntvbd.com/bangladesh/news-1818281</link>
       <description>NTV · National</description>
       <guid isPermaLink="true">https://www.ntvbd.com/bangladesh/news-1818281</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:35 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:32:03 GMT</pubDate>
       <category>National</category>
     </item>
     <item>
@@ -277,7 +397,7 @@
       <link>https://rtvonline.com/national/409112</link>
       <description>RTV Online · National</description>
       <guid isPermaLink="true">https://rtvonline.com/national/409112</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:35 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:32:02 GMT</pubDate>
       <category>National</category>
     </item>
     <item>
@@ -285,127 +405,7 @@
       <link>https://rtvonline.com/country/409111</link>
       <description>RTV Online · National</description>
       <guid isPermaLink="true">https://rtvonline.com/country/409111</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:35 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>ফেসবুকে অস্ত্র দেখিয়ে ভিডিও, সুইট গ্রুপের প্রধানসহ গ্রেপ্তার ২</title>
-      <link>https://rtvonline.com/country/409110</link>
-      <description>RTV Online · National</description>
-      <guid isPermaLink="true">https://rtvonline.com/country/409110</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:35 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>আরটিভিতে সংবাদ প্রকাশ: এনসিপিতে পদ পাওয়া সেই প্রাণিসম্পদ কর্মকর্তা বরখাস্ত</title>
-      <link>https://rtvonline.com/country/409109</link>
-      <description>RTV Online · National</description>
-      <guid isPermaLink="true">https://rtvonline.com/country/409109</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:35 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>নিরাপত্তাজনিত কারণে রিয়াদ ও দাম্মামগামী দুই ফ্লাইট স্থগিত বিমানের</title>
-      <link>https://www.tbsnews.net/bangla/bangladesh/news-details-551311</link>
-      <description>TBS Bangla · National</description>
-      <guid isPermaLink="true">https://www.tbsnews.net/bangla/bangladesh/news-details-551311</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:34 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>কোন বিকল্প পথে সৌদিতে যাত্রী পাঠানোর চেষ্টা করছে সরকার?</title>
-      <link>https://www.tbsnews.net/bangla/video/news-details-551316</link>
-      <description>TBS Bangla · Other</description>
-      <guid isPermaLink="true">https://www.tbsnews.net/bangla/video/news-details-551316</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:34 GMT</pubDate>
-      <category>Other</category>
-    </item>
-    <item>
-      <title>সায়েমের সঙ্গে চমৎকার সম্পর্ক, সকালেও ফোন করেছি: চুয়েটের নতুন ভিসি</title>
-      <link>https://bangla.bdnews24.com/campus/3mja5hrtkn</link>
-      <description>bdnews24 Bangla · Education</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/campus/3mja5hrtkn</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:32 GMT</pubDate>
-      <category>Education</category>
-    </item>
-    <item>
-      <title>বার্লিন সফর বাতিল, বিশ্ব স্বাস্থ্য সম্মেলনে যাননি ইউনূস</title>
-      <link>https://bangla.bdnews24.com/health/9bhd50pp8v</link>
-      <description>bdnews24 Bangla · Health</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/health/9bhd50pp8v</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:32 GMT</pubDate>
-      <category>Health</category>
-    </item>
-    <item>
-      <title>পাগলা মসজিদে ছয় বছরে পাওয়া বিদেশি মুদ্রা ও অলংকার নিলামের কার্যক্রম শুরু</title>
-      <link>https://bangla.bdnews24.com/tube/1406a3efbd</link>
-      <description>bdnews24 Bangla · Other</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/tube/1406a3efbd</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:32 GMT</pubDate>
-      <category>Other</category>
-    </item>
-    <item>
-      <title>টাঙ্গাইলে ১০০ গ্রাম হেরোইন উদ্ধারের মামলায় একজনের যাবজ্জীবন</title>
-      <link>https://bangla.bdnews24.com/samagrabangladesh/gczj0mhxmr</link>
-      <description>bdnews24 Bangla · National</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/samagrabangladesh/gczj0mhxmr</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:32 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>সৌদি আরবে হামলা: তিন দিনে ঢাকার ২৮ ফ্লাইট বাতিল</title>
-      <link>https://bangla.bdnews24.com/bangladesh/j5l0toh9ru</link>
-      <description>bdnews24 Bangla · National</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/bangladesh/j5l0toh9ru</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:32 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>পাবদা মাছের কষা ভুনা রেসিপি</title>
-      <link>https://bangla.bdnews24.com/lifestyle/hq5vxk0687</link>
-      <description>bdnews24 Bangla · Lifestyle</description>
-      <guid isPermaLink="true">https://bangla.bdnews24.com/lifestyle/hq5vxk0687</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:32 GMT</pubDate>
-      <category>Lifestyle</category>
-    </item>
-    <item>
-      <title>ইটনায় ২৪৫ পিস ইয়াবাসহ আটক ৬</title>
-      <link>https://dailynayadiganta.com/post/country/1060643</link>
-      <description>Naya Diganta · National</description>
-      <guid isPermaLink="true">https://dailynayadiganta.com/post/country/1060643</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:32 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>Riyadh-bound passengers to be flown via Dammam, Madinah: Minister</title>
-      <link>https://www.tbsnews.net/bangladesh/riyadh-bound-passengers-be-flown-dammam-madinah-minister-1570286</link>
-      <description>The Business Standard · National</description>
-      <guid isPermaLink="true">https://www.tbsnews.net/bangladesh/riyadh-bound-passengers-be-flown-dammam-madinah-minister-1570286</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:31 GMT</pubDate>
-      <category>National</category>
-    </item>
-    <item>
-      <title>LPG distributors announce nationwide shutdown on 15–16 October</title>
-      <link>https://www.tbsnews.net/economy/energy/lpg-distributors-announce-nationwide-shutdown-15-16-october-1570276</link>
-      <description>The Business Standard · Business</description>
-      <guid isPermaLink="true">https://www.tbsnews.net/economy/energy/lpg-distributors-announce-nationwide-shutdown-15-16-october-1570276</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:31 GMT</pubDate>
-      <category>Business</category>
-    </item>
-    <item>
-      <title>What alternative routes is the government exploring to send passengers to Saudi Arabia?</title>
-      <link>https://www.tbsnews.net/videos/tbs-today/what-alternative-routes-government-exploring-send-passengers-saudi-arabia-1570281</link>
-      <description>The Business Standard · Other</description>
-      <guid isPermaLink="true">https://www.tbsnews.net/videos/tbs-today/what-alternative-routes-government-exploring-send-passengers-saudi-arabia-1570281</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:31 GMT</pubDate>
-      <category>Other</category>
-    </item>
-    <item>
-      <title>সাগরে লঘুচাপ বজ্র-বৃষ্টিসহ টানা ৫ দিন যেমন থাকবে আবহাওয়া</title>
-      <link>https://www.bhorerkagoj.net/national/801788</link>
-      <description>Bhorer Kagoj · National</description>
-      <guid isPermaLink="true">https://www.bhorerkagoj.net/national/801788</guid>
-      <pubDate>Mon, 12 Oct 2026 10:29:31 GMT</pubDate>
+      <pubDate>Mon, 12 Oct 2026 10:32:02 GMT</pubDate>
       <category>National</category>
     </item>
   </channel>
