@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useStrings } from "./locale";
 import { MAX_PINS, type Pins, togglePin } from "./pinned";
+import { formatCount } from "./time";
 import { ArrowUpIcon, ChevronIcon, CloseIcon, SearchIcon, Segmented, StarIcon } from "./ui";
 
 export interface PinOption {
@@ -11,26 +13,25 @@ export interface PinOption {
   hint?: string;
 }
 
-const PIN_OPTIONS: { value: "on" | "off"; label: string }[] = [
-  { value: "on", label: "Pinned first" },
-  { value: "off", label: "Usual order" },
-];
-
 /**
  * Picks and ranks the reader's own sources (or channels): up to MAX_PINS, moved up and down with the
- * arrows. Goes in a Sheet. `noun` is "news site" or "channel".
+ * arrows. Goes in a Sheet. `kind`: news sites on the board, or channels in Videos.
  */
 export function PinPicker({
-  noun,
+  kind,
   options,
   pins,
   onChange,
 }: {
-  noun: string;
+  kind: "site" | "channel";
   options: PinOption[];
   pins: Pins;
   onChange: (change: (pins: Pins) => Pins) => void;
 }) {
+  const t = useStrings();
+  const locale = useLocale();
+  const words = t.pins[kind];
+  const max = formatCount(MAX_PINS, locale);
   const [query, setQuery] = useState("");
   const byId = new Map(options.map((o) => [o.id, o]));
   // Pins for sources that have since been dropped are kept in storage but not shown.
@@ -54,41 +55,43 @@ export function PinPicker({
 
   return (
     <div className="-mx-5 max-h-[min(62dvh,36rem)] space-y-6 overflow-y-auto px-5">
-      <p className="text-sm text-muted">
-        Pin up to {MAX_PINS} {noun}s. Theirs come first, in your order; everyone else&rsquo;s follow. Saved on
-        this device.
-      </p>
+      <p className="text-sm text-muted">{words.intro(max)}</p>
 
       <Segmented
-        label={`Show pinned ${noun}s first`}
+        label={words.showFirst}
         value={pins.off ? "off" : "on"}
         onChange={(v) => onChange((p) => ({ ...p, off: v === "off" }))}
-        options={PIN_OPTIONS}
+        options={[
+          { value: "on", label: t.pins.on },
+          { value: "off", label: t.pins.off },
+        ]}
         full
       />
 
       <section>
         <h3 className="mb-2 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-          Your {noun}s
+          {words.yours}
           <span className="tabular-nums tracking-normal">
-            {pinned.length} / {MAX_PINS}
+            {formatCount(pinned.length, locale)} / {max}
           </span>
         </h3>
         {pinned.length === 0 ? (
           <p className="rounded-xl border border-dashed border-line px-4 py-5 text-center text-sm text-muted">
-            None yet. Pick some below.
+            {t.pins.empty}
           </p>
         ) : (
           <ol className="divide-y divide-line rounded-xl border border-line">
             {pinned.map((id, i) => (
               <li key={id} className="flex items-center gap-1 py-1 pl-3 pr-1">
-                <span className="w-6 shrink-0 text-xs font-semibold tabular-nums text-muted">{i + 1}</span>
+                <span className="w-6 shrink-0 text-xs font-semibold tabular-nums text-muted">
+                  {formatCount(i + 1, locale)}
+                </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{byId.get(id)!.name}</span>
                 <button
                   type="button"
                   onClick={() => move(id, -1)}
                   disabled={i === 0}
-                  aria-label={`Move ${byId.get(id)!.name} up`}
+                  aria-label={t.pins.up(byId.get(id)!.name)}
                   className={iconButton}
                 >
                   <ArrowUpIcon className="h-4 w-4" />
@@ -97,7 +100,7 @@ export function PinPicker({
                   type="button"
                   onClick={() => move(id, 1)}
                   disabled={i === pinned.length - 1}
-                  aria-label={`Move ${byId.get(id)!.name} down`}
+                  aria-label={t.pins.down(byId.get(id)!.name)}
                   className={iconButton}
                 >
                   <ArrowUpIcon className="h-4 w-4 rotate-180" />
@@ -105,7 +108,7 @@ export function PinPicker({
                 <button
                   type="button"
                   onClick={() => onChange((p) => togglePin(p, id))}
-                  aria-label={`Unpin ${byId.get(id)!.name}`}
+                  aria-label={t.pins.unpin(byId.get(id)!.name)}
                   className={iconButton}
                 >
                   <CloseIcon className="h-4 w-4" />
@@ -117,22 +120,20 @@ export function PinPicker({
       </section>
 
       <section>
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Add {noun}s</h3>
+        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">{words.add}</h3>
         <label className="relative mb-2 block">
-          <span className="sr-only">Find a {noun}</span>
+          <span className="sr-only">{words.find}</span>
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Find a ${noun}`}
+            placeholder={words.find}
             className="h-11 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-[16px] outline-none focus:border-accent md:h-10 md:text-sm"
           />
         </label>
         {full && (
-          <p className="mb-2 text-xs text-muted">
-            That&rsquo;s {MAX_PINS}. Unpin one to add another.
-          </p>
+          <p className="mb-2 text-xs text-muted">{t.pins.full(max)}</p>
         )}
         <ul className="divide-y divide-line rounded-xl border border-line">
           {rest.map((o) => (
@@ -148,11 +149,11 @@ export function PinPicker({
                   <span className="block truncate text-sm font-medium">{o.name}</span>
                   {o.hint && <span className="block text-xs text-muted">{o.hint}</span>}
                 </span>
-                <span className="text-xs font-semibold text-accent">Pin</span>
+                <span className="text-xs font-semibold text-accent">{t.pins.pin}</span>
               </button>
             </li>
           ))}
-          {rest.length === 0 && <li className="px-3 py-4 text-center text-sm text-muted">No {noun}s match.</li>}
+          {rest.length === 0 && <li className="px-3 py-4 text-center text-sm text-muted">{words.none}</li>}
         </ul>
       </section>
     </div>
@@ -160,7 +161,9 @@ export function PinPicker({
 }
 
 /** The button that opens the picker: "5 pinned". */
-export function PinButton({ noun, count, onClick }: { noun: string; count: number; onClick: () => void }) {
+export function PinButton({ kind, count, onClick }: { kind: "site" | "channel"; count: number; onClick: () => void }) {
+  const t = useStrings();
+  const locale = useLocale();
   return (
     <button
       type="button"
@@ -168,7 +171,7 @@ export function PinButton({ noun, count, onClick }: { noun: string; count: numbe
       className="flex h-11 w-full items-center gap-2.5 rounded-xl border border-line bg-surface px-3.5 text-sm font-medium transition hover:bg-surface-2 md:h-10"
     >
       <StarIcon filled={count > 0} className={`h-4 w-4 ${count > 0 ? "text-gold" : "text-muted"}`} />
-      <span className="flex-1 text-left">{count > 0 ? `${count} pinned` : `Pin your ${noun}s`}</span>
+      <span className="flex-1 text-left">{count > 0 ? t.pins.pinned(formatCount(count, locale)) : t.pins[kind].button}</span>
       <ChevronIcon className="h-4 w-4 -rotate-90 text-muted" />
     </button>
   );

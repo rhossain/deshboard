@@ -1,4 +1,7 @@
+"use client";
+
 import type { NewsItem } from "@/lib/types";
+import { useLocale, useStrings } from "./locale";
 import { fullTime, timeAgo } from "./time";
 
 /**
@@ -6,10 +9,12 @@ import { fullTime, timeAgo } from "./time";
  * homepage, marked with "~" since the story may be a little older.
  */
 export function ItemTime({ item, now, className }: { item: NewsItem; now: number; className?: string }) {
+  const locale = useLocale();
+  const t = useStrings();
   if (item.publishedAt) {
     return (
-      <time dateTime={item.publishedAt} title={fullTime(item.publishedAt)} className={className}>
-        {timeAgo(item.publishedAt, now)}
+      <time dateTime={item.publishedAt} title={fullTime(item.publishedAt, locale)} className={className}>
+        {timeAgo(item.publishedAt, now, locale)}
       </time>
     );
   }
@@ -17,10 +22,10 @@ export function ItemTime({ item, now, className }: { item: NewsItem; now: number
     return (
       <time
         dateTime={item.seenAt}
-        title={`First seen on the homepage ${fullTime(item.seenAt)}; the site gives no publish time`}
+        title={t.firstSeen(fullTime(item.seenAt, locale))}
         className={className}
       >
-        ~{timeAgo(item.seenAt, now)}
+        ~{timeAgo(item.seenAt, now, locale)}
       </time>
     );
   }

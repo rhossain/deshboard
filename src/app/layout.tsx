@@ -2,6 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, Noto_Sans_Bengali } from "next/font/google";
 import { KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { THEME_SCRIPT } from "@/lib/theme";
+
+/**
+ * One root layout serves both languages (the static 404 page, which shared links rely on, needs a
+ * single one), so <html lang> says "en" in the HTML. Bangla pages wrap their content in lang="bn",
+ * and this sets the whole document's language before it paints, for screen readers and the browser.
+ */
+const LANG_SCRIPT = 'var p=location.pathname;if(p==="/bn"||p.indexOf("/bn/")===0)document.documentElement.lang="bn"';
 import { BackToTop } from "@/components/BackToTop";
 import "./globals.css";
 
@@ -56,6 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: LANG_SCRIPT }} />
       </head>
       <body className="min-h-full">
         {children}

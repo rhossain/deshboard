@@ -4,6 +4,7 @@ import { useState } from "react";
 import { preconnect } from "react-dom";
 import type { NewsItem, NewsSource, Video } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
+import { useLocale, useStrings } from "./locale";
 import type { SavedEntry, SavedVideo } from "./saved";
 import { formatCount, timeAgo } from "./time";
 import { BookmarkIcon, ItemMenu } from "./ui";
@@ -34,6 +35,8 @@ export function SavedList({
   onToggleSaveVideo: (video: Video, channelName: string) => void;
   onShareVideo: (video: Video, channelName: string) => void;
 }) {
+  const t = useStrings();
+  const locale = useLocale();
   const [playing, setPlaying] = useState<SavedVideo | null>(null);
   const matching = entries.length + videos.length;
   // Headings only when there are both kinds to tell apart.
@@ -43,11 +46,8 @@ export function SavedList({
     return (
       <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
         <BookmarkIcon className="mx-auto h-7 w-7 text-muted" />
-        <p className="mt-3 font-display text-xl">Nothing saved yet</p>
-        <p className="mx-auto mt-1 max-w-xs text-sm text-muted">
-          Choose Save for later in the ⋮ menu beside any headline or video to keep it here. Saved items stay on this
-          device.
-        </p>
+        <p className="mt-3 font-display text-xl">{t.nothingSaved}</p>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-muted">{t.savedHint}</p>
       </div>
     );
   }
@@ -55,9 +55,9 @@ export function SavedList({
   return (
     <section>
       <p className="mb-4 px-1 text-[13px] text-muted">
-        {formatCount(total)} saved on this device{matching < total && `, ${matching} match the filters`}.
+        {t.savedCount(formatCount(total, locale), matching < total ? formatCount(matching, locale) : null)}
       </p>
-      {both && <h2 className="mb-3 px-1 font-display text-lg">Headlines</h2>}
+      {both && <h2 className="mb-3 px-1 font-display text-lg">{t.headlines}</h2>}
       {entries.length > 0 && (
         <ol className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
           {entries.map(({ item: it, savedAt }) => (
@@ -75,7 +75,7 @@ export function SavedList({
                     {sourceById.get(it.sourceId)?.name ?? it.sourceName}
                   </span>
                   <ItemTime item={it} now={now} />
-                  <span>· saved {timeAgo(savedAt, now)}</span>
+                  <span>· {t.savedAgo(timeAgo(savedAt, now, locale))}</span>
                 </div>
                 <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent">{it.title}</p>
               </a>
@@ -84,7 +84,7 @@ export function SavedList({
           ))}
         </ol>
       )}
-      {both && <h2 className="mb-3 mt-8 px-1 font-display text-lg">Videos</h2>}
+      {both && <h2 className="mb-3 mt-8 px-1 font-display text-lg">{t.videos}</h2>}
       {videos.length > 0 && (
         <ul className="grid gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-y-7 lg:grid-cols-3 xl:grid-cols-4">
           {videos.map((e) => (

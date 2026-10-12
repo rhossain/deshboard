@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useRef } from "react";
 import type { Video } from "@/lib/types";
+import { useLocale, useStrings } from "./locale";
 import { compactCount, fullTime, timeAgo } from "./time";
 import { ArrowUpRightIcon, CloseIcon, ItemMenu, StarIcon } from "./ui";
 import { thumb, watchUrl } from "./youtube";
@@ -35,6 +36,8 @@ export const VideoCard = memo(function VideoCard({
   pinned?: boolean;
   onTogglePin?: (channelId: string) => void;
 }) {
+  const t = useStrings();
+  const locale = useLocale();
   const href = watchUrl(video.id);
   const open = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
@@ -89,10 +92,10 @@ export const VideoCard = memo(function VideoCard({
           <p className="mt-1 text-xs text-muted">
             <span className="font-semibold text-accent">{channelName}</span>
             {" · "}
-            <time dateTime={video.publishedAt} title={fullTime(video.publishedAt)}>
-              {timeAgo(video.publishedAt, now)}
+            <time dateTime={video.publishedAt} title={fullTime(video.publishedAt, locale)}>
+              {timeAgo(video.publishedAt, now, locale)}
             </time>
-            {video.views ? ` · ${compactCount(video.views)} views` : ""}
+            {video.views ? ` · ${t.viewCount(compactCount(video.views, locale))}` : ""}
           </p>
         </div>
         <ItemMenu
@@ -101,7 +104,7 @@ export const VideoCard = memo(function VideoCard({
           onShare={() => onShare(video, channelName)}
           extra={
             onTogglePin && {
-              label: pinned ? `Unpin ${channelName}` : `Pin ${channelName}`,
+              label: pinned ? t.pins.unpin(channelName) : t.pins.pinName(channelName),
               icon: <StarIcon filled={pinned} className={`h-[18px] w-[18px] ${pinned ? "text-gold" : "text-muted"}`} />,
               onSelect: () => onTogglePin(video.channel),
             }
@@ -124,6 +127,7 @@ export function PlayGlyph() {
 /** The video over the page. Closing it removes the player, which stops the video. */
 export function Player({ video, channelName, onClose }: { video: Video; channelName: string; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useStrings();
   useEffect(() => {
     const dialog = ref.current;
     if (dialog && !dialog.open) dialog.showModal();
@@ -171,7 +175,7 @@ export function Player({ video, channelName, onClose }: { video: Video; channelN
         <button
           type="button"
           onClick={close}
-          aria-label="Close"
+          aria-label={t.close}
           // Focused first, so Enter or Space closes rather than leaving for YouTube.
           autoFocus
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"

@@ -4,11 +4,11 @@ import { createContext, memo, useContext, useRef, useState, type ReactNode } fro
 import { fallbackNote, sourceProblem } from "@/lib/problems";
 import type { LogoShape, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
+import { useLocale, useStrings } from "./locale";
+import { formatCount } from "./time";
 import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot, StarIcon } from "./ui";
 
 const PER_CARD = 8;
-
-const METHOD_LABEL: Record<string, string> = { rss: "RSS", sitemap: "Sitemap", html: "Web", "google-news": "Google News" };
 
 /**
  * One source's headlines. With `collapsible` (phones), tapping the header folds the card down to
@@ -60,13 +60,15 @@ export const SourceCard = memo(function SourceCard({
 }) {
   const [showAll, setShowAll] = useState(false);
   const ref = useRef<HTMLElement>(null);
+  const t = useStrings();
+  const locale = useLocale();
   if (filtering && items.length === 0) return null;
 
-  const problem = sourceProblem(source, status);
+  const problem = sourceProblem(source, status, locale);
   // The last fetch failed but earlier ones' headlines are kept: those, with the reason in a note.
   const stale = !!problem && items.length > 0;
   // Headlines from Google News, because the site refuses us: said where the method usually is.
-  const fallback = fallbackNote(status);
+  const fallback = fallbackNote(status, locale);
   const pending = !problem && !status;
   // Folded on phones. Until the board knows it's on one (the server's HTML, and hydration), CSS
   // folds the card at phone widths instead, so nothing folds, moves or animates when the board starts.
@@ -110,7 +112,7 @@ export const SourceCard = memo(function SourceCard({
             type="button"
             onClick={toggle}
             aria-expanded={!collapsed}
-            aria-label={`${collapsed ? "Expand" : "Collapse"} ${source.name}`}
+            aria-label={collapsed ? t.expand(source.name) : t.collapse(source.name)}
             className="absolute inset-0 transition active:bg-surface-2"
           />
         )}
@@ -120,7 +122,7 @@ export const SourceCard = memo(function SourceCard({
             <SourceLogo source={source} link={!collapsible} />
           </h3>
           <p className="mt-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
-            {source.kind} · {source.lang === "bn" ? "বাংলা" : "English"}
+            {t.kinds[source.kind] ?? source.kind} · {t.lang[source.lang]}
             {fallback ? (
               <>
                 {" · "}
@@ -129,7 +131,7 @@ export const SourceCard = memo(function SourceCard({
                 </span>
               </>
             ) : (
-              METHOD_LABEL[source.method] && <> · {METHOD_LABEL[source.method]}</>
+              t.methods[source.method] && <> · {t.methods[source.method]}</>
             )}
           </p>
           {(collapsed || phoneFolded) && problem && (
@@ -158,7 +160,7 @@ export const SourceCard = memo(function SourceCard({
           )}
           {(!problem || stale) && !pending && items.length > 0 && (
             <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold tabular-nums text-accent">
-              {count}
+              {formatCount(count, locale)}
             </span>
           )}
           {/* Shown at phone widths even before the board knows it's on a phone (see phoneFolded). */}
@@ -176,14 +178,14 @@ export const SourceCard = memo(function SourceCard({
             <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
             <div className="min-w-0">
               <p className="text-foreground/80">{problem.message}</p>
-              {problem.detail && <p className="mt-1 break-words text-xs text-muted">Details: {problem.detail}</p>}
+              {problem.detail && <p className="mt-1 break-words text-xs text-muted">{t.details(problem.detail)}</p>}
               <a
                 href={source.homepage}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
               >
-                Visit {new URL(source.homepage).host.replace(/^www\./, "")}
+                {t.visit(new URL(source.homepage).host.replace(/^www\./, ""))}
                 <ArrowUpRightIcon className="h-3.5 w-3.5" />
               </a>
             </div>
@@ -191,7 +193,7 @@ export const SourceCard = memo(function SourceCard({
         </Fold>
       ) : pending ? (
         <Fold open={!collapsed} phoneFolded={phoneFolded}>
-          <ul className="space-y-4 px-4 pb-5 pt-1" aria-busy aria-label="Loading headlines">
+          <ul className="space-y-4 px-4 pb-5 pt-1" aria-busy aria-label={t.loadingHeadlines}>
             {Array.from({ length: 4 }, (_, i) => (
               <li key={i} className="space-y-2">
                 <div className="skeleton h-3.5 rounded-full" style={{ width: `${92 - i * 10}%` }} />
@@ -208,7 +210,7 @@ export const SourceCard = memo(function SourceCard({
               className="mx-4 mb-3 flex gap-2 rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted"
             >
               <AlertIcon className="mt-px h-3.5 w-3.5 shrink-0" />
-              Couldn&rsquo;t update just now. These are its earlier headlines.
+              {t.stale}
             </p>
           )}
           {lead && (
@@ -251,7 +253,7 @@ export const SourceCard = memo(function SourceCard({
               ))}
             </ul>
           )}
-          {status?.ok && count === 0 && <p className="px-4 pb-6 text-sm text-muted">No headlines.</p>}
+          {status?.ok && count === 0 && <p className="px-4 pb-6 text-sm text-muted">{t.noHeadlines}</p>}
           {count > PER_CARD && (
             <button
               type="button"
@@ -262,7 +264,7 @@ export const SourceCard = memo(function SourceCard({
               aria-expanded={showAll}
               className="flex min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2"
             >
-              {showAll ? "Show less" : `Show all ${count}`}
+              {showAll ? t.showLess : t.showAll(formatCount(count, locale))}
               <ChevronIcon className={`h-4 w-4 transition ${showAll ? "rotate-180" : ""}`} />
             </button>
           )}

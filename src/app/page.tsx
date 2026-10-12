@@ -3,7 +3,15 @@ import { NewsBoard } from "@/components/NewsBoard";
 import { cachedSeed } from "@/lib/feed";
 import { parseFilters } from "@/lib/filters";
 import { feedLink } from "@/lib/rss";
-import { faqJsonLd, INDEXABLE, shareMetadata, SITE_DESCRIPTION, SITE_TITLE, siteJsonLd } from "@/lib/site";
+import {
+  faqJsonLd,
+  INDEXABLE,
+  localeAlternates,
+  shareMetadata,
+  SITE_DESCRIPTION,
+  SITE_TITLE,
+  siteJsonLd,
+} from "@/lib/site";
 import { SOURCES } from "@/lib/sources";
 
 const SOURCE_IDS = new Set(SOURCES.map((s) => s.id));
@@ -11,7 +19,7 @@ const SOURCE_IDS = new Set(SOURCES.map((s) => s.id));
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return {
     // Filtered views (/?view=latest…) are the same page.
-    alternates: { canonical: "/", types: feedLink("/", "Latest Bangladesh news") },
+    alternates: { ...localeAlternates("/", "en"), types: feedLink("/", "Latest Bangladesh news") },
     robots: INDEXABLE,
     ...(await shareMetadata(parent, { title: SITE_TITLE, description: SITE_DESCRIPTION, url: "/" })),
   };
