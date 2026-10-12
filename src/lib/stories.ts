@@ -49,6 +49,36 @@ export function itemTime(it: NewsItem): string | undefined {
   return it.publishedAt ?? it.seenAt;
 }
 
+/** Steps of NewsSeed.ages: a minute each, over the 72 hours the board keeps; the last holds anything older. */
+const AGE_STEP_MS = 60_000;
+const AGE_STEPS = (72 * 3600_000) / AGE_STEP_MS;
+
+/** How many headlines are how old at `generatedAt`, in AGE_STEP_MS steps. Undated headlines aren't counted. */
+export function ageSteps(items: NewsItem[], generatedAt: string): number[] {
+  const at = Date.parse(generatedAt);
+  const steps = new Array<number>(AGE_STEPS).fill(0);
+  for (const it of items) {
+    const t = Date.parse(itemTime(it) ?? "");
+    if (Number.isNaN(t)) continue;
+    steps[Math.min(Math.max(Math.floor((at - t) / AGE_STEP_MS), 0), AGE_STEPS - 1)]++;
+  }
+  // Trailing empty steps left out, to keep the file small.
+  let end = steps.length;
+  while (end > 0 && !steps[end - 1]) end--;
+  return steps.slice(0, end);
+}
+
+/**
+ * About how many headlines are later than `since`, from ageSteps: the step `since` falls in counts in
+ * proportion to the part of it that is later.
+ */
+export function countSince(ages: number[], generatedAt: string, since: string): number {
+  const later = (Date.parse(generatedAt) - Date.parse(since)) / AGE_STEP_MS;
+  let n = 0;
+  for (let i = 0; i < ages.length && i < later; i++) n += ages[i] * Math.min(later - i, 1);
+  return Math.round(n);
+}
+
 /**
  * ISO times compared as plain strings, newest first; no time ("" or undefined) goes last. Not
  * localeCompare: the first call loads the browser's collation data, a pause on a slow phone.

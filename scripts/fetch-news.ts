@@ -3,6 +3,7 @@
  *
  * Fetches every active source and each outlet's logo, then writes what the static site serves:
  *   public/data/news.json   the board's headlines (see NewsFeed)
+ *   public/data/head/<all|category>.json the newest of them for each page, read first (see NewsSeed)
  *   public/data/days/<date>.json every headline of the last 72 hours, by day (see NewsDay)
  *   public/data/videos.json the Videos view: TV channels' latest YouTube videos (see VideoFeed)
  *   public/logos/<id>.<ext> logos, resized for the cards (see prepareLogo)
@@ -15,6 +16,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import path from "node:path";
 import { getLogo, prepareLogo } from "../src/lib/logos";
 import { dhakaDay } from "../src/components/time";
+import { toSeed } from "../src/lib/feed";
+import { CATEGORY_PAGES } from "../src/lib/site";
 import { cachedResult, getNews } from "../src/lib/news";
 import { getVideos } from "../src/lib/videos";
 import { ACTIVE_SOURCES, SOURCES } from "../src/lib/sources";
@@ -119,6 +122,19 @@ function writeDays(): number {
   return days.size;
 }
 
+/**
+ * For the board and each section page, every source's newest headlines (a full card each): all the
+ * board loads until the reader wants more than the cards show, a small part of news.json.
+ */
+function writeHeads(feed: NewsFeed) {
+  const dir = path.join(PUBLIC, "data", "head");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  for (const category of [undefined, ...CATEGORY_PAGES.map((c) => c.id)]) {
+    writeFileSync(path.join(dir, `${category ?? "all"}.json`), JSON.stringify(toSeed(feed, category, Infinity)));
+  }
+}
+
 async function main() {
   const started = Date.now();
   const [news, originals, videos] = await Promise.all([getNews({ force: true }), updateLogos(), getVideos()]);
@@ -132,6 +148,7 @@ async function main() {
   mkdirSync(path.join(PUBLIC, "data"), { recursive: true });
   writeFileSync(path.join(PUBLIC, "data", "news.json"), JSON.stringify(feed));
   writeFileSync(path.join(PUBLIC, "data", "videos.json"), JSON.stringify(videos));
+  writeHeads(feed);
   const days = writeDays();
   flushStores();
 

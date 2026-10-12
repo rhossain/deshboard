@@ -54,8 +54,12 @@ npm test           # offline parser tests
 
 - `public/data/news.json` — `{ generatedAt, results, logos, logoShapes }`: each fetched source's result (a status
   plus its `items`), each source's logo path, and each logo's size and whether it is light on transparent (so cards
-  draw it at its final size and on the right plate from the first paint). The board loads it and checks it again
-  every 10 minutes.
+  draw it at its final size and on the right plate from the first paint). The board loads it once the reader needs
+  more than the cards show (Top stories, Latest, a search or filter, another section, a card's "Show all").
+- `public/data/head/<all|section>.json` — for the board and each section page, every source's newest 8 headlines
+  (a full card) with the whole feed's counts and headline ages (`NewsSeed`): about 40 KB compressed against roughly
+  a megabyte for `news.json`. The board loads this after the reader's first scroll or tap, and checks whichever
+  file it has again every 10 minutes.
 - `public/data/videos.json` — `{ generatedAt, channels, videos }`: the Videos view, 31 TV news channels' YouTube
   videos from the last day (at most 30 per channel), newest first, without Shorts. Each channel's feed only has its
   latest 15, so each run adds to what earlier runs kept in `.data/videos.json`. Thumbnails and the player come

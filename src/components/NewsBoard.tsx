@@ -22,7 +22,7 @@ import { dedupeByLink } from "@/lib/fetchers/utils";
 import { sectionIntro, VIDEOS_INTRO } from "@/lib/intros";
 import { boardHeading, categoryPath, categoryTitle, SITE_TITLE, VIDEOS_PATH, VIDEOS_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
-import { findStories, itemTime, newestFirst } from "@/lib/stories";
+import { countSince, findStories, itemTime, newestFirst } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
 import type { NewsFeed, NewsItem, NewsSeed, NewsSource, SourceResult, Video, VideoFeed } from "@/lib/types";
 import { PHONE, useCardPrefs, useIsPhone } from "./card-prefs";
@@ -173,15 +173,31 @@ function whenNeeded(fn: () => void): () => void {
  * `priority: "low"` when the page already shows headlines, so it doesn't hold up the logos and fonts.
  */
 export async function loadFeed(signal?: AbortSignal, priority: RequestPriority = "auto"): Promise<NewsFeed> {
-  const res = await fetch("/data/news.json", { cache: "no-cache", signal, priority });
-  if (!res.ok) throw new Error(res.status === 404 ? "no headlines have been collected yet" : `server returned ${res.status}`);
-  return (await res.json()) as NewsFeed;
+  return (await loadData("/data/news.json", signal, priority)) as NewsFeed;
 }
+
+/** A page's head file: every source's newest headlines, all the cards show (see NewsSeed). */
+async function loadHead(category: Category | undefined, signal: AbortSignal, priority: RequestPriority): Promise<NewsSeed> {
+  return (await loadData(`/data/head/${category ?? "all"}.json`, signal, priority)) as NewsSeed;
+}
+
+async function loadData(url: string, signal: AbortSignal | undefined, priority: RequestPriority): Promise<unknown> {
+  const res = await fetch(url, { cache: "no-cache", signal, priority });
+  if (!res.ok) throw new Error(res.status === 404 ? "no headlines have been collected yet" : `server returned ${res.status}`);
+  return res.json();
+}
+
+/** How much of the feed the board has: none, the seed baked into the page, a head file, or all of it. */
+const NONE = 0;
+const SEED = 1;
+const HEAD = 2;
+const WHOLE = 3;
+const partOf = (feed: NewsFeed | NewsSeed) => ("counts" in feed ? HEAD : WHOLE);
 
 const byId = (feed: NewsFeed) => new Map(feed.results.map((r) => [r.sourceId, r]));
 
 /** A newer feed from the automatic refresh, with how many of its headlines the board doesn't show yet. */
-type Pending = { feed: NewsFeed; fresh: number };
+type Pending = { feed: NewsFeed | NewsSeed; fresh: number };
 
 /** Every headline link in the page, in reading order, skipping folded cards. */
 function headlineLinks(): HTMLAnchorElement[] {
@@ -257,11 +273,18 @@ export function NewsBoard({
   }));
   // A page opened on Videos loads the headlines only when the reader leaves it (see videosFirst).
   const [loading, setLoading] = useState(!seed && initial.view !== "videos");
-  // The seed is only part of its build's feed, so the first load replaces it even from the same build.
-  const partialRef = useRef(!!seed);
-  // The whole feed's section and card counts, from the seed, until the whole feed is here.
+  // How much of the feed is on show (NONE, SEED, HEAD or WHOLE): a load replaces less of the same build.
+  const hasRef = useRef(seed ? SEED : NONE);
+  const [whole, setWhole] = useState(false);
+  // Loading the whole feed, which a page's head file stands in for until the reader needs more.
+  const wholeLoadingRef = useRef(false);
+  // The whole feed's section and card counts and headline ages, from the seed or head file, until
+  // the whole feed is here.
   const [seedCounts, setSeedCounts] = useState(seed?.counts);
   const [seedTotals, setSeedTotals] = useState(seed?.totals);
+  const [seedAges, setSeedAges] = useState(seed?.ages);
+  // The section the seed and head files are cut for: the page's.
+  const pageCategory = seed?.category;
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>(initial.view);
   const viewRef = useRef(view);
@@ -303,35 +326,62 @@ export function NewsBoard({
   const [pinsNow, updatePins] = usePinnedSources();
   const pins = useDeferredValue(pinsNow);
 
+  // The whole feed is thousands of headlines, a large file to read and draw on a slow phone. Until the
+  // reader looks past each source's newest (another view, a search or filter, a section other than the
+  // page's, a card opened in full), the page's head file stands in for it.
+  const [wantAll, setWantAll] = useState(false);
+  const showAllCards = useCallback(() => setWantAll(true), []);
+  const needsWhole =
+    view === "top" ||
+    view === "latest" ||
+    !!query.trim() ||
+    lang !== "all" ||
+    !!onlySource ||
+    onlyNew ||
+    (category || undefined) !== pageCategory ||
+    wantAll;
+  const needsWholeRef = useRef(needsWhole);
+  useEffect(() => {
+    needsWholeRef.current = needsWhole;
+  }, [needsWhole]);
+
   // A transition: React draws the thousands of headlines in short slices, between which the page
   // stays responsive, instead of in one long task.
-  const show = useCallback((feed: NewsFeed) => {
+  const show = useCallback((feed: NewsFeed | NewsSeed) => {
+    const part = "counts" in feed ? feed : undefined;
+    hasRef.current = partOf(feed);
     startTransition(() => {
       setResults(byId(feed));
       setLogos({ logos: feed.logos, logoShapes: feed.logoShapes });
-      setSeedCounts(undefined);
-      setSeedTotals(undefined);
+      setWhole(!part);
+      setSeedCounts(part?.counts);
+      setSeedTotals(part?.totals);
+      setSeedAges(part?.ages);
       setGeneratedAt(feed.generatedAt);
       setNow(Date.now());
     });
   }, []);
 
   /**
-   * Load the feed. State is only set from callbacks, so this is safe to call from an effect.
+   * Load the feed: all of it once the board has it or `wantWhole`, otherwise the page's head file.
+   * State is only set from callbacks, so this is safe to call from an effect.
    * `manual` (the Refresh button): say whether there was anything newer, since often there isn't.
    */
   const start = useCallback(
-    (manual = false) => {
+    (manual = false, wantWhole = false) => {
       controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
+      const getWhole = wantWhole || hasRef.current === WHOLE;
+      wholeLoadingRef.current = getWhole;
 
-      // Only the Refresh button, or a page without a seed, is waiting on it.
-      loadFeed(controller.signal, manual || !partialRef.current ? "auto" : "low").then(
-        (feed) => {
+      // Only the Refresh button, a page without a seed, or a reader who asked for more is waiting on it.
+      const priority = manual || hasRef.current === NONE || wantWhole ? "auto" : "low";
+      (getWhole ? loadFeed(controller.signal, priority) : loadHead(pageCategory, controller.signal, priority)).then(
+        (feed: NewsFeed | NewsSeed) => {
+          if (controllerRef.current === controller) wholeLoadingRef.current = false;
           const newer = feed.generatedAt !== generatedAtRef.current;
-          if (newer || partialRef.current) show(feed);
-          partialRef.current = false;
+          if (newer || partOf(feed) > hasRef.current) show(feed);
           if (manual) {
             clearTimeout(noticeTimer.current);
             setNotice(
@@ -343,13 +393,14 @@ export function NewsBoard({
           setLoading(false);
         },
         (err: unknown) => {
+          if (controllerRef.current === controller) wholeLoadingRef.current = false;
           if (controller.signal.aborted) return;
           setError(err instanceof Error ? err.message : String(err));
           setLoading(false);
         },
       );
     },
-    [show],
+    [show, pageCategory],
   );
 
   /** The Refresh button and `r`. */
@@ -361,7 +412,7 @@ export function NewsBoard({
     quietRef.current?.abort();
     setPending(null);
     setLoading(true);
-    start(true);
+    start(true, needsWholeRef.current);
   }, [start]);
 
   useEffect(() => {
@@ -377,8 +428,8 @@ export function NewsBoard({
     quietRef.current?.abort();
     const controller = new AbortController();
     quietRef.current = controller;
-    loadFeed(controller.signal, "low").then(
-      (feed) => {
+    (hasRef.current === WHOLE ? loadFeed(controller.signal, "low") : loadHead(pageCategory, controller.signal, "low")).then(
+      (feed: NewsFeed | NewsSeed) => {
         if (feed.generatedAt === generatedAtRef.current) return; // No new build since the last look.
         const known = new Set([...resultsRef.current.values()].flatMap((r) => r.items.map((it) => it.link)));
         const fresh = feed.results.reduce((n, r) => n + r.items.filter((it) => !known.has(it.link)).length, 0);
@@ -391,7 +442,7 @@ export function NewsBoard({
       },
       () => {}, // A failed background refresh changes nothing; the next one tries again.
     );
-  }, [show]);
+  }, [show, pageCategory]);
 
   const showPending = () => {
     if (!pending) return;
@@ -400,9 +451,9 @@ export function NewsBoard({
     window.scrollTo({ top: 0 });
   };
 
-  // Behind the prerendered headlines, the whole feed (thousands of headlines, a large file to read
-  // and draw on a slow phone) waits until the reader goes past what the page already shows: their
-  // first scroll, tap or key press. A page opened with other filters wants it as soon as it has loaded.
+  // Behind the prerendered headlines, the rest waits until the reader goes past what the page already
+  // shows: their first scroll, tap or key press. A page opened with other filters wants it as soon as
+  // it has loaded.
   const seeded = !!seed;
   const seedFits =
     seeded &&
@@ -416,12 +467,12 @@ export function NewsBoard({
   const videosFirst = initial.view === "videos";
   useEffect(() => {
     // (Unless Refresh got there first.)
-    const load = () => controllerRef.current || start();
+    const load = () => controllerRef.current || start(false, needsWholeRef.current);
     const cancel = videosFirst
       ? undefined
       : seeded
         ? (seedFits ? whenNeeded : whenSettled)(load)
-        : (start(), undefined);
+        : (load(), undefined);
     const tick = setInterval(() => setNow(Date.now()), 60_000);
     return () => {
       cancel?.();
@@ -432,8 +483,12 @@ export function NewsBoard({
     };
   }, [start, seeded, seedFits, videosFirst]);
   useEffect(() => {
-    if (videosFirst && view !== "videos" && !controllerRef.current) start();
+    if (videosFirst && view !== "videos" && !controllerRef.current) start(false, needsWholeRef.current);
   }, [videosFirst, view, start]);
+  // Once loading has begun, wanting more than the head file fetches the whole feed.
+  useEffect(() => {
+    if (needsWhole && !whole && controllerRef.current && !wholeLoadingRef.current) start(false, true);
+  }, [needsWhole, whole, start]);
 
   // Look for the next build when it should have landed, then every minute until it has. Browsers
   // pause timers in background tabs, so also look when the page comes back into view or online.
@@ -492,7 +547,13 @@ export function NewsBoard({
   // Headlines since the reader's last visit (none on a first visit).
   const lastVisit = useDeferredValue(useLastVisit());
   const isNew = useCallback((it: NewsItem) => !!lastVisit && (itemTime(it) ?? "") > lastVisit, [lastVisit]);
-  const newCount = useMemo(() => allItems.filter(isNew).length, [allItems, isNew]);
+  const newCount = useMemo(
+    () =>
+      lastVisit && seedAges && generatedAt
+        ? countSince(seedAges, generatedAt, lastVisit)
+        : allItems.filter(isNew).length,
+    [allItems, isNew, lastVisit, seedAges, generatedAt],
+  );
 
   // The search filters behind the typing: the box keeps up while the results catch up.
   const searchQuery = useDeferredValue(query);
@@ -1141,6 +1202,7 @@ export function NewsBoard({
                     onToggleSave={toggleSaved}
                     onShare={shareItem}
                     total={cardTotals && (cardTotals[s.id] ?? 0)}
+                    onShowAll={whole ? undefined : showAllCards}
                     pinned={pinnedIds.has(s.id)}
                     onTogglePin={toggleSourcePin}
                   />

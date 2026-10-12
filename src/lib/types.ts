@@ -83,7 +83,11 @@ export interface NewsDay {
   items: NewsItem[];
 }
 
-/** The feed as prerendered into a page: a few headlines per source (see seedResults). */
+/**
+ * Part of the feed: a few headlines per source (see seedResults), with what the board needs from the
+ * whole feed to draw at its final size. Prerendered into a page, and written for each page as
+ * `/data/head/<all|category>.json`, which the board reads in place of `/data/news.json` until it needs more.
+ */
 export interface NewsSeed extends NewsFeed {
   /** Headlines per section in the whole feed, so the section tabs start out with their final counts. */
   counts: Partial<Record<Category, number>>;
@@ -91,6 +95,8 @@ export interface NewsSeed extends NewsFeed {
   category?: Category;
   /** Source id → its headlines in the whole feed, so each card starts out at its final size. */
   totals: Record<string, number>;
+  /** Every headline in the whole feed by age (see ageSteps), for the "new since your last visit" count. */
+  ages: number[];
 }
 
 /** A logo's pixel size, and whether it is light on a transparent background (made for a dark header). */

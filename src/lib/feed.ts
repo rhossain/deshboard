@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Category } from "./categories";
 import { dedupeByLink } from "./fetchers/utils";
 import { seedResults } from "./site";
-import { itemTime } from "./stories";
+import { ageSteps, itemTime } from "./stories";
 import type { NewsFeed, NewsSeed, VideoFeed } from "./types";
 
 /**
@@ -12,15 +12,27 @@ import type { NewsFeed, NewsSeed, VideoFeed } from "./types";
  */
 export function readSeed(category?: Category): NewsSeed | undefined {
   const feed = readFeed();
-  if (!feed) return undefined;
+  return feed && toSeed(feed, category);
+}
+
+/** Part of `feed` for a page (see NewsSeed); `fullCards` as in seedResults. */
+export function toSeed(feed: NewsFeed, category?: Category, fullCards?: number): NewsSeed {
   // Counted as the board counts them: every headline once, however many outlets list it.
+  const all = dedupeByLink(feed.results.flatMap((r) => r.items));
   const counts: NewsSeed["counts"] = {};
   const totals: NewsSeed["totals"] = {};
-  for (const it of dedupeByLink(feed.results.flatMap((r) => r.items))) {
+  for (const it of all) {
     counts[it.category] = (counts[it.category] ?? 0) + 1;
     if (!category || it.category === category) totals[it.sourceId] = (totals[it.sourceId] ?? 0) + 1;
   }
-  return { ...feed, results: seedResults(feed.results, category), counts, category, totals };
+  return {
+    ...feed,
+    results: seedResults(feed.results, category, fullCards),
+    counts,
+    category,
+    totals,
+    ages: ageSteps(all, feed.generatedAt),
+  };
 }
 
 /** The whole feed from `npm run fetch`, or undefined when nothing has been fetched yet. */
