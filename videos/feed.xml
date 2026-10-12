@@ -5,9 +5,30 @@
     <link>https://bartaboard.com/videos/</link>
     <description>Latest Bangladesh TV news videos from 31 channels on YouTube, including Jamuna TV, Somoy TV, Channel 24 and BBC News Bangla, newest first, free to watch.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 02:00:58 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 02:15:46 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/videos/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>গণমাধ্যমের স্বাধীনতা ও সংকট কোথায়? আইরিন খানের বিশ্লেষণ</title>
+      <link>https://www.youtube.com/watch?v=d3N-SdOO7a4</link>
+      <description>NTV News</description>
+      <guid isPermaLink="true">https://www.youtube.com/watch?v=d3N-SdOO7a4</guid>
+      <pubDate>Mon, 12 Oct 2026 02:00:29 GMT</pubDate>
+    </item>
+    <item>
+      <title>সংলাপ প্রতিদিন · রাজনীতি ও সমসাময়িক প্রসঙ্গ</title>
+      <link>https://www.youtube.com/watch?v=U5DcKvlpZkM</link>
+      <description>NTV News</description>
+      <guid isPermaLink="true">https://www.youtube.com/watch?v=U5DcKvlpZkM</guid>
+      <pubDate>Mon, 12 Oct 2026 01:41:51 GMT</pubDate>
+    </item>
+    <item>
+      <title>ঢাকায় শুরু আমেরিকান খাবারের উৎসব, মিলবে বৈচিত্র্যময় স্বাদ</title>
+      <link>https://www.youtube.com/watch?v=snXnBeqPdrU</link>
+      <description>NTV News</description>
+      <guid isPermaLink="true">https://www.youtube.com/watch?v=snXnBeqPdrU</guid>
+      <pubDate>Mon, 12 Oct 2026 01:33:30 GMT</pubDate>
+    </item>
     <item>
       <title>সংবাদ সারাদেশ</title>
       <link>https://www.youtube.com/watch?v=cS_Apo74PEk</link>
@@ -51,17 +72,17 @@
       <pubDate>Mon, 12 Oct 2026 00:20:16 GMT</pubDate>
     </item>
     <item>
-      <title>ইউক্রেনের প্রেসিডেন্ট জেলেনস্কিকে সরাতে ট্রাম্পের আহ্বান</title>
-      <link>https://www.youtube.com/watch?v=aj6lSGlOebI</link>
-      <description>Channel i News</description>
-      <guid isPermaLink="true">https://www.youtube.com/watch?v=aj6lSGlOebI</guid>
-      <pubDate>Mon, 12 Oct 2026 00:15:31 GMT</pubDate>
-    </item>
-    <item>
       <title>অস্ট্রেলিয়ায় মহালয়া উৎসব</title>
       <link>https://www.youtube.com/watch?v=uyTJR5psOhM</link>
       <description>Channel i News</description>
       <guid isPermaLink="true">https://www.youtube.com/watch?v=uyTJR5psOhM</guid>
+      <pubDate>Mon, 12 Oct 2026 00:15:31 GMT</pubDate>
+    </item>
+    <item>
+      <title>ইউক্রেনের প্রেসিডেন্ট জেলেনস্কিকে সরাতে ট্রাম্পের আহ্বান</title>
+      <link>https://www.youtube.com/watch?v=aj6lSGlOebI</link>
+      <description>Channel i News</description>
+      <guid isPermaLink="true">https://www.youtube.com/watch?v=aj6lSGlOebI</guid>
       <pubDate>Mon, 12 Oct 2026 00:15:31 GMT</pubDate>
     </item>
     <item>
@@ -336,27 +357,6 @@
       <description>BanglaVision News</description>
       <guid isPermaLink="true">https://www.youtube.com/watch?v=brI1zgJVec8</guid>
       <pubDate>Sun, 11 Oct 2026 20:19:40 GMT</pubDate>
-    </item>
-    <item>
-      <title>জান্নাতুল তাজমিনের কথিত প্রেমিক রাজু আটক</title>
-      <link>https://www.youtube.com/watch?v=_hfwmd0Hxew</link>
-      <description>NTV News</description>
-      <guid isPermaLink="true">https://www.youtube.com/watch?v=_hfwmd0Hxew</guid>
-      <pubDate>Sun, 11 Oct 2026 20:14:17 GMT</pubDate>
-    </item>
-    <item>
-      <title>ভারতকে বারবার সফরের আহ্বান, বাংলাদেশের স্বার্থ কতটা রক্ষা হচ্ছে?</title>
-      <link>https://www.youtube.com/watch?v=4nZe79Nn8Co</link>
-      <description>GTV News</description>
-      <guid isPermaLink="true">https://www.youtube.com/watch?v=4nZe79Nn8Co</guid>
-      <pubDate>Sun, 11 Oct 2026 20:00:06 GMT</pubDate>
-    </item>
-    <item>
-      <title>খবরগঞ্জ · ১২ অক্টোবর, ২০২৬</title>
-      <link>https://www.youtube.com/watch?v=qCMVu3I98Fw</link>
-      <description>Ekhon TV</description>
-      <guid isPermaLink="true">https://www.youtube.com/watch?v=qCMVu3I98Fw</guid>
-      <pubDate>Sun, 11 Oct 2026 19:58:40 GMT</pubDate>
     </item>
   </channel>
 </rss>
