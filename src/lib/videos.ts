@@ -3,6 +3,7 @@ import { fetchText } from "./fetchers/http";
 import { parseYouTubeFeed } from "./fetchers/youtube";
 import { readStore, writeStoreSoon } from "./store";
 import type { Video, VideoChannel, VideoFeed } from "./types";
+import { tagStories } from "./video-stories";
 
 /**
  * A feed only has a channel's latest 15 videos, an hour's worth for the busiest, so each run adds to
@@ -58,8 +59,11 @@ export async function getVideos(): Promise<VideoFeed> {
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   writeStoreSoon(STORE, () => next);
 
-  const videos = Object.values(next)
-    .flat()
-    .sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
+  // Newest first, with the videos about the same news tagged as one story.
+  const videos = tagStories(
+    Object.values(next)
+      .flat()
+      .sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1)),
+  );
   return { generatedAt: new Date().toISOString(), channels, videos };
 }

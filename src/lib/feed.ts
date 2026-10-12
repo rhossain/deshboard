@@ -59,16 +59,25 @@ export function newestByCategory(feed: NewsFeed): Partial<Record<Category, strin
   return newest;
 }
 
-/** Videos prerendered into the Videos page: its first screenful (VideoBoard's first page). */
-const SEED_VIDEOS = 24;
+/** Cards prerendered into the Videos page: its first screenful (VideoBoard's first page). */
+const SEED_CARDS = 24;
 
 /**
- * The videos feed from `npm run fetch`, trimmed to its newest few for prerendering into the Videos
- * page. Undefined when nothing has been fetched yet.
+ * The videos feed from `npm run fetch`, trimmed to its first few cards for prerendering into the
+ * Videos page: the newest videos, with every video of their stories (Video.story), so the cards are
+ * whole and don't grow when the rest of the feed arrives. Undefined when nothing has been fetched yet.
  */
 export function readVideoSeed(): VideoFeed | undefined {
   const feed = readVideos();
-  return feed && { ...feed, videos: feed.videos.slice(0, SEED_VIDEOS) };
+  if (!feed) return undefined;
+  const stories = new Set<string>();
+  const lone = new Set<string>();
+  for (const v of feed.videos) {
+    if (stories.size + lone.size >= SEED_CARDS) break;
+    if (v.story) stories.add(v.story);
+    else lone.add(v.id);
+  }
+  return { ...feed, videos: feed.videos.filter((v) => lone.has(v.id) || (!!v.story && stories.has(v.story))) };
 }
 
 /** The whole videos feed from `npm run fetch`, or undefined when nothing has been fetched yet. */

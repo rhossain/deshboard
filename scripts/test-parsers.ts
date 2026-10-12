@@ -30,6 +30,7 @@ import { SEARCH_TERMS } from "../src/lib/search-terms";
 import { findStories, keywords } from "../src/lib/stories";
 import type { NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
 import { mergeVideos } from "../src/lib/videos";
+import { groupVideos, tagStories, videoKeywords } from "../src/lib/video-stories";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -562,6 +563,90 @@ test("Videos build up across runs: the last day, at most 30 per channel", () => 
   const many = Array.from({ length: 40 }, (_, i) => v(`m${i}`, i / 10));
   assert.equal(mergeVideos(many, [], now).length, 30);
   assert.equal(mergeVideos(many, [], now)[0].id, "m0");
+});
+
+test("Video titles: masked words made whole, bulletins and dates leave nothing to match", () => {
+  assert.deepEqual(videoKeywords("সাবেক দুই সেনা কর্মকর্তা গ্রে/প্তা/র"), videoKeywords("সাবেক দুই সেনা কর্মকর্তা গ্রেপ্তার"));
+  assert.deepEqual(videoKeywords("বি*স্ফো*রক অ'ভি'যোগ"), videoKeywords("বিস্ফোরক অভিযোগ"));
+  assert.deepEqual(videoKeywords("চকবাজারে আ~গু~ন"), videoKeywords("চকবাজারে আগুন"));
+  assert.deepEqual(videoKeywords("চকবাজারে আ গু ন"), videoKeywords("চকবাজারে আগুন"));
+  // Two spellings of one thing.
+  assert.deepEqual(videoKeywords("চুয়েটের নতুন ভিসি"), videoKeywords("চুয়েটের নতুন উপাচার্য"));
+  assert.deepEqual(videoKeywords("দুই সদস্য গ্রেফতার"), videoKeywords("দুই সদস্য গ্রেপ্তার"));
+  for (const bulletin of [
+    "এটিএন বাংলার সন্ধ্যা ৬ টার সংবাদ",
+    "সন্ধ্যার বাংলাভিশন সংবাদ",
+    "বাংলাভিশন নিউজ টপ টেন · বিকেল ৫টা · ১২ অক্টোবর ২০২৬",
+    "মোহনা সংবাদ · তারিখ: ১২ অক্টোবরর ২০২৬",
+    "এটিএন বাংলার সংবাদ শিরোনাম । সন্ধ্যা ৬ টা । ১২.১০.২০২৬",
+  ]) {
+    assert.deepEqual(videoKeywords(bulletin), [], bulletin);
+  }
+  // Numbers that are news stay.
+  assert.ok(videoKeywords("কুমিল্লায় অভিযান, আটক ৩৫৩").includes("353"));
+});
+
+test("Videos about the same news group across channels; different events don't", () => {
+  const now = Date.parse("2026-10-12T19:00:00Z");
+  let n = 0;
+  const v = (channel: string, title: string, hoursAgo = 1): Video => ({
+    id: `v${n++}`,
+    channel,
+    title,
+    publishedAt: new Date(now - hoursAgo * 3600_000).toISOString(),
+  });
+  const videos = [
+    v("ntv", "তালা ভে/ঙে চেয়ারে বসলেন চুয়েটের নতুন উপাচার্য, শিক্ষার্থীদের ক্ষোভ", 1),
+    v("dbc", "শিক্ষার্থীদের আন্দোলনের মধ্যেই তালা ভেঙে চুয়েটে নতুন উপাচার্য", 1.2),
+    v("mytv", "চুয়েটে শাটডাউনের মধ্যেই তালা ভেঙে নিজ দপ্তরে প্রবেশ করলেন নতুন উপাচার্য", 2),
+    v("dbc", "অর্থনীতিতে নোবেল পেলেন যুক্তরাষ্ট্রের রবার্ট ই হল ও মাইকেল উডফোর্ড", 3),
+    v("itv", "অর্থনীতিতে নোবেল পেলেন রবার্ট ই. হল ও মাইকেল উডফোর্ড", 2.5),
+    // Same people, different outcomes: two events.
+    v("ekushey", "নারায়ণগঞ্জে গো/লা/গু/লি/তে 'শীর্ষ স/ন্ত্রা/সী' নি/হ/ত", 1),
+    v("jamuna", "নারায়ণগঞ্জের শীর্ষ সন্ত্রাসী কোবরা গ্রুপের প্রধান সোহেল গ্রেফতার", 1.5),
+    // Same person, different stories.
+    v("mohona", "নারী-শিশু ধ/র্ষ/ণ ও সহিংসতায় আইনের কঠোর প্রয়োগ জরুরী: রাষ্ট্রপতি মির্জা ফখরুল ইসলাম আলমগীর", 1),
+    v("ntv", "রাষ্ট্রপতি মির্জা ফখরুলের আসনে বিএনপি-জামায়াত দ্বিমুখী লড়াইয়ের আভাস", 1.1),
+    // Bulletins from different channels.
+    v("atn-bangla", "এটিএন বাংলার সন্ধ্যা ৬ টার সংবাদ", 0.5),
+    v("banglavision", "সন্ধ্যার বাংলাভিশন সংবাদ", 0.6),
+    v("deepto", "দীপ্ত দুপুরের সংবাদ · ১২ অক্টোবর ২০২৬", 4),
+    v("mohona", "মোহনা সংবাদ · তারিখ: ১২ অক্টোবরর ২০২৬", 4.2),
+    // Same day, unrelated dates.
+    v("boishakhi", "ঢাকায় ১২ নভেম্বর টেক্সটাইল ইনোভেশন এক্সপো", 6),
+    v("somoy", "ফেরদৌসী আহমেদ মিষ্টির শূন্য আসনে উপনির্বাচন ১২ নভেম্বর", 6.5),
+    // A story told twice, more than 12 hours apart.
+    v("somoy", "ইউরোপে বাংলাদেশি শ্রমিক নিয়োগে নতুন চুক্তি সই", 1),
+    v("rtv", "ইউরোপে বাংলাদেশি শ্রমিক নিয়োগে নতুন চুক্তি সই", 20),
+    // Filler, so word weights are like a real day's.
+    ...[
+      "জাপানে প্রবাসী বাংলাদেশিদের নতুন উদ্যোগ, ঘরে বসেই অনলাইন ব্যবসা",
+      "জ্বালানি সংকটে বিনিয়োগে অনাগ্রহ বিদেশিদের",
+      "দখল-দূষণে মৃতপ্রায় খাকদোন নদী, ২০ কোটি টাকায় খননের উদ্যোগ",
+      "কিলবিল করা এই মাছ খেতে এত পাগল কেন জাপানিরা?",
+      "নাটোরে নজর কেড়েছে ভুট্টা সাবুদানায় তৈরি প্রতিমা",
+      "শ্রীমঙ্গলে শুরু হয়েছে নবদূর্গা পূজা",
+      "সৌদি আরব ও হুতিদের সামরিক শক্তির তুলনা",
+      "ক্ষেপণাস্ত্র ছুড়েছে উত্তর কোরিয়া; নিন্দা দক্ষিণ কোরিয়া, জাপানের",
+    ].map((title, i) => v(`filler${i}`, title, 2 + i)),
+  ].sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
+
+  const titles = (ids: string[]) => ids.map((id) => videos.find((x) => x.id === id)!.channel).sort().join(",");
+  const groups = groupVideos(videos)
+    .filter((g) => g.videos.length > 1)
+    .map((g) => titles(g.videos.map((x) => x.id)));
+  assert.deepEqual(groups.sort(), ["dbc,itv", "dbc,mytv,ntv"]);
+
+  // Tagged with the newest video's id, in the feed's order; everything else untouched.
+  const tagged = tagStories(videos);
+  assert.equal(tagged.length, videos.length);
+  const cuet = tagged.filter((x) => x.title.includes("চুয়েট"));
+  assert.ok(cuet.every((x) => x.story === cuet[0].id));
+  assert.equal(tagged.filter((x) => x.story).length, 5);
+  assert.deepEqual(
+    tagged.map((x) => x.id),
+    videos.map((x) => x.id),
+  );
 });
 
 test("Headlines build up across runs: the last 72 hours kept, the newest 300 on the board", () => {
