@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/tech/</link>
     <description>Latest science &amp; tech news from Bangladesh: বিজ্ঞান-প্রযুক্তি headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 07:00:56 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 07:15:51 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/tech/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>‘স্মার্টফোন ছাড়ার সিদ্ধান্ত আমার জীবনটাই বদলে দিয়েছে’</title>
+      <link>https://www.jugantor.com/tech/1167888</link>
+      <description>Jugantor · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://www.jugantor.com/tech/1167888</guid>
+      <pubDate>Mon, 12 Oct 2026 07:06:28 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
     <item>
       <title>ডায়ার উলফ ও ম্যামথ ফিরিয়ে আনার প্রযুক্তি কি মানুষের আয়ু বাড়াবে?</title>
       <link>https://bangla.bdnews24.com/tech/s0ff0xg8y4</link>
@@ -398,14 +406,6 @@
       <description>bdnews24 Bangla · Science &amp; Tech</description>
       <guid isPermaLink="true">https://bangla.bdnews24.com/tech/zivktbrv8i</guid>
       <pubDate>Sun, 11 Oct 2026 10:15:36 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>Asus sees strong potential in Bangladesh as AI reshapes the PC market: Rex Lee</title>
-      <link>https://www.thedailystar.net/news/technology/news/asus-sees-strong-potential-bangladesh-ai-reshapes-the-pc-market-rex-lee-4293766</link>
-      <description>The Daily Star · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://www.thedailystar.net/news/technology/news/asus-sees-strong-potential-bangladesh-ai-reshapes-the-pc-market-rex-lee-4293766</guid>
-      <pubDate>Sun, 11 Oct 2026 10:14:39 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
   </channel>
