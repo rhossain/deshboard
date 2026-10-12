@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/opinion/</link>
     <description>Latest opinion news from Bangladesh: মতামত headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 03:15:48 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 03:30:51 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/opinion/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>সুষ্ঠু তদন্ত করে কঠোর ব্যবস্থা নিন</title>
+      <link>https://www.prothomalo.com/opinion/editorial/z7vjyxgro8</link>
+      <description>Prothom Alo · Opinion</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/opinion/editorial/z7vjyxgro8</guid>
+      <pubDate>Mon, 12 Oct 2026 03:15:00 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
     <item>
       <title>‘নানা’বিধ চারিত্রিক বিহ্বলতা</title>
       <link>https://www.dhakapost.com/opinion/489772</link>
@@ -398,14 +406,6 @@
       <description>Dhaka Tribune · Opinion</description>
       <guid isPermaLink="true">https://www.dhakatribune.com/amp/opinion/editorial/421819/turning-waste-to-opportunity</guid>
       <pubDate>Sun, 11 Oct 2026 04:48:33 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>একাডেমিক স্বাধীনতা যখন বুলিংয়ে পরিণত হয়</title>
-      <link>https://www.dailyamardesh.com/op-ed/sub-editorial/amdgqvoavofru</link>
-      <description>Amar Desh · Opinion</description>
-      <guid isPermaLink="true">https://www.dailyamardesh.com/op-ed/sub-editorial/amdgqvoavofru</guid>
-      <pubDate>Sun, 11 Oct 2026 04:48:19 GMT</pubDate>
       <category>Opinion</category>
     </item>
   </channel>

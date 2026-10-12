@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/business/</link>
     <description>Latest business news from Bangladesh: অর্থনীতি headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 03:15:48 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 03:30:51 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/business/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>June PPI growth nearly half of CPI inflation</title>
+      <link>https://thefinancialexpress.com.bd/economy/june-ppi-growth-nearly-half-of-cpi-inflation</link>
+      <description>The Financial Express · Business</description>
+      <guid isPermaLink="true">https://thefinancialexpress.com.bd/economy/june-ppi-growth-nearly-half-of-cpi-inflation</guid>
+      <pubDate>Mon, 12 Oct 2026 03:30:51 GMT</pubDate>
+      <category>Business</category>
+    </item>
     <item>
       <title>Bottled soybean oil, packet sugar scarce in market</title>
       <link>https://thefinancialexpress.com.bd/trade/bottled-soybean-oil-packet-sugar-scarce-in-market</link>
@@ -209,22 +217,6 @@
       <category>Business</category>
     </item>
     <item>
-      <title>PM invites Marubeni to invest in IT, fertiliser and energy sectors</title>
-      <link>https://en.bonikbarta.com/business/fMtOQDQqduwPAhLI</link>
-      <description>Bonik Barta English · Business</description>
-      <guid isPermaLink="true">https://en.bonikbarta.com/business/fMtOQDQqduwPAhLI</guid>
-      <pubDate>Sun, 11 Oct 2026 22:30:00 GMT</pubDate>
-      <category>Business</category>
-    </item>
-    <item>
-      <title>Japanese Company Marubeni keen to expand investment in Bangladesh</title>
-      <link>https://en.bonikbarta.com/business/LuIaqhDVqhQhXwnJ</link>
-      <description>Bonik Barta English · Business</description>
-      <guid isPermaLink="true">https://en.bonikbarta.com/business/LuIaqhDVqhQhXwnJ</guid>
-      <pubDate>Sun, 11 Oct 2026 22:30:00 GMT</pubDate>
-      <category>Business</category>
-    </item>
-    <item>
       <title>Bangladesh eyes Algerian LNG, LPG imports amid supply crunch</title>
       <link>https://www.tbsnews.net/economy/energy/bangladesh-eyes-algerian-lng-lpg-imports-amid-supply-crunch-1569776</link>
       <description>The Business Standard · Business</description>
@@ -353,18 +345,18 @@
       <category>Business</category>
     </item>
     <item>
-      <title>DBBL holds strategic conclave for Noakhali, Cumilla</title>
-      <link>https://www.newagebd.net/post/banking/317556/video</link>
+      <title>Citizens Bank holds quarterly business review meeting</title>
+      <link>https://www.newagebd.net/post/banking/317549/citizens-bank-holds-quarterly-business-review-meeting</link>
       <description>New Age · Business</description>
-      <guid isPermaLink="true">https://www.newagebd.net/post/banking/317556/video</guid>
+      <guid isPermaLink="true">https://www.newagebd.net/post/banking/317549/citizens-bank-holds-quarterly-business-review-meeting</guid>
       <pubDate>Sun, 11 Oct 2026 18:00:00 GMT</pubDate>
       <category>Business</category>
     </item>
     <item>
-      <title>Citizens Bank holds quarterly business review meeting</title>
-      <link>https://www.newagebd.net/post/banking/317549/articlelist/77/timeout-on-friday</link>
+      <title>DBBL holds strategic conclave for Noakhali, Cumilla</title>
+      <link>https://www.newagebd.net/post/banking/317556/dbbl-holds-strategic-conclave-for-noakhali-cumilla</link>
       <description>New Age · Business</description>
-      <guid isPermaLink="true">https://www.newagebd.net/post/banking/317549/articlelist/77/timeout-on-friday</guid>
+      <guid isPermaLink="true">https://www.newagebd.net/post/banking/317556/dbbl-holds-strategic-conclave-for-noakhali-cumilla</guid>
       <pubDate>Sun, 11 Oct 2026 18:00:00 GMT</pubDate>
       <category>Business</category>
     </item>
@@ -385,18 +377,18 @@
       <category>Business</category>
     </item>
     <item>
-      <title>Citizens Bank holds quarterly business review meeting</title>
-      <link>https://www.newagebd.net/post/banking/317549/citizens-bank-holds-quarterly-business-review-meeting</link>
+      <title>DBBL holds strategic conclave for Noakhali, Cumilla</title>
+      <link>https://www.newagebd.net/post/banking/317556/video</link>
       <description>New Age · Business</description>
-      <guid isPermaLink="true">https://www.newagebd.net/post/banking/317549/citizens-bank-holds-quarterly-business-review-meeting</guid>
+      <guid isPermaLink="true">https://www.newagebd.net/post/banking/317556/video</guid>
       <pubDate>Sun, 11 Oct 2026 18:00:00 GMT</pubDate>
       <category>Business</category>
     </item>
     <item>
-      <title>DBBL holds strategic conclave for Noakhali, Cumilla</title>
-      <link>https://www.newagebd.net/post/banking/317556/dbbl-holds-strategic-conclave-for-noakhali-cumilla</link>
+      <title>Citizens Bank holds quarterly business review meeting</title>
+      <link>https://www.newagebd.net/post/banking/317549/articlelist/77/timeout-on-friday</link>
       <description>New Age · Business</description>
-      <guid isPermaLink="true">https://www.newagebd.net/post/banking/317556/dbbl-holds-strategic-conclave-for-noakhali-cumilla</guid>
+      <guid isPermaLink="true">https://www.newagebd.net/post/banking/317549/articlelist/77/timeout-on-friday</guid>
       <pubDate>Sun, 11 Oct 2026 18:00:00 GMT</pubDate>
       <category>Business</category>
     </item>
@@ -406,6 +398,14 @@
       <description>New Age · Business</description>
       <guid isPermaLink="true">https://www.newagebd.net/post/banking/317548/nrb-bank-holds-annual-risk-conference</guid>
       <pubDate>Sun, 11 Oct 2026 18:00:00 GMT</pubDate>
+      <category>Business</category>
+    </item>
+    <item>
+      <title>Net FDI inflows drop 28% in first half of 2026</title>
+      <link>https://www.thedailystar.net/business/economy/news/net-fdi-inflows-drop-28-first-half-2026-4296376</link>
+      <description>The Daily Star · Business</description>
+      <guid isPermaLink="true">https://www.thedailystar.net/business/economy/news/net-fdi-inflows-drop-28-first-half-2026-4296376</guid>
+      <pubDate>Sun, 11 Oct 2026 17:45:40 GMT</pubDate>
       <category>Business</category>
     </item>
   </channel>
