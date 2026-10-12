@@ -11,9 +11,10 @@ section 4 now carries its status: ✅ done, 🟡 partly done, ⬜ open, 🔁 ong
 - ✅ **Done:** Search Console and Bing set up, sitemap submitted, Crawler Hints and HSTS on (#1, #2, #4–#6).
   All on-page work: H1 and headings, titles and descriptions, freshness markup, small fixes (#7–#11).
   New pages: `/videos/`, `/sources/`, `/about/`, intros and the FAQ, and 80 per-outlet pages
-  (#12–#18). RSS feeds (#19). The Bangla version of every indexable page (#21).
+  (#12–#18). RSS feeds (#19). Speed (#20: the logo fix, the feed split, and a layout shift on Bangla
+  section pages). The Bangla version of every indexable page (#21).
 - 🟡 **Partly done:** indexing requests (#3: 10 of the 12 sections; `/news/crime/`, `/news/opinion/` and the
-  new pages not yet requested). Speed (#20: the logo fix and the feed split are in; PageSpeed not yet run on a section page).
+  new pages not yet requested).
 - ⬜ **Open:** links and presence off the site (#22), and the monthly Search Console
   review (#23). `Organization.sameAs` and `twitter:site` wait for the first social profile.
 
@@ -114,14 +115,14 @@ account) and, after a month, in Search Console's own query report, which is the 
     nowhere a crawler can read them, and 10 of them are also among the 59 news sites, each split in two.
     ✅ **Done** (plan 17, 18).
 
-### P2: technical and performance *(#13 fixed, #12 in progress)*
+### P2: technical and performance *(#12 and #13 fixed)*
 
 12. **Page weight.** Board HTML is 739 KB (68 KB compressed); `data/news.json` is 2.1 MB (346 KB
     compressed) with 4,466 items, fetched on every visit. Core Web Vitals have not been measured. On
     Bangladeshi mobile networks this is the likeliest LCP/INP problem. Measure first (PageSpeed Insights,
     mobile) and act only on what it shows: per-section JSON files already exist for days, so splitting
     the feed by section and loading the rest lazily is the obvious cut.
-    🟡 **Partly done** (plan 20): the feed is split; PageSpeed not yet run on a section page.
+    ✅ **Done** (plan 20): the feed is split, and the section pages measured and fixed.
 13. **HSTS** is off (Cloudflare → SSL/TLS → Edge Certificates). Not a ranking factor; one click.
     ✅ **Done** (plan 5).
 
@@ -217,7 +218,7 @@ Code (one commit each, on `static-export`):
     content, and per-video pages would be YouTube's content, so `/s/…` video links stay `noindex`.
     ✅ **Done**: 1a18ece2.
 
-### Weeks 3–4: more indexable surface, measure speed 🟡 *(#20 in progress)*
+### Weeks 3–4: more indexable surface, measure speed ✅
 
 18. **Per-source pages** `/sources/prothom-alo/` etc.: that portal's newest headlines (already in the
     feed), its description, its sections. Title: `Prothom Alo Latest News Headlines Today | Bartaboard`.
@@ -231,9 +232,17 @@ Code (one commit each, on `static-export`):
     ✅ **Done**: dc2b4f95.
 20. **PageSpeed Insights** on `/` and one section, mobile; fix what it names. Expected: split
     `news.json` by section, defer the rest, keep the prerendered seed as it is.
-    🟡 **Partly done:** both theme logos downloading, fixed in a2342bd5; the feed split in e9666294: the board loads each
+    Both theme logos downloading, fixed in a2342bd5; the feed split in e9666294: the board loads each
     source's newest 8 (~40 KB) and the whole feed (~950 KB as served, 15,000 headlines) only when a view needs it.
-    Still to do: run PageSpeed on a section page.
+    ✅ **Done** (12 October): Lighthouse 12.6 (mobile; the keyless PageSpeed API was over its daily quota) on
+    `/`, `/news/sports/` and `/bn/news/sports/`. 0 ms to 50 ms blocking time, ~500 KB per page. Only one real
+    fault: a 0.16 layout shift on Bangla section pages. The prerendered status line ("updated just now") fit
+    beside the short Bangla heading; once the page updated it to "updated 5 minutes ago" it wrapped and pushed
+    the board down 24 px. Below `md` the status now always has its own row, which is where it settled anyway:
+    CLS 0. The simulated LCP (3 s to 4.3 s on slow 4G) is the headline text waiting on fonts and scripts in the
+    model; the page actually painted its LCP at its first paint (0.6 s). Left as they are: the wordmark at
+    120 px for a 36 px slot (right for 3× phone screens) and the logos' one-day cache (they change in place).
+    Revisit with field data once Search Console shows Core Web Vitals.
 
 ### Month 2: Bangla, links, iteration 🟡 *(#21 done)*
 

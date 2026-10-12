@@ -963,8 +963,10 @@ export function NewsBoard({
                 {boardHeading(categoryPath(category) ? category : "", view === "videos", locale)}
               </h1>
 
-              {/* Status. "Updated …" comes last, so as it grows nothing else moves. */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+              {/* Status. "Updated …" comes last, so as it grows nothing else moves. Below md it has a row of its
+                  own: beside a short heading, "updated just now" in the prerendered page fits where "updated 5
+                  minutes ago" doesn't, and the wrap pushed the whole board down (a 0.16 layout shift). */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted max-md:w-full">
                 <span className="font-semibold uppercase tracking-[0.14em] text-gold" suppressHydrationWarning>
                   <span className="sm:hidden">{dhakaShortDate(now, locale)}</span>
                   <span className="max-sm:hidden">{dhakaDate(now, locale)}</span>
