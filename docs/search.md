@@ -81,8 +81,8 @@ section under its results searches the day files:
 its first 20 matches today downloads about 300 KB; a full round of 7 days, about 2 MB. Files are downloaded once
 per visit, and only when someone searches.
 
-**Hosting.** Cloudflare Pages serves any amount of traffic for free; 30 files are far below its 20,000 per site. On
-the `deploy` branch, a past day's file stops changing once its headlines have left the cache, so it adds no commits.
+**Hosting.** Cloudflare Pages serves any amount of traffic for free; 30 files are far below its 20,000 per site. A
+past day's file stops changing once its headlines have left the cache, so the upload skips it.
 
 **`main`.** The server merges each background refresh into the same day files under its data folder (`.data/days`,
 or `NEWS_DATA_DIR`), and serves them at the same address (`src/app/data/days/[file]/route.ts`). The page code is the

@@ -1,7 +1,7 @@
 # Subscriptions: plans, keyword alerts and accounts
 
 A proposal, not a build. It covers what Bartaboard could charge for, and how keyword alerts and accounts would fit into
-the current setup: a static site on Hostinger, rebuilt every 15 minutes by GitHub Actions, with no backend.
+the current setup: a static site on Cloudflare Pages, rebuilt every 15 minutes by GitHub Actions, with no backend.
 
 Ads are the other half of paying for Bartaboard: see [ads.md](ads.md). Readers are already told that both are coming,
 on the About, Privacy and Terms pages.
@@ -77,7 +77,7 @@ queries, and Postgres can do the search later.
                                          ▲
   GitHub Actions, every 15 min           │ service key (GitHub secret)
   npm run fetch ──► npm run alerts ──────┘──► Telegram Bot API · email (Resend) · Web Push
-                ──► npm run build ──► deploy branch ──► Hostinger
+                ──► npm run build ──► Cloudflare Pages
 ```
 
 ### Data model
