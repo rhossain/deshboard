@@ -99,6 +99,11 @@ export interface Video {
   /** ISO string. */
   publishedAt: string;
   views?: number;
+  /**
+   * When other channels have the same news: the id of the newest video in that story, shared by all
+   * of them (see video-stories.ts). The Videos view shows a story as one card.
+   */
+  story?: string;
 }
 
 /** `/api/videos`: the Videos view, only requested when it is opened. */

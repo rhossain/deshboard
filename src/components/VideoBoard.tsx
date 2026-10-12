@@ -15,7 +15,7 @@ import { useSavedVideos } from "./saved";
 import { AT_TOP_PX, AUTO_REFRESH_MS } from "./schedule";
 import { formatCount } from "./time";
 import { ChevronIcon, GridIcon, ListIcon, Sheet, StarIcon } from "./ui";
-import { Player, VideoCard } from "./VideoCard";
+import { Player, type RelatedVideo, VideoCard } from "./VideoCard";
 import { setVideoLayout, useVideoLayout, useVideoLayoutChoice } from "./video-layout";
 import { cachedVideos, cachedVideosAt, loadVideos } from "./videos";
 import { VideoSkeleton } from "./VideoSkeleton";
@@ -31,9 +31,30 @@ const EAGER = 6;
 /** Newer videos from the automatic refresh, with how many of them the page doesn't show yet. */
 type Pending = { feed: VideoFeed; fresh: number };
 
+/** One card: a video, and other channels' videos of the same news listed under it. */
+type Card = { lead: Video; related: RelatedVideo[] };
+const NO_RELATED: RelatedVideo[] = [];
+
+/** The feed's videos with each story's together, at its newest video's place (see Video.story). */
+function byStory(videos: Video[]): Video[][] {
+  const stories = new Map<string, Video[]>();
+  const out: Video[][] = [];
+  for (const v of videos) {
+    const story = v.story && stories.get(v.story);
+    if (story) story.push(v);
+    else {
+      const group = [v];
+      if (v.story) stories.set(v.story, group);
+      out.push(group);
+    }
+  }
+  return out;
+}
+
 /**
  * The Videos view: TV channels' latest YouTube videos, newest first, with a channel rail in the
- * toolbar (`rail`). The reader's pinned channels come first (see pinned.ts). Loaded only when the
+ * toolbar (`rail`). Videos of the same news from several channels are one card, the others listed
+ * under it. The reader's pinned channels come first (see pinned.ts). Loaded only when the
  * reader opens it (see videos.ts). A video plays in a player over the page; YouTube's own page is a
  * middle-click or a link away.
  */
@@ -163,13 +184,39 @@ export default function VideoBoard({
     for (const v of matching) counts.set(v.channel, (counts.get(v.channel) ?? 0) + 1);
     return counts;
   }, [matching]);
-  // With pinned channels (and no single channel picked), their videos come first, each part newest first.
-  const { list, mine } = useMemo(() => {
-    if (channel) return { list: matching.filter((v) => v.channel === channel), mine: 0 };
-    const pinned = matching.filter((v) => rank.has(v.channel));
-    if (!pinned.length || pinned.length === matching.length) return { list: matching, mine: 0 };
-    return { list: [...pinned, ...matching.filter((v) => !rank.has(v.channel))], mine: pinned.length };
-  }, [matching, channel, rank]);
+  const stories = useMemo(() => byStory(feed?.videos ?? []), [feed]);
+  // One card per story. A search keeps the stories with a matching video, and the card leads with
+  // the newest of those; a pinned channel's video leads where there is one. With pinned channels (and
+  // no single channel picked), their cards come first, each part newest first. A single channel's
+  // videos are one card each.
+  const { list, mine, mineVideos } = useMemo(() => {
+    if (channel) {
+      const list = matching.filter((v) => v.channel === channel).map((lead) => ({ lead, related: NO_RELATED }));
+      return { list, mine: 0, mineVideos: 0 };
+    }
+    const cards: Card[] = [];
+    const pinned: Card[] = [];
+    let pinnedVideos = 0;
+    for (const story of stories) {
+      const hits = search ? story.filter((v) => search.matches(v.title)) : story;
+      if (!hits.length) continue;
+      const lead = hits.find((v) => rank.has(v.channel)) ?? hits[0];
+      const related =
+        story.length > 1
+          ? story.filter((v) => v !== lead).map((video) => ({ video, channelName: names.get(video.channel) ?? video.channel }))
+          : NO_RELATED;
+      const card = { lead, related };
+      cards.push(card);
+      if (rank.has(lead.channel)) {
+        pinned.push(card);
+        pinnedVideos += story.length;
+      }
+    }
+    if (!pinned.length || pinned.length === cards.length) return { list: cards, mine: 0, mineVideos: 0 };
+    const yours = new Set(pinned);
+    return { list: [...pinned, ...cards.filter((c) => !yours.has(c))], mine: pinned.length, mineVideos: pinnedVideos };
+  }, [matching, stories, search, channel, rank, names]);
+  const listedVideos = useMemo(() => list.reduce((n, c) => n + 1 + c.related.length, 0), [list]);
 
   // A new channel, search or set of pins starts again from the first page.
   const listKey = `${channel}\n${query.trim()}\n${[...rank.keys()].join()}`;
@@ -273,14 +320,14 @@ export default function VideoBoard({
                       {p === 0 && <StarIcon filled className="h-[18px] w-[18px] text-gold" />}
                       {p === 0 ? t.fromYourChannels : t.everythingElse}
                       <span className="font-sans text-sm tabular-nums text-muted">
-                        {formatCount(p === 0 ? mine : list.length - mine, locale)}
+                        {formatCount(p === 0 ? mineVideos : listedVideos - mineVideos, locale)}
                       </span>
                     </h2>
                   )}
                   <ul className={VIDEO_LIST}>
-                    {part.map((v, i) => (
+                    {part.map(({ lead: v, related }, i) => (
                       <VideoCard
-                        key={v.id}
+                        key={channel ? v.id : (v.story ?? v.id)}
                         video={v}
                         channelName={names.get(v.channel) ?? v.channel}
                         now={now}
@@ -292,6 +339,10 @@ export default function VideoBoard({
                         onShare={onShare}
                         pinned={pinnedIds.has(v.channel)}
                         onTogglePin={togglePinned}
+                        related={related}
+                        // Only cards with related videos need these (each save redraws them).
+                        savedIds={related.length ? savedVideoIds : undefined}
+                        pinnedIds={related.length ? pinnedIds : undefined}
                       />
                     ))}
                   </ul>

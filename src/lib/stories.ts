@@ -141,24 +141,60 @@ export function keywords(title: string): string[] {
   return [...out];
 }
 
-/** Groups headlines into stories covered by several outlets, most-covered first. */
-export function findStories(items: NewsItem[], options: StoryOptions = {}): Story[] {
-  const { minOutlets = 2, maxAgeMs = 36 * 3600_000, now = Date.now() } = options;
-  const cutoff = new Date(now - maxAgeMs).toISOString();
+/** A title to group: its keywords, who published it, and when (ISO; undefined if unknown). */
+export interface ClusterDoc {
+  words: string[];
+  source: string;
+  time?: string;
+}
 
-  // One headline per link; recent (or undated: homepage headlines are current by definition).
-  const seen = new Set<string>();
-  const docs: { item: NewsItem; words: string[] }[] = [];
-  for (const item of items) {
-    const t = itemTime(item);
-    if (seen.has(item.link) || (t && t < cutoff)) continue;
-    seen.add(item.link);
-    docs.push({ item, words: keywords(item.title) });
-  }
+export interface ClusterOptions {
+  /** Shared keywords' share of the lighter title's weight needed to link two titles. */
+  linkThreshold?: number;
+  /** ...and of the heavier one's. */
+  linkThresholdMax?: number;
+  /** ...and the fewest keywords they must share. */
+  minShared?: number;
+  /** Titles further apart in time than this never link (both need a time). */
+  maxGapMs?: number;
+  /**
+   * Each group keeps one title per source, the one closest to its lead (Top stories). Off, a source's
+   * several takes on the story all join it (Videos: a channel's follow-ups).
+   */
+  onePerSource?: boolean;
+  /**
+   * One story told in many ways (a fire, its toll, the firefighting) stays one group: after splitting
+   * a chained group, parts whose leads link are joined again, and a title left on its own joins the
+   * part it links to most when that's two or more of its titles. Then groups whose cores link (the
+   * words most of their titles share, held to the same thresholds) are joined.
+   */
+  rejoin?: boolean;
+  /**
+   * Sets of words for outcomes that rule each other out (killed / arrested / remanded…). Two titles
+   * that each name one, but not the same one, are different events however much else they share.
+   */
+  exclusive?: string[][];
+}
+
+/**
+ * Groups titles from different sources that are about the same event: the shared core of Top stories
+ * and the Videos view. Returns groups of indices into `docs`, each led by its most central title, with
+ * every other member linked to that lead (links don't chain). Single titles are left out.
+ */
+export function clusterTitles(docs: ClusterDoc[], options: ClusterOptions = {}): number[][] {
+  const {
+    linkThreshold = LINK_THRESHOLD,
+    linkThresholdMax = LINK_THRESHOLD_MAX,
+    minShared = MIN_SHARED,
+    maxGapMs = Infinity,
+    onePerSource = true,
+    rejoin = false,
+    exclusive = [],
+  } = options;
   if (docs.length < 2) return [];
 
   // Document frequency → weight (inverse document frequency). Very common words still count
-  // towards a headline's weight (so they can tell two headlines apart) but never link two headlines.
+  // towards a title's weight (so they can tell two titles apart) but never link two titles.
   const df = new Map<string, number>();
   for (const d of docs) for (const w of d.words) df.set(w, (df.get(w) ?? 0) + 1);
   const maxDf = Math.max(3, Math.ceil(docs.length * MAX_DF_SHARE));
@@ -168,9 +204,13 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
   const vecs = docs.map((d) => d.words);
   const sets = vecs.map((ws) => new Set(ws));
   const mass = vecs.map((ws) => ws.reduce((sum, w) => sum + weight.get(w)!, 0));
+  const times = docs.map((d) => (d.time ? Date.parse(d.time) : NaN));
+  const outcomes = outcomesOf(exclusive);
+  const outcome = vecs.map(outcomes);
 
-  /** The link score of two headlines, 0 when they are not about the same event. */
+  /** The link score of two titles, 0 when they are not about the same event. */
   const similarity = (i: number, j: number) => {
+    if (Math.abs(times[i] - times[j]) > maxGapMs || clash(outcome[i], outcome[j])) return 0;
     let w = 0;
     let n = 0;
     for (const word of vecs[i]) {
@@ -178,9 +218,9 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
       w += weight.get(word)!;
       n++;
     }
-    if (n < MIN_SHARED || !mass[i] || !mass[j] || w / Math.max(mass[i], mass[j]) < LINK_THRESHOLD_MAX) return 0;
+    if (n < minShared || !mass[i] || !mass[j] || w / Math.max(mass[i], mass[j]) < linkThresholdMax) return 0;
     const score = w / Math.min(mass[i], mass[j]);
-    return score >= LINK_THRESHOLD ? score : 0;
+    return score >= linkThreshold ? score : 0;
   };
 
   const postings = new Map<string, number[]>();
@@ -193,7 +233,7 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
     }
   });
 
-  // Union-find over linked pairs; `affinity` remembers how central each headline is.
+  // Union-find over linked pairs; `affinity` remembers how central each title is.
   const parent = docs.map((_, i) => i);
   const find = (i: number): number => {
     while (parent[i] !== i) i = parent[i] = parent[parent[i]];
@@ -207,7 +247,7 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
     candidates.clear();
     for (const w of vecs[i]) for (const j of postings.get(w) ?? []) if (j > i) candidates.add(j);
     for (const j of candidates) {
-      if (docs[i].item.sourceId === docs[j].item.sourceId) continue;
+      if (docs[i].source === docs[j].source) continue;
       const score = similarity(i, j);
       if (!score) continue;
       parent[find(i)] = find(j);
@@ -224,48 +264,150 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
     else groups.set(root, [i]);
   }
 
-  // Links chain: A~B and B~C can join two different events through a bridging headline. Split each
-  // group around its most central headlines: each takes the remaining members close to it.
+  // Links chain: A~B and B~C can join two different events through a bridging title. Split each
+  // group around its most central titles: each takes the remaining members close to it.
   const clusters: number[][] = [];
   for (const members of groups.values()) {
-    if (members.length < minOutlets) continue;
-    if (members.length === 2) {
-      clusters.push(members);
-      continue;
-    }
+    if (members.length < 2) continue;
     const left = members.sort((a, b) => affinity[b] - affinity[a]);
+    const parts: number[][] = [];
     while (left.length) {
       const lead = left.shift()!;
-      const cluster = [lead];
-      for (let k = left.length - 1; k >= 0; k--) {
-        if (similarity(lead, left[k])) cluster.push(...left.splice(k, 1));
-      }
-      clusters.push(cluster);
+      const part = [lead];
+      for (let k = left.length - 1; k >= 0; k--) if (similarity(lead, left[k])) part.push(...left.splice(k, 1));
+      parts.push(part);
     }
+    if (rejoin && parts.length > 1) rejoinParts(parts, similarity);
+    for (const [lead, ...rest] of parts) {
+      let picked = rest;
+      if (onePerSource) {
+        // One title per source: the one closest to the lead.
+        const bySource = new Map<string, number>();
+        for (const i of rest) {
+          if (docs[i].source === docs[lead].source) continue;
+          const cur = bySource.get(docs[i].source);
+          if (cur === undefined || similarity(lead, i) > similarity(lead, cur)) bySource.set(docs[i].source, i);
+        }
+        picked = [...bySource.values()];
+      }
+      if (picked.some((i) => docs[i].source !== docs[lead].source)) clusters.push([lead, ...picked]);
+    }
+  }
+  if (rejoin) joinByCore(clusters, docs, weight, { linkThreshold, linkThresholdMax, minShared, maxGapMs, exclusive });
+  return clusters;
+}
+
+/** See ClusterOptions.rejoin. Parts are led by their first title, most central first; joins in place. */
+function rejoinParts(parts: number[][], similarity: (i: number, j: number) => number) {
+  for (let p = 1; p < parts.length; p++) {
+    const part = parts[p];
+    let into = -1;
+    if (part.length > 1) {
+      into = parts.findIndex((q, k) => k < p && similarity(q[0], part[0]) > 0);
+    } else {
+      let best = 1;
+      parts.forEach((q, k) => {
+        if (k === p || q.length < 2) return;
+        const links = q.reduce((n, i) => n + (similarity(i, part[0]) > 0 ? 1 : 0), 0);
+        if (links > best) [best, into] = [links, k];
+      });
+    }
+    if (into < 0) continue;
+    parts[into].push(...part);
+    parts.splice(p--, 1);
+  }
+}
+
+/** Which of the `exclusive` sets a title's words name, as a bit mask (0: none). */
+function outcomesOf(exclusive: string[][]): (words: Iterable<string>) => number {
+  const bit = new Map<string, number>();
+  exclusive.forEach((set, k) => set.forEach((w) => bit.set(w, (bit.get(w) ?? 0) | (1 << k))));
+  return (words) => {
+    let mask = 0;
+    for (const w of words) mask |= bit.get(w) ?? 0;
+    return mask;
+  };
+}
+
+/** Both name an outcome and they have none in common. */
+const clash = (a: number, b: number) => !!a && !!b && !(a & b);
+
+/**
+ * See ClusterOptions.rejoin. A group's core is the words in at least half its titles (in both, for two).
+ * Biggest groups first, each later group joins the first whose core links to its own; cores aren't
+ * updated as groups grow, so joins don't chain. Joins in place.
+ */
+function joinByCore(
+  clusters: number[][],
+  docs: ClusterDoc[],
+  weight: Map<string, number>,
+  { linkThreshold, linkThresholdMax, minShared, maxGapMs, exclusive }: Required<Omit<ClusterOptions, "onePerSource" | "rejoin">>,
+) {
+  const outcomes = outcomesOf(exclusive);
+  clusters.sort((a, b) => b.length - a.length);
+  const cores = clusters.map((c) => {
+    const n = new Map<string, number>();
+    for (const i of c) for (const w of docs[i].words) n.set(w, (n.get(w) ?? 0) + 1);
+    const words = [...n].filter(([, k]) => k * 2 >= c.length && k >= 2).map(([w]) => w);
+    const times = c.map((i) => Date.parse(docs[i].time ?? "")).filter((t) => !Number.isNaN(t));
+    return {
+      words: new Set(words),
+      outcome: outcomes(words),
+      mass: words.reduce((sum, w) => sum + weight.get(w)!, 0),
+      first: Math.min(...times),
+      last: Math.max(...times),
+    };
+  });
+  const links = (a: (typeof cores)[number], b: (typeof cores)[number]) => {
+    if (a.first - b.last > maxGapMs || b.first - a.last > maxGapMs || clash(a.outcome, b.outcome)) return false;
+    let w = 0;
+    let n = 0;
+    for (const word of a.words) {
+      if (!b.words.has(word)) continue;
+      w += weight.get(word)!;
+      n++;
+    }
+    return (
+      n >= minShared &&
+      !!a.mass &&
+      !!b.mass &&
+      w / Math.max(a.mass, b.mass) >= linkThresholdMax &&
+      w / Math.min(a.mass, b.mass) >= linkThreshold
+    );
+  };
+  for (let k = 1; k < clusters.length; k++) {
+    const into = cores.findIndex((core, j) => j < k && links(core, cores[k]));
+    if (into < 0) continue;
+    clusters[into].push(...clusters[k]);
+    clusters.splice(k, 1);
+    cores.splice(k--, 1);
+  }
+}
+
+/** Groups headlines into stories covered by several outlets, most-covered first. */
+export function findStories(items: NewsItem[], options: StoryOptions = {}): Story[] {
+  const { minOutlets = 2, maxAgeMs = 36 * 3600_000, now = Date.now() } = options;
+  const cutoff = new Date(now - maxAgeMs).toISOString();
+
+  // One headline per link; recent (or undated: homepage headlines are current by definition).
+  const seen = new Set<string>();
+  const docs: (ClusterDoc & { item: NewsItem })[] = [];
+  for (const item of items) {
+    const t = itemTime(item);
+    if (seen.has(item.link) || (t && t < cutoff)) continue;
+    seen.add(item.link);
+    docs.push({ item, words: keywords(item.title), source: item.sourceId });
   }
 
   const stories: Story[] = [];
-  for (const [leadIdx, ...members] of clusters) {
-    // One headline per outlet: the one closest to the lead.
-    const byOutlet = new Map<string, number>([[docs[leadIdx].item.sourceId, leadIdx]]);
-    const closeness = (i: number) => similarity(leadIdx, i);
-    for (const i of members) {
-      const id = docs[i].item.sourceId;
-      const cur = byOutlet.get(id);
-      if (cur === undefined || (cur !== leadIdx && closeness(i) > closeness(cur))) byOutlet.set(id, i);
-    }
-    if (byOutlet.size < minOutlets) continue;
-
-    const picked = [...byOutlet.values()];
-    const lead = docs[leadIdx].item;
-    const rest = picked
-      .filter((i) => i !== leadIdx)
-      .map((i) => docs[i].item)
-      .sort((a, b) => newestFirst(itemTime(a), itemTime(b)));
-    const latest = picked
+  for (const cluster of clusterTitles(docs)) {
+    if (cluster.length < minOutlets) continue;
+    const [lead, ...rest] = cluster.map((i) => docs[i].item);
+    rest.sort((a, b) => newestFirst(itemTime(a), itemTime(b)));
+    const latest = cluster
       .map((i) => itemTime(docs[i].item))
       .reduce<string | undefined>((a, b) => (b && (!a || b > a) ? b : a), undefined);
-    stories.push({ id: lead.link, lead, items: [lead, ...rest], outlets: byOutlet.size, latest });
+    stories.push({ id: lead.link, lead, items: [lead, ...rest], outlets: cluster.length, latest });
   }
 
   return stories.sort((a, b) => b.outlets - a.outlets || newestFirst(a.latest, b.latest));

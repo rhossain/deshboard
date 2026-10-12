@@ -3,6 +3,7 @@ import { fetchText } from "./fetchers/http";
 import { parseYouTubeFeed } from "./fetchers/youtube";
 import { readStore, writeStoreSoon } from "./store";
 import type { Video, VideoChannel, VideoFeed } from "./types";
+import { tagStories } from "./video-stories";
 
 /** How long the videos are served before the channels are fetched again (same as the headlines). */
 const TTL_MS = Number(process.env.NEWS_CACHE_SECONDS ?? 600) * 1000;
@@ -76,7 +77,8 @@ async function collect(previous: VideoFeed | undefined): Promise<VideoFeed> {
   };
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
-  const videos = byChannel.flat().sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
+  // Newest first, with the videos about the same news tagged as one story.
+  const videos = tagStories(byChannel.flat().sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1)));
   return { generatedAt: new Date().toISOString(), channels, videos };
 }
 
@@ -124,11 +126,23 @@ export function cachedVideoFeed(): VideoFeed | undefined {
   return g.__videoCache?.feed;
 }
 
-/** Videos rendered into the Videos page: its first screenful (VideoBoard's first page). */
-const SEED_VIDEOS = 24;
+/** Cards rendered into the Videos page: its first screenful (VideoBoard's first page). */
+const SEED_CARDS = 24;
 
-/** The cached videos, trimmed to the newest few for rendering into the Videos page. Never fetches. */
+/**
+ * The cached videos, trimmed to their first few cards for rendering into the Videos page: the newest
+ * videos, with every video of their stories (Video.story), so the cards are whole and don't grow when
+ * the rest of the feed arrives. Never fetches.
+ */
 export function cachedVideoSeed(): VideoFeed | undefined {
   const feed = cachedVideoFeed();
-  return feed && { ...feed, videos: feed.videos.slice(0, SEED_VIDEOS) };
+  if (!feed) return undefined;
+  const stories = new Set<string>();
+  const lone = new Set<string>();
+  for (const v of feed.videos) {
+    if (stories.size + lone.size >= SEED_CARDS) break;
+    if (v.story) stories.add(v.story);
+    else lone.add(v.id);
+  }
+  return { ...feed, videos: feed.videos.filter((v) => lone.has(v.id) || (!!v.story && stories.has(v.story))) };
 }
