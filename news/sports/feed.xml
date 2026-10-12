@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/sports/</link>
     <description>Latest sports news from Bangladesh: খেলা headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 09:01:17 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 09:15:48 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/sports/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>লিটনের দুর্দান্ত সেঞ্চুরি, ৫০০ ছোঁয়ার পথে বাংলাদেশ</title>
+      <link>https://www.ntvbd.com/sports/news-1818229</link>
+      <description>NTV · Sports</description>
+      <guid isPermaLink="true">https://www.ntvbd.com/sports/news-1818229</guid>
+      <pubDate>Mon, 12 Oct 2026 09:15:47 GMT</pubDate>
+      <category>Sports</category>
+    </item>
     <item>
       <title>তুরস্কে নতুন রেকর্ড গড়লেন সালাহ</title>
       <link>https://www.ntvbd.com/sports/news-1818225</link>
@@ -398,14 +406,6 @@
       <description>Banglanews24 · Sports</description>
       <guid isPermaLink="true">https://www.banglanews24.com/sports/news/bd/1686135.details</guid>
       <pubDate>Mon, 12 Oct 2026 06:23:53 GMT</pubDate>
-      <category>Sports</category>
-    </item>
-    <item>
-      <title>রশিদ খানের আতিথেয়তায় মুগ্ধ ইরফান-ইউসুফ পাঠান</title>
-      <link>https://www.jugantor.com/sports/1167876</link>
-      <description>Jugantor · Sports</description>
-      <guid isPermaLink="true">https://www.jugantor.com/sports/1167876</guid>
-      <pubDate>Mon, 12 Oct 2026 06:23:43 GMT</pubDate>
       <category>Sports</category>
     </item>
   </channel>

@@ -5,7 +5,7 @@
     <link>https://bartaboard.com/news/opinion/</link>
     <description>Latest opinion news from Bangladesh: মতামত headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 09:01:17 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 09:15:48 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/opinion/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
@@ -22,6 +22,14 @@
       <description>Prothom Alo English · Opinion</description>
       <guid isPermaLink="true">https://en.prothomalo.com/opinion/op-ed/urum59ndg4</guid>
       <pubDate>Mon, 12 Oct 2026 08:51:43 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
+    <item>
+      <title>Why better tax collection matters for Bangladesh’s next stage of development</title>
+      <link>https://en.bonikbarta.com/opinion/yBFMgLSNGjAVr2Mv/</link>
+      <description>Bonik Barta English · Opinion</description>
+      <guid isPermaLink="true">https://en.bonikbarta.com/opinion/yBFMgLSNGjAVr2Mv/</guid>
+      <pubDate>Mon, 12 Oct 2026 08:47:17 GMT</pubDate>
       <category>Opinion</category>
     </item>
     <item>
@@ -398,14 +406,6 @@
       <description>Naya Diganta · Opinion</description>
       <guid isPermaLink="true">https://dailynayadiganta.com/post/op-ed/1060546</guid>
       <pubDate>Sun, 11 Oct 2026 16:45:43 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>নেহা বোরার সংগঠন আইসা কী, তাদের লক্ষ্য-উদ্দেশ্যইবা কী</title>
-      <link>https://www.ajkerpatrika.com/analysis/ajpoczoggokwy</link>
-      <description>Ajker Patrika · Opinion</description>
-      <guid isPermaLink="true">https://www.ajkerpatrika.com/analysis/ajpoczoggokwy</guid>
-      <pubDate>Sun, 11 Oct 2026 16:32:33 GMT</pubDate>
       <category>Opinion</category>
     </item>
   </channel>
