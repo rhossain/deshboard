@@ -1183,22 +1183,6 @@ export function NewsBoard({
                 />
               )}
 
-              {hasData && searchOlder && search && (
-                <OlderResults
-                  key={filtersToSearch({ ...DEFAULT_FILTERS, lang, source: onlySource, category, query: searchQuery })}
-                  search={search}
-                  boardLinks={boardLinks}
-                  lang={lang}
-                  source={onlySource}
-                  category={category}
-                  sourceById={sourceById}
-                  now={now}
-                  savedLinks={savedLinks}
-                  onToggleSave={toggleSaved}
-                  onShare={shareItem}
-                />
-              )}
-
               {view === "saved" && (
                 <SavedList
                   entries={savedMatching}
@@ -1256,6 +1240,23 @@ export function NewsBoard({
                     </Fragment>
                   ))}
                 </div>
+              )}
+
+              {/* After the view's own results, whichever view it is. */}
+              {hasData && searchOlder && search && (
+                <OlderResults
+                  key={filtersToSearch({ ...DEFAULT_FILTERS, lang, source: onlySource, category, query: searchQuery })}
+                  search={search}
+                  boardLinks={boardLinks}
+                  lang={lang}
+                  source={onlySource}
+                  category={category}
+                  sourceById={sourceById}
+                  now={now}
+                  savedLinks={savedLinks}
+                  onToggleSave={toggleSaved}
+                  onShare={shareItem}
+                />
               )}
 
               {view === "videos" ? (

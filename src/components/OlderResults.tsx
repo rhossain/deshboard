@@ -147,9 +147,11 @@ export function OlderResults({
   return (
     <section className="mt-10" aria-busy={busy}>
       <h2 className="flex items-center gap-3 px-1 pb-3 font-display text-xl">{t.olderHeadlines}</h2>
-      {found.map(({ date, items }) => (
+      {found.map(({ date, items }, d) => (
         <div key={date}>
-          <h3 className="flex items-center gap-3 px-1 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted first:pt-0">
+          <h3
+            className={`flex items-center gap-3 px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted ${d === 0 ? "" : "pt-6 compact:pt-4"}`}
+          >
             {dhakaDate(date, locale)}
             <span className="h-px flex-1 bg-line" />
           </h3>

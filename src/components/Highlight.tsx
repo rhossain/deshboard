@@ -19,7 +19,7 @@ export function Highlight({ text }: { text: string }) {
   for (const [start, end] of ranges) {
     if (start > at) parts.push(text.slice(at, start));
     parts.push(
-      <mark key={start} className="rounded-sm bg-accent-soft px-0.5 text-inherit">
+      <mark key={start} className="rounded-sm bg-accent-soft text-inherit">
         {text.slice(start, end)}
       </mark>,
     );
