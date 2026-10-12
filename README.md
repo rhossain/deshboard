@@ -49,8 +49,12 @@ npm test           # offline parser tests
 - `GET /api/news` — `{ items, statuses, generatedAt }`
   - `?lang=bn|en`, `?source=id1,id2`, `?refresh=1` (bypass cache)
 - `GET /api/news/stream` — same params, but NDJSON: one `{ "type": "source", "result" }` line per source as soon as
-  it is fetched (`result` is a status plus its `items`), then `{ "type": "done", "generatedAt" }`. The UI uses this so
-  each source shows up the moment it arrives.
+  it is fetched (`result` is a status plus its `items`), then `{ "type": "done", "generatedAt" }`. The UI uses this,
+  each source showing up the moment it arrives, once the reader needs more than the cards show (Top stories, Latest,
+  a search or filter, another section, a card's "Show all").
+- `GET /api/news/head` — every source's newest 8 cached headlines (a full card) with the whole cache's section and
+  card counts and headline ages, `?category=id` for a section page. The board loads this first, a small part of the
+  stream. Never fetches: 503 while nothing is cached yet, and the UI streams instead.
 - `GET /api/logo/:sourceId` — the source's logo image (proxied, cached 24 h). Found on its homepage (header `<img>`
   marked as the logo, JSON-LD `logo`, then touch icon / favicon); sites that block us fall back to Google's favicon
   service. Resized to what the cards need and served as WebP (`.ico` files as they are); the server prepares every

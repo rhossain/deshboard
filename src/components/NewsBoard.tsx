@@ -21,7 +21,7 @@ import { dedupeByLink } from "@/lib/fetchers/utils";
 import { sectionIntro, VIDEOS_INTRO } from "@/lib/intros";
 import { boardHeading, categoryPath, categoryTitle, SITE_TITLE, VIDEOS_PATH, VIDEOS_TITLE } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
-import { findStories, itemTime, newestFirst } from "@/lib/stories";
+import { countSince, findStories, itemTime, newestFirst } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
 import type { LogoShape, NewsItem, NewsSource, NewsStreamMessage, SourceResult, Video, VideoFeed } from "@/lib/types";
 import { PHONE, useCardPrefs, useIsPhone } from "./card-prefs";
@@ -144,8 +144,20 @@ async function streamNews(
   return generatedAt;
 }
 
-/** A background refresh's results, with how many of its headlines the board doesn't show yet. */
-type Pending = { results: Map<string, SourceResult>; generatedAt: string; fresh: number };
+/**
+ * GET /api/news/head: every source's newest cached headlines, all the cards show (see NewsSeed).
+ * Fails while the server has nothing cached yet.
+ */
+async function loadHead(category: Category | undefined, signal: AbortSignal, priority: RequestPriority): Promise<NewsSeed> {
+  const res = await fetch(`/api/news/head${category ? `?category=${category}` : ""}`, { cache: "no-store", signal, priority });
+  if (!res.ok) throw new Error(`Server returned ${res.status}`);
+  return (await res.json()) as NewsSeed;
+}
+
+const byId = (results: SourceResult[]) => new Map(results.map((r) => [r.sourceId, r]));
+
+/** A background refresh, with how many of its headlines the board doesn't show yet. */
+type Pending = { apply: () => void; fresh: number };
 
 /** Every headline link in the page, in reading order, skipping folded cards. */
 function headlineLinks(): HTMLAnchorElement[] {
@@ -173,6 +185,8 @@ export interface NewsSeed {
   category?: Category;
   /** Source id → its headlines in the whole cache, so each card starts out at its final size. */
   totals: Record<string, number>;
+  /** Every headline in the whole cache by age (see ageSteps), for the "new since your last visit" count. */
+  ages: number[];
   logoShapes: Record<string, LogoShape | null>;
 }
 
@@ -204,8 +218,17 @@ export function NewsBoard({
   const videosFirst = initial.view === "videos";
   const [loading, setLoading] = useState(!videosFirst);
   const [received, setReceived] = useState(0);
-  // The whole cache's section counts, from the seed, until the stream has delivered every source.
+  // The whole cache's section and card counts and headline ages, from the seed or /api/news/head,
+  // until the stream has delivered every source; and the results they came with.
   const [seedCounts, setSeedCounts] = useState(seed?.counts);
+  const [seedTotals, setSeedTotals] = useState(seed?.totals);
+  const [seedAges, setSeedAges] = useState(seed?.ages);
+  const [partResults, setPartResults] = useState(() => byId(seed?.results ?? []));
+  // The section the seed and head are cut for: the page's.
+  const pageCategory = seed?.category;
+  // Every source's whole result has streamed in, and a stream is under way.
+  const [whole, setWhole] = useState(false);
+  const streamingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>(initial.view);
   const viewRef = useRef(view);
@@ -243,11 +266,45 @@ export function NewsBoard({
   const [pinsNow, updatePins] = usePinnedSources();
   const pins = useDeferredValue(pinsNow);
 
+  // Every source's whole cache is thousands of headlines, a lot to read and draw on a slow phone. Until
+  // the reader looks past each source's newest (another view, a search or filter, a section other than
+  // the page's, a card opened in full), /api/news/head stands in for the stream.
+  const [wantAll, setWantAll] = useState(false);
+  const showAllCards = useCallback(() => setWantAll(true), []);
+  const needsWhole =
+    view === "top" ||
+    view === "latest" ||
+    !!query.trim() ||
+    lang !== "all" ||
+    !!onlySource ||
+    onlyNew ||
+    (category || undefined) !== pageCategory ||
+    wantAll;
+
+  /** Shows a head: each card's newest headlines, with the whole cache's counts. */
+  const showHead = useCallback((head: NewsSeed) => {
+    const map = byId(head.results);
+    startTransition(() => {
+      setResults(map);
+      setPartResults(map);
+      setSeedCounts(head.counts);
+      setSeedTotals(head.totals);
+      setSeedAges(head.ages);
+      setWhole(false);
+      setGeneratedAt(head.generatedAt);
+      setNow(Date.now());
+    });
+  }, []);
+
   /** Start streaming. State is only set from callbacks, so this is safe to call from an effect. */
   const start = useCallback((force: boolean, priority?: RequestPriority) => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
+    streamingRef.current = true;
+    const done = () => {
+      if (controllerRef.current === controller) streamingRef.current = false;
+    };
 
     streamNews(
       force,
@@ -261,19 +318,44 @@ export function NewsBoard({
       priority,
     ).then(
       (at) => {
+        done();
         setSeedCounts(undefined);
+        setSeedTotals(undefined);
+        setSeedAges(undefined);
+        setWhole(true);
         setGeneratedAt(at);
         setError(null);
         setNow(Date.now());
         setLoading(false);
       },
       (err: unknown) => {
+        done();
         if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : String(err));
         setLoading(false);
       },
     );
   }, []);
+
+  /** Load the page's head; with nothing cached on the server yet, stream instead. */
+  const startHead = useCallback(
+    (priority: RequestPriority) => {
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      loadHead(pageCategory, controller.signal, priority).then(
+        (head) => {
+          showHead(head);
+          setError(null);
+          setLoading(false);
+        },
+        () => {
+          if (!controller.signal.aborted) start(false, priority);
+        },
+      );
+    },
+    [pageCategory, showHead, start],
+  );
 
   const load = useCallback(
     (force = false) => {
@@ -290,9 +372,11 @@ export function NewsBoard({
     [start],
   );
 
+  const wholeRef = useRef(whole);
   useEffect(() => {
     resultsRef.current = results;
-  }, [results]);
+    wholeRef.current = whole;
+  }, [results, whole]);
 
   /**
    * The automatic refresh fetches in the background. Headlines don't move under the reader: if any
@@ -302,41 +386,58 @@ export function NewsBoard({
     quietRef.current?.abort();
     const controller = new AbortController();
     quietRef.current = controller;
+    // New headlines are offered with a button; with nothing new, or while the page is hidden, they apply at once.
+    const offer = (results: Map<string, SourceResult>, apply: () => void) => {
+      const known = new Set([...resultsRef.current.values()].flatMap((r) => r.items.map((it) => it.link)));
+      const fresh = [...results.values()].reduce((n, r) => n + r.items.filter((it) => !known.has(it.link)).length, 0);
+      if (fresh && !document.hidden) {
+        setPending({ apply, fresh });
+      } else {
+        apply();
+        setPending(null);
+      }
+    };
+    if (!wholeRef.current) {
+      loadHead(pageCategory, controller.signal, "low").then(
+        (head) => offer(byId(head.results), () => showHead(head)),
+        () => {}, // A failed background refresh changes nothing; the next one tries again.
+      );
+      return;
+    }
     const next = new Map<string, SourceResult>();
     streamNews(false, controller.signal, (result) => next.set(result.sourceId, result), "low").then(
-      (at) => {
-        const known = new Set([...resultsRef.current.values()].flatMap((r) => r.items.map((it) => it.link)));
-        const fresh = [...next.values()].reduce((n, r) => n + r.items.filter((it) => !known.has(it.link)).length, 0);
-        if (fresh && !document.hidden) {
-          setPending({ results: next, generatedAt: at, fresh });
-        } else {
+      (at) =>
+        offer(next, () =>
           startTransition(() => {
             setResults(next);
             setGeneratedAt(at);
-            setPending(null);
             setNow(Date.now());
-          });
-        }
-      },
+          }),
+        ),
       () => {}, // A failed background refresh changes nothing; the next one tries again.
     );
-  }, []);
+  }, [pageCategory, showHead]);
 
   const showPending = () => {
     if (!pending) return;
-    startTransition(() => {
-      setResults(pending.results);
-      setGeneratedAt(pending.generatedAt);
-      setPending(null);
-      setNow(Date.now());
-    });
+    pending.apply();
+    setPending(null);
     window.scrollTo({ top: 0 });
   };
 
-  // Behind the seed's headlines, the first stream isn't what the reader is waiting on.
+  // Behind the seed's headlines, the first load isn't what the reader is waiting on. A page opened with
+  // other filters needs the stream; otherwise the head fills the cards.
   const seeded = !!seed;
+  const needsWholeRef = useRef(needsWhole);
   useEffect(() => {
-    if (!videosFirst) start(false, seeded ? "low" : "auto");
+    needsWholeRef.current = needsWhole;
+  }, [needsWhole]);
+  useEffect(() => {
+    const priority = seeded ? "low" : "auto";
+    if (!videosFirst) {
+      if (needsWholeRef.current) start(false, priority);
+      else startHead(priority);
+    }
     // The Videos view looks for its own updates; the headlines wait until the reader is back.
     const refresh = setInterval(() => viewRef.current !== "videos" && refreshQuietly(), AUTO_REFRESH_MS);
     const tick = setInterval(() => setNow(Date.now()), 60_000);
@@ -346,10 +447,19 @@ export function NewsBoard({
       clearInterval(refresh);
       clearInterval(tick);
     };
-  }, [start, refreshQuietly, seeded, videosFirst]);
+  }, [start, startHead, refreshQuietly, seeded, videosFirst]);
   useEffect(() => {
-    if (videosFirst && view !== "videos" && !controllerRef.current) load();
-  }, [videosFirst, view, load]);
+    if (!videosFirst || view === "videos" || controllerRef.current) return;
+    if (needsWholeRef.current) load();
+    else startHead("auto");
+  }, [videosFirst, view, load, startHead]);
+  // Once loading has begun, wanting more than the head streams every source's whole cache.
+  useEffect(() => {
+    if (!needsWhole || whole || streamingRef.current || !controllerRef.current) return;
+    setLoading(true);
+    setReceived(0);
+    start(false);
+  }, [needsWhole, whole, start]);
 
   // Mirror the view and filters in the URL, so the page can be bookmarked or shared as it is. A
   // section with a page of its own (/news/sports) uses that address and title, and so does Videos
@@ -381,7 +491,13 @@ export function NewsBoard({
   // Headlines since the reader's last visit (none on a first visit).
   const lastVisit = useDeferredValue(useLastVisit());
   const isNew = useCallback((it: NewsItem) => !!lastVisit && (itemTime(it) ?? "") > lastVisit, [lastVisit]);
-  const newCount = useMemo(() => allItems.filter(isNew).length, [allItems, isNew]);
+  const newCount = useMemo(
+    () =>
+      lastVisit && seedAges && generatedAt
+        ? countSince(seedAges, generatedAt, lastVisit)
+        : allItems.filter(isNew).length,
+    [allItems, isNew, lastVisit, seedAges, generatedAt],
+  );
 
   // The search filters behind the typing: the box keeps up while the results catch up.
   const searchQuery = useDeferredValue(query);
@@ -408,9 +524,8 @@ export function NewsBoard({
     for (const it of matching) counts.set(it.category, (counts.get(it.category) ?? 0) + 1);
     return counts;
   }, [matching, seedCounts, unfiltered]);
-  // Each card's final size while it still shows the seed's headlines (counted with the default filters).
-  const seedResults = useMemo(() => new Map(seed?.results.map((r) => [r.sourceId, r])), [seed]);
-  const cardTotals = seedCounts && unfiltered && (category || undefined) === seed?.category ? seed?.totals : undefined;
+  // Each card's final size while it still shows the seed's or head's headlines (counted with the default filters).
+  const cardTotals = seedTotals && unfiltered && (category || undefined) === pageCategory ? seedTotals : undefined;
   const matchingCount = useMemo(() => [...categoryCounts.values()].reduce((a, b) => a + b, 0), [categoryCounts]);
 
   const filtered = useMemo(
@@ -1027,8 +1142,9 @@ export function NewsBoard({
                     onToggleSave={toggleSaved}
                     onShare={shareItem}
                     total={
-                      cardTotals && results.get(s.id) === seedResults.get(s.id) ? (cardTotals[s.id] ?? 0) : undefined
+                      cardTotals && results.get(s.id) === partResults.get(s.id) ? (cardTotals[s.id] ?? 0) : undefined
                     }
+                    onShowAll={whole ? undefined : showAllCards}
                     pinned={pinnedIds.has(s.id)}
                     onTogglePin={toggleSourcePin}
                   />

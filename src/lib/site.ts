@@ -105,7 +105,7 @@ export function categoryDescription(category: Category): string {
 }
 
 /** Headlines prerendered per card: a full card (as many as it shows) for the first few, a few after that. */
-const SEED_PER_SOURCE = 8;
+export const SEED_PER_SOURCE = 8;
 const SEED_FULL_CARDS = 6;
 const SEED_PER_LATER_SOURCE = 3;
 
@@ -114,8 +114,13 @@ const SEED_PER_LATER_SOURCE = 3;
  * engines and first paint without shipping the whole feed twice. Each source keeps its newest
  * headlines (in `category` only, when given): enough to fill the cards in view on any screen, and a
  * few for the cards further down, which hold placeholders for the rest until the feed loads.
+ * `fullCards`: how many sources get a full card (a page's head file gives every source one).
  */
-export function seedResults(results: SourceResult[], category?: Category): SourceResult[] {
+export function seedResults(
+  results: SourceResult[],
+  category?: Category,
+  fullCards = SEED_FULL_CARDS,
+): SourceResult[] {
   const newest = new Map(
     results.map((r) => [
       r.sourceId,
@@ -129,7 +134,7 @@ export function seedResults(results: SourceResult[], category?: Category): Sourc
   const full = new Set(
     ACTIVE_SOURCES.map((s) => s.id)
       .filter((id) => ok.has(id) && newest.get(id)?.length)
-      .slice(0, SEED_FULL_CARDS),
+      .slice(0, fullCards),
   );
   return results.map((r) => ({
     ...r,

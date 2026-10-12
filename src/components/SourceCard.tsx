@@ -30,6 +30,7 @@ export const SourceCard = memo(function SourceCard({
   onToggleSave,
   onShare,
   total,
+  onShowAll,
   pinned = false,
   onTogglePin,
 }: {
@@ -51,6 +52,8 @@ export const SourceCard = memo(function SourceCard({
   onShare: (item: NewsItem) => void;
   /** Its headlines in the whole cache, while the page only has a few of them (see NewsSeed). */
   total?: number;
+  /** Called when the card opens in full, for the board to load the headlines it doesn't have yet. */
+  onShowAll?: () => void;
   /** One of the reader's own sources (see pinned.ts), shown first. */
   pinned?: boolean;
   onTogglePin?: (sourceId: string) => void;
@@ -252,7 +255,10 @@ export const SourceCard = memo(function SourceCard({
           {count > PER_CARD && (
             <button
               type="button"
-              onClick={() => setShowAll((v) => !v)}
+              onClick={() => {
+                if (!showAll) onShowAll?.();
+                setShowAll((v) => !v);
+              }}
               aria-expanded={showAll}
               className="flex min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2"
             >
