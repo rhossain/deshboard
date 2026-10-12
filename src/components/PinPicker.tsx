@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLocale, useStrings } from "./locale";
 import { MAX_PINS, type Pins, togglePin } from "./pinned";
 import { formatCount } from "./time";
-import { ArrowUpIcon, ChevronIcon, CloseIcon, SearchIcon, Segmented, StarIcon } from "./ui";
+import { ArrowUpIcon, CloseIcon, SearchIcon, Segmented, StarIcon } from "./ui";
 
 export interface PinOption {
   id: string;
@@ -160,19 +160,39 @@ export function PinPicker({
   );
 }
 
-/** The button that opens the picker: "5 pinned". */
-export function PinButton({ kind, count, onClick }: { kind: "site" | "channel"; count: number; onClick: () => void }) {
-  const t = useStrings();
+/**
+ * The button that opens the picker, beside the views: "My news" or "My channels", with how many are
+ * pinned. `compact`: on the narrowest phones only the star and count show, so it fits beside the news views.
+ */
+export function PinsButton({
+  label,
+  count,
+  onClick,
+  compact = false,
+}: {
+  label: string;
+  count: number;
+  onClick: () => void;
+  compact?: boolean;
+}) {
   const locale = useLocale();
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex h-11 w-full items-center gap-2.5 rounded-xl border border-line bg-surface px-3.5 text-sm font-medium transition hover:bg-surface-2 md:h-10"
+      className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full border text-sm font-medium transition active:scale-[0.97] ${compact ? "px-3 sm:px-4" : "px-4"} ${
+        count > 0
+          ? "border-accent/40 bg-accent-soft text-accent"
+          : "border-line bg-surface text-foreground hover:bg-surface-2"
+      }`}
     >
-      <StarIcon filled={count > 0} className={`h-4 w-4 ${count > 0 ? "text-gold" : "text-muted"}`} />
-      <span className="flex-1 text-left">{count > 0 ? t.pins.pinned(formatCount(count, locale)) : t.pins[kind].button}</span>
-      <ChevronIcon className="h-4 w-4 -rotate-90 text-muted" />
+      <StarIcon filled={count > 0} className="h-4 w-4" />
+      <span className={compact ? "sr-only whitespace-nowrap sm:not-sr-only" : "whitespace-nowrap"}>{label}</span>
+      {count > 0 && (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold tabular-nums text-accent-ink">
+          {formatCount(count, locale)}
+        </span>
+      )}
     </button>
   );
 }

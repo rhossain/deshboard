@@ -37,7 +37,7 @@ import { BartaboardLogo } from "./BartaboardLogo";
 import { InspiredBy, SITE_LINKS, siteLinkHref } from "./InfoPage";
 import { PageNotes } from "./PageNotes";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
-import { PinButton, PinPicker } from "./PinPicker";
+import { PinPicker, PinsButton } from "./PinPicker";
 import { useSaved, useSavedVideos } from "./saved";
 import { SavedList } from "./SavedList";
 import { AUTO_REFRESH_MS } from "./schedule";
@@ -688,12 +688,6 @@ export function NewsBoard({
     },
     [pinsNow, updatePins],
   );
-  /** Opens the picker, closing the Filters panel or sheet it was opened from. */
-  const openPins = () => {
-    document.querySelectorAll<HTMLElement>("[popover]:popover-open").forEach((el) => el.hidePopover());
-    setFiltersOpen(false);
-    setPinsOpen(true);
-  };
   const pinOptions = useMemo(
     () =>
       sources.map((s) => ({
@@ -703,7 +697,6 @@ export function NewsBoard({
       })),
     [sources, t],
   );
-  const pinControl = <PinButton kind="site" count={pinsNow.ids.length} onClick={openPins} />;
 
   // Labels follow the language filter (Bangla names when only Bangla sources are shown) and are always
   // Bangla on Bangla pages.
@@ -1047,7 +1040,7 @@ export function NewsBoard({
           </div>
 
           <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
-            {/* News's views on the left; on larger screens, Filters on the right (also in Saved). Videos has neither. */}
+            {/* News's views on the left, My news on the right; on larger screens, Filters too (also in Saved). Videos has neither. */}
             {view !== "videos" && (
               <div className={`mb-4 items-center gap-3 sm:mb-5 ${sectionOf(view) === "news" ? "flex" : "hidden md:flex"}`}>
                 {sectionOf(view) === "news" && (
@@ -1055,9 +1048,11 @@ export function NewsBoard({
                     <Segmented label={t.newsView} value={view} onChange={changeView} options={newsViews(t)} full />
                   </div>
                 )}
-                <div className="ml-auto hidden md:block">
+                <div className="ml-auto flex items-center gap-3">
+                  {sectionOf(view) === "news" && (
+                    <PinsButton label={t.myNews} count={pinsNow.ids.length} onClick={() => setPinsOpen(true)} compact />
+                  )}
                   <FilterPopover count={activeFilters.length}>
-                    {sectionOf(view) === "news" && <Field label={t.myNews}>{pinControl}</Field>}
                     {view === "sources" && <Field label={t.orderSources}>{orderControl}</Field>}
                     <Field label={t.langFilter.label}>{languageControl}</Field>
                     <Field label={t.source}>{sourceControl}</Field>
@@ -1280,7 +1275,6 @@ export function NewsBoard({
 
           <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title={t.filters}>
             <div className="space-y-6">
-              {sectionOf(view) === "news" && <Field label={t.myNews}>{pinControl}</Field>}
               {view === "sources" && <Field label={t.orderSources}>{orderControl}</Field>}
               {view === "sources" && (
                 <Field label={t.sourceCards}>
