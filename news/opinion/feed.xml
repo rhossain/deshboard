@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/opinion/</link>
     <description>Latest opinion news from Bangladesh: মতামত headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 04:31:05 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 04:45:51 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/opinion/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>পাকিস্তানের রাজনীতিতে কী হচ্ছে, কেন হচ্ছে</title>
+      <link>https://www.prothomalo.com/opinion/column/5oa76jzwve</link>
+      <description>Prothom Alo · Opinion</description>
+      <guid isPermaLink="true">https://www.prothomalo.com/opinion/column/5oa76jzwve</guid>
+      <pubDate>Mon, 12 Oct 2026 04:25:38 GMT</pubDate>
+      <category>Opinion</category>
+    </item>
     <item>
       <title>ইসরাইলের নির্বাচন: মধ্যপ্রাচ্যের জন্য এর তাৎপর্য কী</title>
       <link>https://www.dailyamardesh.com/op-ed/sub-editorial/amd0jbgy1t2p3</link>
@@ -398,14 +406,6 @@
       <description>UNB · Opinion</description>
       <guid isPermaLink="true">https://unb.com.bd/category/Opinion/farewell-amir-khasru-and-all-those-days/197564</guid>
       <pubDate>Sun, 11 Oct 2026 06:15:51 GMT</pubDate>
-      <category>Opinion</category>
-    </item>
-    <item>
-      <title>Beware machines that always take our side</title>
-      <link>https://www.thedailystar.net/opinion/views/news/beware-machines-always-take-our-side-4295481</link>
-      <description>The Daily Star · Opinion</description>
-      <guid isPermaLink="true">https://www.thedailystar.net/opinion/views/news/beware-machines-always-take-our-side-4295481</guid>
-      <pubDate>Sun, 11 Oct 2026 06:00:56 GMT</pubDate>
       <category>Opinion</category>
     </item>
   </channel>
