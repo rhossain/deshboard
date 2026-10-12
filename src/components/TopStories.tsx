@@ -50,7 +50,7 @@ export function TopStories({
       <p className="mb-4 px-1 text-[13px] text-muted">
         {t.topExplainer}
       </p>
-      <ol className="grid items-start gap-4 sm:gap-5 lg:grid-cols-2">
+      <ol className="grid items-start gap-4 sm:gap-5 lg:grid-cols-2 compact:gap-3">
         {stories.slice(0, limit).map((s, i) => (
           <StoryCard
             key={s.id}
@@ -114,16 +114,16 @@ function StoryCard({
           href={lead.link}
           target="_blank"
           rel="noopener noreferrer"
-          className="group block min-w-0 flex-1 pb-3.5 pl-4 pt-4 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5"
+          className="group block min-w-0 flex-1 pb-3.5 pl-4 pt-4 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5 compact:pb-2.5 compact:pt-3"
         >
-          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs compact:mb-1">
             <span className="font-display text-sm font-semibold tabular-nums text-gold">{formatCount(rank, locale)}</span>
             <span className="rounded-full bg-accent-soft px-2.5 py-0.5 font-semibold text-accent">
               {t.outlets(formatCount(story.outlets, locale))}
             </span>
             {story.latest && <span className="text-muted">{t.storyUpdated(timeAgo(story.latest, now, locale))}</span>}
           </div>
-          <p className="text-[18px] font-semibold leading-[1.5] group-hover:text-accent">
+          <p className="text-[18px] font-semibold leading-[1.5] group-hover:text-accent compact:text-[16px] compact:leading-[1.45]">
             {story.items.some(isNew) && <NewDot className="mr-2 -mt-0.5" />}
             {lead.title}
           </p>
@@ -136,7 +136,7 @@ function StoryCard({
           saved={savedLinks.has(lead.link)}
           onToggleSave={() => onToggleSave(lead)}
           onShare={() => onShare(lead)}
-          className="pt-4"
+          className="pt-4 compact:pt-3"
         />
       </div>
       <ul className="border-t border-line">
@@ -148,7 +148,7 @@ function StoryCard({
               href={it.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex min-w-0 flex-1 gap-3 py-2.5 pl-4 text-[14px] leading-[1.5] transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5"
+              className="group flex min-w-0 flex-1 gap-3 py-2.5 pl-4 text-[14px] leading-[1.5] transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5 compact:py-1.5 compact:text-[13px]"
             >
               <span className="w-28 shrink-0 truncate pt-px text-xs font-semibold text-accent">{name(it)}</span>
               <span className="min-w-0 group-hover:text-accent">
@@ -160,7 +160,7 @@ function StoryCard({
               saved={savedLinks.has(it.link)}
               onToggleSave={() => onToggleSave(it)}
               onShare={() => onShare(it)}
-              className="pt-2"
+              className="pt-2 compact:pt-1"
             />
           </li>
         ))}

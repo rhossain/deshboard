@@ -6,6 +6,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { itemTime, newestFirst } from "@/lib/stories";
 import type { NewsItem, NewsSource } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
+import { useNewsDensity } from "./news-density";
 import { useLocale, useStrings } from "./locale";
 import { dhakaDay, formatCount } from "./time";
 import { ItemMenu, NewDot, StarIcon } from "./ui";
@@ -40,6 +41,7 @@ type Row =
 
 /** Rows are measured once rendered; these only place the ones not yet seen. */
 const ESTIMATE = { section: 64, heading: 56, item: 96 };
+const ESTIMATE_COMPACT = { ...ESTIMATE, heading: 48, item: 72 };
 /** Headlines shown at first, and added each time the reader nears the end. */
 const PAGE = 50;
 /** Add the next page once the last row on screen is this close to the end. */
@@ -75,6 +77,7 @@ export function LatestList({
   const t = useStrings();
   const locale = useLocale();
   const [shown, setShown] = useState(PAGE);
+  const estimate = useNewsDensity() === "compact" ? ESTIMATE_COMPACT : ESTIMATE;
   // The parts, each newest first: just one unless some, but not all, headlines are from pinned sources.
   const { parts, dated } = useMemo(() => {
     const dated = items.filter(itemTime).sort(byNewest);
@@ -129,7 +132,7 @@ export function LatestList({
 
   const virtualizer = useWindowVirtualizer({
     count: rows.length,
-    estimateSize: (i) => ESTIMATE[rows[i].kind],
+    estimateSize: (i) => estimate[rows[i].kind],
     getItemKey: (i) => {
       const row = rows[i];
       return row.kind === "section" ? `s:${row.label}` : row.kind === "heading" ? `h:${row.part}:${row.label}` : row.item.link;
@@ -163,7 +166,7 @@ export function LatestList({
                   </h2>
                 ) : row.kind === "heading" ? (
                   <h2
-                    className={`flex items-center gap-3 px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted ${row.first ? "" : "pt-6"}`}
+                    className={`flex items-center gap-3 px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted ${row.first ? "" : "pt-6 compact:pt-4"}`}
                   >
                     {t[row.label]}
                     <span className="h-px flex-1 bg-line" />
@@ -227,11 +230,15 @@ function Headline({
         href={it.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="group flex min-w-0 flex-1 gap-4 py-3.5 pl-4 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5"
+        className="group flex min-w-0 flex-1 gap-4 py-3.5 pl-4 transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5 compact:py-2"
       >
-        <ItemTime item={it} now={now} className="hidden w-24 shrink-0 pt-1 text-xs tabular-nums text-muted sm:block" />
+        <ItemTime
+          item={it}
+          now={now}
+          className="hidden w-24 shrink-0 pt-1 text-xs tabular-nums text-muted sm:block compact:pt-0.5"
+        />
         <div className="min-w-0">
-          <div className="mb-1 flex flex-wrap items-center gap-x-2 text-xs">
+          <div className="mb-1 flex flex-wrap items-center gap-x-2 text-xs compact:mb-0.5">
             <span className="font-semibold text-accent">{sourceById.get(it.sourceId)?.name ?? it.sourceName}</span>
             {it.category !== "other" && (
               <span className="text-muted">· {(bn ? CATEGORY_BN : CATEGORY_LABEL).get(it.category)}</span>
@@ -240,13 +247,18 @@ function Headline({
               · <ItemTime item={it} now={now} />
             </span>
           </div>
-          <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent">
+          <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent compact:text-[15px] compact:leading-[1.45]">
             {isNew(it) && <NewDot className="mr-2 -mt-0.5" />}
             {it.title}
           </p>
         </div>
       </a>
-      <ItemMenu saved={saved} onToggleSave={() => onToggleSave(it)} onShare={() => onShare(it)} className="pt-4" />
+      <ItemMenu
+        saved={saved}
+        onToggleSave={() => onToggleSave(it)}
+        onShare={() => onShare(it)}
+        className="pt-4 compact:pt-2.5"
+      />
     </div>
   );
 }

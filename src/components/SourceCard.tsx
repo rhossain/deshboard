@@ -98,7 +98,7 @@ export const SourceCard = memo(function SourceCard({
       ref={ref}
       // Cards off screen are skipped when the page is laid out and painted (most of them, on a page of
       // fifty); the estimate holds their place until they are.
-      className={`flex flex-col overflow-hidden rounded-2xl border border-line bg-surface [contain-intrinsic-size:auto_560px] [content-visibility:auto] ${
+      className={`flex flex-col overflow-hidden rounded-2xl border border-line bg-surface [contain-intrinsic-size:auto_560px] [content-visibility:auto] compact:[contain-intrinsic-size:auto_440px] ${
         problem ? "" : "shadow-card"
       }`}
     >
@@ -245,7 +245,7 @@ export const SourceCard = memo(function SourceCard({
           {placeholders > 0 && (
             <ul className="border-t border-line" aria-hidden>
               {Array.from({ length: placeholders }, (_, i) => (
-                <li key={i} className="space-y-2 border-b border-line px-4 py-3 last:border-b-0">
+                <li key={i} className="space-y-2 border-b border-line px-4 py-3 last:border-b-0 compact:py-2">
                   <div className="skeleton h-3.5 rounded-full" />
                   <div className="skeleton h-3.5 w-3/5 rounded-full" />
                   <div className="skeleton h-2.5 w-16 rounded-full" />
@@ -314,17 +314,24 @@ const Headline = memo(function Headline({
         href={item.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="group block min-w-0 flex-1 py-3 pl-4 text-foreground transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60"
+        className="group block min-w-0 flex-1 py-3 pl-4 text-foreground transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 compact:py-2"
       >
         <span
-          className={`block leading-[1.55] group-hover:text-accent ${lead ? "text-[17px] font-semibold" : "text-[15px]"}`}
+          className={`block leading-[1.55] group-hover:text-accent compact:leading-[1.45] ${
+            lead ? "text-[17px] font-semibold compact:text-[16px]" : "text-[15px] compact:text-[14px]"
+          }`}
         >
           {isNew && <NewDot className="mr-2 -mt-0.5" />}
           {item.title}
         </span>
-        <ItemTime item={item} now={now} className="mt-1 block text-xs text-muted" />
+        <ItemTime item={item} now={now} className="mt-1 block text-xs text-muted compact:mt-0.5" />
       </a>
-      <ItemMenu saved={saved} onToggleSave={() => onToggleSave(item)} onShare={() => onShare(item)} />
+      <ItemMenu
+        saved={saved}
+        onToggleSave={() => onToggleSave(item)}
+        onShare={() => onShare(item)}
+        className="compact:pt-2"
+      />
     </div>
   );
 });
