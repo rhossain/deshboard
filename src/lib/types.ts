@@ -63,6 +63,13 @@ export interface SourceResult {
 
 export type SourceStatus = Omit<SourceResult, "items">;
 
+/** `/data/days/<date>.json`: one Dhaka calendar day of headlines from the last 30, newest first (see days.ts). */
+export interface NewsDay {
+  /** "2026-10-07" */
+  date: string;
+  items: NewsItem[];
+}
+
 /** One line of the NDJSON stream from /api/news/stream. */
 export type NewsStreamMessage = { type: "source"; result: SourceResult } | { type: "done"; generatedAt: string };
 

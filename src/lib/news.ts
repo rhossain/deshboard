@@ -7,6 +7,7 @@ import { fetchText } from "./fetchers/http";
 import { parseFeed, type RawItem } from "./fetchers/rss";
 import { parseNewsSitemap } from "./fetchers/sitemap";
 import { dedupeByLink, dhakaDate, shiftDhakaAsUtc } from "./fetchers/utils";
+import { saveDays } from "./days";
 import { ACTIVE_SOURCES, getSource } from "./sources";
 import { readStore, writeStoreSoon } from "./store";
 import { itemTime, newestFirst } from "./stories";
@@ -272,7 +273,11 @@ export async function eachSourceNews(query: NewsQuery, onResult: (result: Source
  */
 export function startBackgroundRefresh(): void {
   if (g.__newsRefresher) return;
-  const run = () => getNews().catch((err) => console.warn("[news] background refresh failed:", err));
+  const run = () =>
+    getNews()
+      // Every cached headline (not just the board's share) into the day files the search reads further back.
+      .then(() => saveDays(ACTIVE_SOURCES.flatMap((s) => cachedResult(s.id)?.items ?? [])))
+      .catch((err) => console.warn("[news] background refresh failed:", err));
   g.__newsRefresher = setInterval(run, Math.max(60_000, TTL_MS / 2));
   g.__newsRefresher.unref?.();
   void run();

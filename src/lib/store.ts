@@ -7,8 +7,8 @@ import path from "node:path";
  * On hosts with a read-only or throwaway filesystem (serverless), writes fail quietly and the app
  * behaves as if persistence were off.
  */
-const DIR = process.env.NEWS_DATA_DIR || path.join(process.cwd(), ".data");
-const ENABLED = process.env.NEWS_PERSIST !== "0";
+export const DIR = process.env.NEWS_DATA_DIR || path.join(process.cwd(), ".data");
+export const ENABLED = process.env.NEWS_PERSIST !== "0";
 const WRITE_DELAY_MS = 2000;
 
 const g = globalThis as unknown as { __storeTimers?: Map<string, ReturnType<typeof setTimeout>> };
