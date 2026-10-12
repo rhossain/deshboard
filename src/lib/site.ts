@@ -177,19 +177,22 @@ export function aboutDescription(locale: Locale = "en"): string {
     : ABOUT_DESCRIPTION;
 }
 
-/** The page's visible heading: what it holds, in the words people search for. */
+/**
+ * The page's visible heading: what it holds, in the words people search for. No source count: it
+ * changes as outlets come and go, and not all of them are newspapers (descriptions carry the count).
+ */
 export function boardHeading(category?: Category | "", videos = false, locale: Locale = "en"): string {
   if (locale === "bn") {
     if (videos) return "আজকের টিভি সংবাদ ভিডিও";
     return category && PAGE_BY_ID.has(category)
       ? `আজকের ${bnNews(category)}`
-      : `${n(ACTIVE_SOURCES.length, locale)}টি সংবাদপত্রের সর্বশেষ খবর`;
+      : "বাংলাদেশের সর্বশেষ খবর, বাংলা ও ইংরেজিতে";
   }
   if (videos) return "Bangladesh TV news videos today";
   const c = category ? PAGE_BY_ID.get(category) : undefined;
   return c
     ? `Bangladesh ${c.label.toLowerCase()} news today (${c.bn})`
-    : `Latest Bangladesh news headlines from ${ACTIVE_SOURCES.length} newspapers`;
+    : "Latest Bangladesh news headlines, Bangla and English";
 }
 
 export function categoryDescription(category: Category, locale: Locale = "en"): string {

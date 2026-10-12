@@ -169,6 +169,8 @@ Code (one commit each, on `static-export`):
    headlines from 59 newspapers"; sections: "Bangladesh sports news today (খেলা)". Second logo image gets
    `alt=""` + `aria-hidden`.
    ✅ **Done**: b4bce938.
+   Later the board's H1 dropped the count ("Latest Bangladesh news headlines, Bangla and English"): it
+   shifts as outlets come and go, and not every source is a newspaper. Descriptions keep the number.
 8. Headings: "Top stories" `h2`; each source card's name an `h2` (or `h3` under a "By newspaper" `h2`);
    dialog titles rendered only when the dialog is open, so they leave the static HTML.
    ✅ **Done**: b4bce938.
