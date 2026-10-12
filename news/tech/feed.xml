@@ -5,9 +5,17 @@
     <link>https://bartaboard.com/news/tech/</link>
     <description>Latest science &amp; tech news from Bangladesh: বিজ্ঞান-প্রযুক্তি headlines in Bangla and English from 59 news portals, on one board.</description>
     <language>bn</language>
-    <lastBuildDate>Mon, 12 Oct 2026 08:01:10 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 08:16:00 GMT</lastBuildDate>
     <ttl>15</ttl>
     <atom:link href="https://bartaboard.com/news/tech/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>এআই নিয়ন্ত্রণে ‘ইমার্জেন্সি ব্রেক’ চান মাইক্রোসফট প্রধান নাদেলা</title>
+      <link>https://bangla.bdnews24.com/tech/6nmwfzj9t2</link>
+      <description>bdnews24 Bangla · Science &amp; Tech</description>
+      <guid isPermaLink="true">https://bangla.bdnews24.com/tech/6nmwfzj9t2</guid>
+      <pubDate>Mon, 12 Oct 2026 08:15:50 GMT</pubDate>
+      <category>Science &amp; Tech</category>
+    </item>
     <item>
       <title>সোশ্যাল মিডিয়া ব্যবহারে সচেতনতা</title>
       <link>https://www.dailyamardesh.com/feature/information-technology/amd68z8t78cxb</link>
@@ -398,14 +406,6 @@
       <description>Prothom Alo · Science &amp; Tech</description>
       <guid isPermaLink="true">https://www.prothomalo.com/technology/j455f4g0kw</guid>
       <pubDate>Sun, 11 Oct 2026 10:55:53 GMT</pubDate>
-      <category>Science &amp; Tech</category>
-    </item>
-    <item>
-      <title>দুবাইয়ে চালু হলো চালকবিহীন পড</title>
-      <link>https://barta24.com/details/tech/342443</link>
-      <description>Barta24 · Science &amp; Tech</description>
-      <guid isPermaLink="true">https://barta24.com/details/tech/342443</guid>
-      <pubDate>Sun, 11 Oct 2026 10:49:30 GMT</pubDate>
       <category>Science &amp; Tech</category>
     </item>
   </channel>
