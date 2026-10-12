@@ -5,15 +5,16 @@ Companion to `docs/services.md` (which dashboard holds what) and `README.md` (`S
 
 ## Progress (12 October 2026)
 
-Sections 1–3 are the audit as it stood on 11 October; each plan item in section 4 now carries its status.
+Sections 1–3 are the audit as it stood on 11 October. Each issue in section 3 and each plan item in
+section 4 now carries its status: ✅ done, 🟡 partly done, ⬜ open, 🔁 ongoing.
 
-- **Done:** Search Console and Bing set up, sitemap submitted, Crawler Hints and HSTS on (#1, #2, #4–#6).
+- ✅ **Done:** Search Console and Bing set up, sitemap submitted, Crawler Hints and HSTS on (#1, #2, #4–#6).
   All on-page work: H1 and headings, titles and descriptions, freshness markup, small fixes (#7–#11).
   New pages: `/videos/`, `/sources/`, `/about/`, intros and the FAQ, and 80 per-outlet pages
   (#12–#18). RSS feeds (#19).
-- **Partly done:** indexing requests (#3: 10 of the 12 sections; `/news/crime/`, `/news/opinion/` and the
+- 🟡 **Partly done:** indexing requests (#3: 10 of the 12 sections; `/news/crime/`, `/news/opinion/` and the
   new pages not yet requested). Speed (#20: the logo fix and the feed split are in; PageSpeed not yet run on a section page).
-- **Open:** the Bangla version (#21), links and presence off the site (#22), and the monthly Search Console
+- ⬜ **Open:** the Bangla version (#21), links and presence off the site (#22), and the monthly Search Console
   review (#23). `Organization.sameAs` and `twitter:site` wait for the first social profile.
 
 ## 1. Where things stand
@@ -70,51 +71,65 @@ account) and, after a month, in Search Console's own query report, which is the 
 ### P0: nobody can find the site *(fixed 11 October, plan items 1–6)*
 
 1. **Not verified in Google Search Console, sitemap never submitted.** This is the whole problem today.
+   ✅ **Done** (plan 1–3).
 2. **Not in Bing Webmaster Tools.** Bing also feeds DuckDuckGo and the AI assistants' search.
+   ✅ **Done** (plan 4).
 3. **No measurement.** No Search Console data, and the privacy policy promises no analytics. Search
    Console is server-side on Google's end and needs nothing on the page, so it keeps that promise;
    Cloudflare Web Analytics (cookieless, no personal data) would be the one addition worth a privacy-page
    sentence if visit counts are wanted.
+   ✅ **Done**: Search Console and Bing collect the data. No page analytics added.
 
-### P1: why it would not rank well even once indexed
+### P1: why it would not rank well even once indexed *(all fixed but #8)*
 
 4. **Almost no content of our own.** The board has 274 outbound links and 17 internal ones; to a crawler
    it is a list of other sites' titles. There is no page explaining what Bartaboard is, no page listing
    the 59 portals (the single most searchable thing we have), no intro text on section pages.
+   ✅ **Done** (plan 12–18): `/sources/`, `/about/`, intros, FAQ, per-outlet pages.
 5. **H1 reads "Bartaboard Bartaboard: Latest news from Bangladesh".** The heading holds both the light
    and dark logo images, each with `alt="Bartaboard"`, plus screen-reader-only text. The keywords are
    invisible and the brand is doubled.
+   ✅ **Done** (plan 7).
 6. **Heading outline is UI chrome.** The only `<h2>`s in the HTML are "Filters", "My news", "Share
    headline", "Keyboard shortcuts" (dialogs); the source cards and the "Top stories" block have no
    headings at all. A crawler's outline of the page is four dialog titles.
+   ✅ **Done** (plan 8).
 7. **Title tag is 67 characters** and gets cut in results; the description is ~190 characters (cut at
    ~155). Keywords sit after the brand instead of before it.
+   ✅ **Done** (plan 9).
 8. **No Bangla page for Bangla searches.** Most Bangladeshi searches are typed in Bangla; the interface
    is English, and the Bangla keywords live only in `<meta name="keywords">`, which Google ignores.
+   ⬜ **Open** (plan 21).
 9. **No freshness signals in the markup.** Headlines carry no `<time datetime>`, the JSON-LD has no
    `dateModified`, and every sitemap `lastmod` is the build time rather than the newest headline's.
+   ✅ **Done** (plan 10).
 10. **Small things**: `/health` is linked without the trailing slash (one redirect hop on every page);
     `og:url` is missing on the board; privacy/terms share the board's Open Graph title; no `twitter:site`;
     `Organization` has no `sameAs` (no social profiles exist yet).
+    ✅ **Done** (plan 11). `twitter:site` and `sameAs` wait for social profiles.
 
 11. **Videos are invisible to search.** The Videos view (31 Bangladeshi TV news channels on YouTube,
     ~640 videos a day) lives at `/?view=videos`, which canonicalises to `/`, and its list loads from
     `data/videos.json` in the browser, so no video title is in any page's HTML. The TV channels appear
     nowhere a crawler can read them, and 10 of them are also among the 59 news sites, each split in two.
+    ✅ **Done** (plan 17, 18).
 
-### P2: technical and performance
+### P2: technical and performance *(#13 fixed, #12 in progress)*
 
 12. **Page weight.** Board HTML is 739 KB (68 KB compressed); `data/news.json` is 2.1 MB (346 KB
     compressed) with 4,466 items, fetched on every visit. Core Web Vitals have not been measured. On
     Bangladeshi mobile networks this is the likeliest LCP/INP problem. Measure first (PageSpeed Insights,
     mobile) and act only on what it shows: per-section JSON files already exist for days, so splitting
     the feed by section and loading the rest lazily is the obvious cut.
+    🟡 **Partly done** (plan 20): the feed is split; PageSpeed not yet run on a section page.
 13. **HSTS** is off (Cloudflare → SSL/TLS → Edge Certificates). Not a ranking factor; one click.
+    ✅ **Done** (plan 5).
 
-### P3: off-page, which is what moves rankings
+### P3: off-page, which is what moves rankings *(open)*
 
 14. **Zero inbound links and no brand presence.** No Facebook page (Facebook is where Bangladesh reads
     news), no profile on GitHub/LinkedIn pointing here, not linked from rshossain.me.
+    ⬜ **Open** (plan 22).
 
 ### Not worth doing
 
@@ -127,48 +142,48 @@ account) and, after a month, in Search Console's own query report, which is the 
 
 ## 4. Plan
 
-### Week 1: get indexed, fix the markup
+### Week 1: get indexed, fix the markup ✅ *(all but #3)*
 
 Dashboards (Sazzad):
 
 1. Google Search Console → Add property → **Domain** `bartaboard.com` → verify with the DNS TXT record
    in Cloudflare (DNS only, not proxied; the TXT record type is unaffected either way).
-   *Done* (11 Oct, through Cloudflare's Domain Connect).
+   ✅ **Done** (11 Oct, through Cloudflare's Domain Connect).
 2. Sitemaps → submit `https://bartaboard.com/sitemap.xml`.
-   *Done* (11 Oct).
+   ✅ **Done** (11 Oct).
 3. URL inspection → "Request indexing" for `/` and each of the 12 section pages (the daily quota is ~10;
    do it over two days).
-   *Partly done:* sent for 10 of the 12 sections. Still to send: `/news/crime/`, `/news/opinion/`, `/videos/`, `/sources/`, `/about/`.
+   🟡 **Partly done:** sent for 10 of the 12 sections. Still to send: `/news/crime/`, `/news/opinion/`, `/videos/`, `/sources/`, `/about/`.
 4. Bing Webmaster Tools → "Import from Google Search Console".
-   *Done* (11 Oct; the sitemap was submitted in Bing by hand, the import missed it).
+   ✅ **Done** (11 Oct; the sitemap was submitted in Bing by hand, the import missed it).
 5. Cloudflare → Caching → Configuration → **Crawler Hints: on** (sends IndexNow pings to Bing/Yandex on
    every deploy). SSL/TLS → Edge Certificates → **HSTS: on**.
-   *Done* (11 Oct).
+   ✅ **Done** (11 Oct).
 6. Record the Search Console and Bing accounts in `docs/services.md`.
-   *Done*.
+   ✅ **Done**.
 
 Code (one commit each, on `static-export`):
 
 7. H1: real text, keyword first, the logo as a link outside the heading. Board: "Latest Bangladesh news
    headlines from 59 newspapers"; sections: "Bangladesh sports news today (খেলা)". Second logo image gets
    `alt=""` + `aria-hidden`.
-   *Done*: b4bce938.
+   ✅ **Done**: b4bce938.
 8. Headings: "Top stories" `h2`; each source card's name an `h2` (or `h3` under a "By newspaper" `h2`);
    dialog titles rendered only when the dialog is open, so they leave the static HTML.
-   *Done*: b4bce938.
+   ✅ **Done**: b4bce938.
 9. Title ≤ 60 chars, description ≤ 155, keyword first:
    - Board: `Bangladesh News Today, Bangla & English | Bartaboard`
    - Description: `All Bangladesh news in one place: Bangla and English headlines from 59 newspapers (Prothom Alo, The Daily Star, bdnews24, Dhaka Tribune…) and the top stories across them.`
    - Sections keep their pattern; `Bangladesh Sports News Today (খেলা) | Bartaboard`.
-   *Done*: dba36636.
+   ✅ **Done**: dba36636.
 10. `<time dateTime>` on each headline's time; `dateModified` (the fetch time) on `WebSite` and
     `CollectionPage`; sitemap `lastmod` per section from its newest headline.
-    *Done*: dba36636 (`dateModified`), 0cb28a3c (sitemap `lastmod`); headline times were already `<time>`.
+    ✅ **Done**: dba36636 (`dateModified`), 0cb28a3c (sitemap `lastmod`); headline times were already `<time>`.
 11. `/health/` with the slash; `openGraph.url` on the board; privacy and terms get their own Open
     Graph title and description.
-    *Done*: b4bce938, dba36636.
+    ✅ **Done**: b4bce938, dba36636.
 
-### Week 2: give crawlers something that is ours
+### Week 2: give crawlers something that is ours ✅
 
 12. **`/sources/`**: the directory page. All 59 portals grouped (Bangla dailies, English dailies, online
     portals, TV), each with one or two lines (city, language, founded, what it is known for), its logo,
@@ -178,20 +193,20 @@ Code (one commit each, on `static-export`):
     A last group, **TV news channels (31)**, from `src/lib/channels.ts`: each with a link to its YouTube
     channel and its live stream, and to its videos on `/videos/`. The 10 stations that are also news
     sites (Jamuna TV, Ekattor TV, Channel 24…) appear once, with both.
-    *Done*: 8035694d.
+    ✅ **Done**: 8035694d.
 13. **`/about/`**: what Bartaboard is, how it works (headlines from 59 sites and videos from 31 TV
     channels, refreshed every 15 minutes, no account, no tracking), who makes it, how to add a portal. Carries the brand query and the `Organization` schema.
-    *Done*: c8979498.
+    ✅ **Done**: c8979498.
 14. **Intro paragraph on every section page** (2–3 sentences, English + one Bangla sentence) above the
     cards, prerendered. Same on the board.
-    *Done*: 26c7ebdc.
+    ✅ **Done**: 26c7ebdc.
 15. **FAQ block on the board** (visible, plain `<details>`): "Which newspapers are included?", "Is it
     free?", "Why are some portals read through Google News?", "Can I watch TV news here?". Marked up as `FAQPage` only for the AI
     assistants; Google no longer shows FAQ rich results for sites like ours.
-    *Done*: 26c7ebdc.
+    ✅ **Done**: 26c7ebdc.
 16. Link the new pages from the footer and header; add them to the sitemap; `Organization.sameAs`
     once a Facebook page exists.
-    *Done*: 26c7ebdc. `sameAs` waits for a Facebook page.
+    ✅ **Done**: 26c7ebdc. `sameAs` waits for a Facebook page.
 
 17. **`/videos/`**: the Videos view as a page of its own, prerendered like the sections: the newest ~24
     videos (title, channel, thumbnail, time) and the channel list in the HTML, the rest loading as now.
@@ -200,9 +215,9 @@ Code (one commit each, on `static-export`):
     video. The Videos tab becomes a real link to it, and `?view=videos` redirects there. No
     `VideoObject` markup: Google shows video results only for pages where one video is the main
     content, and per-video pages would be YouTube's content, so `/s/…` video links stay `noindex`.
-    *Done*: 1a18ece2.
+    ✅ **Done**: 1a18ece2.
 
-### Weeks 3–4: more indexable surface, measure speed
+### Weeks 3–4: more indexable surface, measure speed 🟡 *(#20 in progress)*
 
 18. **Per-source pages** `/sources/prothom-alo/` etc.: that portal's newest headlines (already in the
     feed), its description, its sections. Title: `Prothom Alo Latest News Headlines Today | Bartaboard`.
@@ -210,30 +225,30 @@ Code (one commit each, on `static-export`):
     The 10 TV stations' pages show their videos under their headlines; the 21 channels with no news site
     get a page of their own (`/sources/somoy-tv/`: newest videos, "Watch live on YouTube"), title
     `Somoy TV News Today: Latest Videos | Bartaboard`. 80 pages in all.
-    *Done*: 6b24edab.
+    ✅ **Done**: 6b24edab.
 19. **RSS**: `/feed.xml` and `/news/<section>/feed.xml`, linked with `<link rel="alternate" type="application/rss+xml">`.
     Readers and bots discover updates through it; it costs nothing at build time.
-    *Done*: dc2b4f95.
+    ✅ **Done**: dc2b4f95.
 20. **PageSpeed Insights** on `/` and one section, mobile; fix what it names. Expected: split
     `news.json` by section, defer the rest, keep the prerendered seed as it is.
-    *Partly done:* both theme logos downloading, fixed in a2342bd5; the feed split in e9666294: the board loads each
+    🟡 **Partly done:** both theme logos downloading, fixed in a2342bd5; the feed split in e9666294: the board loads each
     source's newest 8 (~40 KB) and the whole feed (~950 KB as served, 15,000 headlines) only when a view needs it.
     Still to do: run PageSpeed on a section page.
 
-### Month 2: Bangla, links, iteration
+### Month 2: Bangla, links, iteration ⬜
 
 21. **Bangla version**: `/bn/`, `/bn/news/<section>/`, `/bn/sources/`, same data, Bangla interface strings,
     `<html lang="bn">`, `hreflang` `en` / `bn` / `x-default` across every pair. This is the single
     biggest step for Bangladeshi search traffic and is a UI-strings job, not a content job.
-    *Open.*
+    ⬜ **Open.**
 22. **Links and presence**: Facebook page (post the section pages, not only the board), link from
     rshossain.me and the GitHub profile/README, a "Show HN"/Product Hunt post, r/bangladesh, Bangladeshi
     developer communities, and a note to two or three BD tech blogs/YouTubers. Register the
     `bartaboard` handle wherever it is free.
-    *Open.*
+    ⬜ **Open.**
 23. **Search Console review**: Pages report (every URL indexed?), Performance → Queries. Rewrite titles
     and intros toward the queries that actually show impressions. Repeat monthly.
-    *Ongoing*, monthly.
+    🔁 **Ongoing**, monthly.
 
 ## 5. Keyword map
 
