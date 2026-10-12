@@ -23,7 +23,7 @@ matches:
 | What | Example |
 | --- | --- |
 | Other forms of the word (the Bangla endings from `stories.ts`, English plurals) | "নির্বাচনে" finds "নির্বাচনের", "elections" finds "election" |
-| Its equivalents in `src/lib/search-terms.ts` | "flood" finds "বন্যা", "Chittagong" finds "চট্টগ্রাম" and "Chattogram", "awami league" finds "আওয়ামী লীগ" |
+| Its equivalents in `src/lib/search-terms.ts`: Bangla, English and Banglish | "flood" finds "বন্যা", "Chittagong" finds "চট্টগ্রাম" and "Chattogram", "awami league" finds "আওয়ামী লীগ", "nirbachon" finds "নির্বাচন" and "election" |
 | However the Bangla was written | য় ড় ঢ় ো ৌ precomposed or not, Bangla or English digits, invisible joiners. All of these occur in real headlines |
 | Typing slips, in what the reader types | ি or ী, ু or ূ |
 
@@ -31,8 +31,10 @@ Where in a word a term may match:
 
 - **English** at the start of a word: "rain" finds "rains", not "train".
 - **Bangla the reader types** anywhere, as before: "ভোট" finds "গণভোট".
-- **Equivalents from the word list** only at the start of a word, and English ones only as a whole word. So "train" →
-  "রেলওয়ে" can't find "জেনারেল", and "বন্যা" → "flood" can't find "floodlit".
+- **Equivalents from the word list** only as a whole word, give or take an ending: English -s, -es, -ed, -ing;
+  Bangla -র, -ের, -ে, -তে, -কে, -য়, -দের and the like. So "বন্যা" → "flood" can't find "floodlit", "train" →
+  "রেলওয়ে" can't find "জেনারেল", and "assam" can't find "আসামি" (accused). Compounds on the same topic are
+  listed in their group (সরকারি, ভোটার, ইসরায়েলি).
 
 Small words ("in", "the", "ও", "এবং") are left out unless they're all the query has. The words found are
 highlighted (`src/components/Highlight.tsx`) in every list: News, Top stories, Latest, Saved, Videos.
@@ -48,10 +50,24 @@ On four days of real headlines (5,679), a search takes 2–15 ms on a laptop:
 | dhaka rain | 0 | 5 |
 | ভোট | 16 | 17 |
 
-**The word list** has 213 groups: places, countries, parties, people, crime, weather, health, economy,
-education, sports, technology. Grow it from what readers search for. Every word must be specific: "us", "ai", "জেল"
-or "রেল" would find "used", "aid", "জেলা", "জেনারেল". `npm test` checks that every word in a group finds every
-other.
+**The word list** has 614 groups: all 64 districts and the main Dhaka areas, countries, parties, government and law,
+people, crime, weather, health, economy, education, sports, technology, culture, transport, months. They were
+picked from the words used most in a month of real headlines (about 20,000). Each group has the Bangla, the English
+and, where people type it, the Banglish: "bonna", "nirbachon", "shorkar", "greftar", "mamla". **The Banglish
+spellings are a draft: have a native speaker review them**, and grow the list from what readers search for.
+
+The rules for adding words are at the top of `search-terms.ts`. A Bangla word must not start other common words
+("কর" → "করে"), and Banglish must not be an English word ("dam"). `npm test` checks that every word in a group
+finds every other and that no word is in two groups. A check against real headlines (in the commit that added the
+endings rule) found the misfires the tests can't: আসাম matched আসামি, ভূমি matched ভূমিকম্প, বৃদ্ধ matched বৃদ্ধি.
+
+**Matching Banglish by sound** (turning "nirbachon" and "নির্বাচন" both into the consonants `nrbcn`) was tried
+on 18,476 Bangla headlines and left out. It was 99–100% right for long words (nirbachon, greftar, shorkar) but
+8–16% for names (tarek, hasina), and it turned English searches into noise: "price" matched 365 unrelated Bangla
+headlines. If it comes back, it should only ever suggest ("Did you mean নির্বাচন?") when a search finds nothing.
+
+**Size.** The list is about 8 KB compressed, loaded only once someone searches (`src/components/use-search.ts`);
+until it arrives the words match as typed. Compiling a query takes about 0.03 ms.
 
 ## 3. Step 2: the last 30 days (done)
 

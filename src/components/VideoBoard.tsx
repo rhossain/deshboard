@@ -7,7 +7,6 @@ import { localePath } from "@/lib/i18n";
 import { VIDEOS_PATH } from "@/lib/site";
 import type { Video, VideoFeed } from "@/lib/types";
 import { VIDEO_LIST, videoThumbSizes } from "@/lib/video-layout";
-import { compileSearch } from "@/lib/search";
 import { CategoryTabs } from "./CategoryTabs";
 import { useLocale, useStrings } from "./locale";
 import { MAX_PINS, pinRanks, togglePin, usePinnedChannels } from "./pinned";
@@ -20,6 +19,7 @@ import { Player, VideoCard } from "./VideoCard";
 import { setVideoLayout, useVideoLayout, useVideoLayoutChoice } from "./video-layout";
 import { cachedVideos, cachedVideosAt, loadVideos } from "./videos";
 import { VideoSkeleton } from "./VideoSkeleton";
+import { useSearch } from "./use-search";
 
 /** Videos drawn at first, and added each time the reader nears the end. */
 const PAGE = 24;
@@ -153,7 +153,7 @@ export default function VideoBoard({
     },
     [pins, updatePins],
   );
-  const search = useMemo(() => compileSearch(query), [query]);
+  const search = useSearch(query);
   const matching = useMemo(
     () => (search ? (feed?.videos ?? []).filter((v) => search.matches(v.title)) : (feed?.videos ?? [])),
     [feed, search],
