@@ -30,7 +30,10 @@ matches:
 Where in a word a term may match:
 
 - **English** at the start of a word: "rain" finds "rains", not "train".
-- **Bangla the reader types** anywhere, as before: "ভোট" finds "গণভোট".
+- **Bangla the reader types** anywhere, as before: "ভোট" finds "গণভোট". A typed word is stemmed so other forms
+  match ("বৃষ্টির" finds "বৃষ্টিতে" and "বজ্রবৃষ্টিপাত"), but a stem under 4 characters can't go anywhere: "শহর"
+  stems to "শহ", which inside any word finds "শহীদ" (as "নগর" → "জনগণ", "খবর" → "রাখবে"). Such a word is found
+  as typed, anywhere ("মহানগর"), or by its stem starting a word, give or take an ending ("নগরের" finds "নগরে").
 - **Equivalents from the word list** only as a whole word, give or take an ending: English -s, -es, -ed, -ing;
   Bangla -র, -ের, -ে, -তে, -কে, -য়, -দের and the like. So "বন্যা" → "flood" can't find "floodlit", "train" →
   "রেলওয়ে" can't find "জেনারেল", and "assam" can't find "আসামি" (accused). Compounds on the same topic are

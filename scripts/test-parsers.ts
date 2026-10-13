@@ -270,6 +270,18 @@ test("search: English and equivalents start a word; typed Bangla can sit inside 
   // ি/ী forgiven in what's typed, not in the word list: "china" mustn't find চিনি (sugar).
   assert.ok(compileSearch("চিন")!.matches("চীনের সঙ্গে চুক্তি"));
   assert.ok(!compileSearch("china")!.matches("চিনি কলকে লাভজনক করতে"));
+  // A short stem doesn't go anywhere: "শহর" → "শহ" mustn't find "শহীদ", "নগর" → "নগ" "জনগণ", "খবর" → "খব" "রাখবে".
+  assert.ok(!compileSearch("শহর")!.matches("শহীদ পরিবারের পাশে"));
+  assert.ok(!compileSearch("নগর")!.matches("জনগণের রায় মেনে নিন"));
+  assert.ok(!compileSearch("খবর")!.matches("নজর রাখবে সরকার"));
+  // ...but the typed word still sits inside one, and the stem starts one with its endings.
+  assert.ok(compileSearch("নগর")!.matches("মুরাদনগরে সংঘর্ষ"));
+  assert.ok(compileSearch("শহর")!.matches("শহরে যানজট"));
+  assert.ok(compileSearch("নগরের")!.matches("নগরে পানি"));
+  // A short word being typed finds the words it starts.
+  assert.ok(compileSearch("ঢা")!.matches("ঢাকায় বৃষ্টি"));
+  // A longer stem goes on into compounds.
+  assert.ok(compileSearch("বৃষ্টির")!.matches("বজ্রবৃষ্টিপাতের সম্ভাবনা"));
 });
 
 test("search: however the Bangla was written", () => {

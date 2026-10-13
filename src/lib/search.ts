@@ -145,8 +145,28 @@ const BN_ENDINGS = [
   "গুলোর", "গুলোতে", "সহ", "ই", "ও", "েই", "েও", "রই", "রও", "তেই", "তেও", "কেই", "কেও", "য়ই", "য়ও", "দেরও",
 ].map((e) => wordPattern(e.normalize("NFC"), false)).join("|");
 
+/** A stem this short ("শহ", "নগ", "সাগ": under 4 characters, vowel signs included) is too short to go anywhere. */
+const SHORT_STEM = 4;
+
+/**
+ * A word the reader typed, stemmed: "বৃষ্টির" also finds "বৃষ্টিতে" and, inside or across words, "বজ্রবৃষ্টি" and
+ * "বৃষ্টিপাত". A short stem can't go anywhere: "শহর" stems to "শহ", which would find "শহীদ", as "নগর" → "নগ"
+ * would "জনগণ" and "খবর" → "খব" "রাখবে". Such a word is found as typed, anywhere ("মহানগর"), or its stem
+ * starting a word and ending it, give or take an ending. A short word that wasn't stemmed goes anywhere, as
+ * typed: it may be the start of a longer one still being typed ("ঢা" on the way to "ঢাকা").
+ */
+function typedPattern(word: string): string {
+  const s = stem(word);
+  if (!BANGLA.test(s) || s === word || [...s].length >= SHORT_STEM) return wordPattern(s, true);
+  const stemmed = wordPattern(s, true);
+  const whole = `(?:${BN_ENDINGS})?(?=${NOT_WORD}|$)`;
+  // The stem first in both ways (the word starts with it), so the regex can look for it alone.
+  const rest = wordPattern(word.slice(s.length), true);
+  return `${stemmed}(?:${rest}|(?<=(?:^|${NOT_WORD})${stemmed})${whole})`;
+}
+
 function alternative(phrase: string[], typed: boolean): Alternative {
-  const body = phrase.map((w) => wordPattern(typed ? stem(w) : w, typed)).join(`${NOT_WORD}+`);
+  const body = phrase.map((w) => (typed ? typedPattern(w) : wordPattern(w, false))).join(`${NOT_WORD}+`);
   const before = typed && BANGLA.test(phrase[0]) ? "()" : `(^|${NOT_WORD})`;
   // An equivalent is a whole word, give or take an ending: "flood" finds "floods", not "floodlit"; "বন্যা"
   // finds "বন্যায়", not a longer word. An English ending may double a consonant ("banned").

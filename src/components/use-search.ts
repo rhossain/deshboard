@@ -22,9 +22,10 @@ function loadSearchTerms(): Promise<void> {
 export function useSearch(query: string): Search | null {
   const [ready, setReady] = useState(hasSearchTerms);
   const active = query.trim() !== "";
+  // Asked again as the reader types while the list hasn't arrived: a failed download is tried again.
   useEffect(() => {
     if (active && !ready) void loadSearchTerms().then(() => setReady(hasSearchTerms()));
-  }, [active, ready]);
+  }, [active, ready, query]);
   // `ready` is a dependency: once the list is in, the same query compiles to a wider search.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(() => compileSearch(query), [query, ready]);
