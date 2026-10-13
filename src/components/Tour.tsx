@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { needsAnswer } from "@/lib/consent";
+import { useConsentState } from "./ConsentBanner";
 import { useLocale, useStrings } from "./locale";
 import { formatCount } from "./time";
 import { CloseIcon } from "./ui";
@@ -275,6 +277,8 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
 export function TourInvite({ onStart }: { onStart: () => void }) {
   const t = useStrings();
   const [show, setShow] = useState(false);
+  // Not while the cookie question is on screen in the same place.
+  const asking = needsAnswer(useConsentState());
 
   useEffect(() => {
     if (tourSeen()) return;
@@ -282,7 +286,7 @@ export function TourInvite({ onStart }: { onStart: () => void }) {
     return () => clearTimeout(timer);
   }, []);
 
-  if (!show) return null;
+  if (!show || asking) return null;
   const dismiss = () => {
     markTourSeen();
     setShow(false);

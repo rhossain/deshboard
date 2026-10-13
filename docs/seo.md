@@ -194,7 +194,8 @@ account) and, after a month, in Search Console's own query report, which is the 
    Console is server-side on Google's end and needs nothing on the page, so it keeps that promise;
    Cloudflare Web Analytics (cookieless, no personal data) would be the one addition worth a privacy-page
    sentence if visit counts are wanted.
-   ✅ **Done**: Search Console and Bing collect the data. No page analytics added.
+   ✅ **Done**: Search Console and Bing collect the data. Cloudflare Web Analytics added 13 October,
+   with the privacy page saying so.
 
 ### P1: why it would not rank well even once indexed *(all fixed)*
 

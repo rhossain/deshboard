@@ -25,6 +25,9 @@ and styloviz project; leave them alone.
 - **Pages project `bartaboard`**, production branch `main`, custom domains `bartaboard.com` and `www.bartaboard.com`.
   Nothing builds on Cloudflare: the deploy workflow uploads `out/` with Wrangler. `public/_headers` and
   `public/_redirects` set headers and rewrites there.
+- **Web Analytics** (Analytics & Logs → Web Analytics): site `bartaboard.com`, no cookies. The beacon is in the
+  page itself (`ANALYTICS_TOKEN` in `src/lib/site.ts`, loaded only when `SITE_URL` is `https://bartaboard.com`);
+  the dashboard's automatic injection stays off so visits aren't counted twice.
 - **Redirect rule** (Rules → Redirect Rules): `https://www.*` → `https://${1}`, 301, query string kept. Plain http
   goes to https first ("Always Use HTTPS"), then to the bare domain.
 - **DNS records**
@@ -44,6 +47,9 @@ and styloviz project; leave them alone.
 - Accounts and paid plans: repository variables `PLANS` (`on` shows sign-in, the account button and plans to
   everyone; unset keeps them hidden, previewable at `/account/?plans=preview`) and `BKASH_NUMBER`
   (the bKash account readers pay to). Both take effect on the next build.
+- Cookie question: repository variable `CONSENT` (`on` asks readers outside Bangladesh before any analytics or ad
+  cookie; see `src/lib/consent.ts` and `docs/ads.md`). Unset while no such service runs: Cloudflare Web Analytics
+  sets no cookies.
 - Repository secret: `CLOUDFLARE_API_TOKEN`, the Cloudflare API token Wrangler uploads with (made in Cloudflare →
   My Profile → API Tokens).
 - Repository secret: `YOUTUBE_API_KEY` (optional), the YouTube Data API key from Google Cloud below. Without it, or if

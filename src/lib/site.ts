@@ -11,6 +11,11 @@ import type { SourceResult } from "./types";
 
 /** The public address, for absolute URLs (canonical, sitemap, share image). Set SITE_URL when deploying. */
 export const SITE_URL = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+/**
+ * Cloudflare Web Analytics, which sets no cookies (see the privacy policy): the bartaboard.com site's beacon
+ * token, public by design. Only builds for the live address load it, so local and preview visits aren't counted.
+ */
+export const ANALYTICS_TOKEN = SITE_URL === "https://bartaboard.com" ? "3863450a3aa6492697268bf75bc17f86" : null;
 export const SITE_NAME = "Bartaboard";
 // Search results cut titles at about 60 characters and descriptions at about 155, so the search
 // phrase comes first and the name last.

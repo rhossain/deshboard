@@ -86,8 +86,8 @@ function English() {
       <p>Reading Bartaboard is free, and it will stay free.</p>
       <ul>
         <li>
-          <strong>Today</strong> there are no ads, no analytics and no tracking cookies. Your saved stories, pinned
-          sources and settings stay in your own browser (see the <Link href="/privacy/">privacy policy</Link>).
+          <strong>Today</strong> there are no ads and no tracking cookies; we count visits with Cloudflare Web Analytics,
+          which sets no cookies. Your saved stories, pinned sources and settings stay in your own browser (see the <Link href="/privacy/">privacy policy</Link>).
         </li>
         <li>
           <strong>Ads.</strong> To pay for running Bartaboard, we plan to show ads. They will be marked as ads and kept
@@ -161,7 +161,8 @@ function Bangla() {
       <p>বার্তাবোর্ড পড়া বিনা মূল্যের, আর বিনা মূল্যেরই থাকবে।</p>
       <ul>
         <li>
-          <strong>এখন</strong> কোনো বিজ্ঞাপন, অ্যানালিটিক্স বা ট্র্যাকিং কুকি নেই। আপনার সংরক্ষিত খবর, পিন করা উৎস আর
+          <strong>এখন</strong> কোনো বিজ্ঞাপন বা ট্র্যাকিং কুকি নেই; ভিজিট গুনতে আমরা ক্লাউডফ্লেয়ার ওয়েব অ্যানালিটিক্স
+          ব্যবহার করি, যা কোনো কুকি রাখে না। আপনার সংরক্ষিত খবর, পিন করা উৎস আর
           সেটিংস আপনার নিজের ব্রাউজারেই থাকে (দেখুন <Link href={localePath("/privacy/", "bn")}>গোপনীয়তা নীতি</Link>)।
         </li>
         <li>

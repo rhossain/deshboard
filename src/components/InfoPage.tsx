@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { type Locale, localePath } from "@/lib/i18n";
 import { STRINGS } from "@/lib/strings";
 import { BartaboardLogo } from "./BartaboardLogo";
+import { ConsentChoicesLink } from "./ConsentBanner";
 
 /**
  * The site's own pages, linked from the foot of every page. `bn`: the page has a Bangla twin under
@@ -121,6 +122,7 @@ export function InfoPage({
               {t.switchLanguage}
             </a>
           )}
+          <ConsentChoicesLink />
         </nav>
         <InspiredBy locale={locale} />
       </footer>
