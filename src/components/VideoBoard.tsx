@@ -79,6 +79,10 @@ export default function VideoBoard({
   const [pending, setPending] = useState<Pending | null>(null);
   const [channel, setChannel] = useState("");
   const [playing, setPlaying] = useState<Video | null>(null);
+  // The story whose related videos are laid out (by its lead's id): one at a time, so its panel sits
+  // right under its card.
+  const [openStory, setOpenStory] = useState<string | null>(null);
+  const toggleStory = useCallback((leadId: string) => setOpenStory((id) => (id === leadId ? null : leadId)), []);
   // With a seed, the clock starts at its render time so the server's HTML and hydration agree.
   const [now, setNow] = useState(() => (!cachedVideos() && seed ? Date.parse(seed.generatedAt) : Date.now()));
   const { savedVideoIds, toggleSavedVideo } = useSavedVideos();
@@ -343,6 +347,8 @@ export default function VideoBoard({
                         // Only cards with related videos need these (each save redraws them).
                         savedIds={related.length ? savedVideoIds : undefined}
                         pinnedIds={related.length ? pinnedIds : undefined}
+                        storyOpen={related.length > 0 && openStory === v.id}
+                        onToggleStory={toggleStory}
                       />
                     ))}
                   </ul>
