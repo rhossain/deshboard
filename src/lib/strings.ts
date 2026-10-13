@@ -71,6 +71,7 @@ const en = {
   couldNotLoad: (error: string) => `Could not load news: ${error}`,
   nothingFound: "Nothing found",
   searchingAll: "Searching all headlines…",
+  loadingAll: "Loading all headlines…",
   nothingRecent: "Nothing among the latest headlines",
   olderHeadlines: "Earlier headlines",
   searchingOlder: "Searching earlier headlines…",
@@ -137,7 +138,7 @@ const en = {
   // Top stories
   topStories: "Top stories",
   topExplainer:
-    "The same event reported by several outlets, grouped by matching headlines. The more outlets, the higher it ranks.",
+    "The same event reported by several outlets, grouped by matching headlines. The more outlets covering it lately, the higher it ranks.",
   moreStories: "Show more stories",
   outlets: (count: string) => `${count} outlets`,
   allOutlets: (count: string) => `All ${count} outlets`,
@@ -368,6 +369,7 @@ const bn: Strings = {
   couldNotLoad: (error) => `খবর লোড করা যায়নি: ${error}`,
   nothingFound: "কিছু পাওয়া যায়নি",
   searchingAll: "সব শিরোনামে খোঁজা হচ্ছে…",
+  loadingAll: "সব শিরোনাম আনা হচ্ছে…",
   nothingRecent: "সর্বশেষ শিরোনামে কিছু পাওয়া যায়নি",
   olderHeadlines: "আগের শিরোনাম",
   searchingOlder: "আগের শিরোনামে খোঁজা হচ্ছে…",
@@ -431,7 +433,7 @@ const bn: Strings = {
 
   topStories: "শীর্ষ খবর",
   topExplainer:
-    "একই ঘটনা যেটি একাধিক মাধ্যমে এসেছে, শিরোনাম মিলিয়ে একসঙ্গে রাখা হয়েছে। যত বেশি মাধ্যমে, তত ওপরে।",
+    "একই ঘটনা যেটি একাধিক মাধ্যমে এসেছে, শিরোনাম মিলিয়ে একসঙ্গে রাখা হয়েছে। সাম্প্রতিক সময়ে যত বেশি মাধ্যমে, তত ওপরে।",
   moreStories: "আরও খবর দেখুন",
   outlets: (count) => `${count}টি মাধ্যম`,
   allOutlets: (count) => `সব ${count}টি মাধ্যম`,

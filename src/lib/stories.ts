@@ -22,6 +22,8 @@ export interface Story {
   outlets: number;
   /** Most recent time in the story, if any headline has one. */
   latest?: string;
+  /** What stories are ranked by: its outlets, each counting less the older its headline (see HALF_LIFE_MS). */
+  heat: number;
 }
 
 export interface StoryOptions {
@@ -43,6 +45,11 @@ const LINK_THRESHOLD_MAX = 0.4;
 const MIN_SHARED = 2;
 /** Words in more than this share of headlines are too common to link two headlines on their own. */
 const MAX_DF_SHARE = 0.02;
+/**
+ * An outlet's headline counts half as much towards its story's rank after this long, so a story still
+ * being covered comes before a bigger one from yesterday. Undated headlines (homepage ones) count fully.
+ */
+const HALF_LIFE_MS = 12 * 3600_000;
 
 /** The time used for ordering: the publish time, or when Bartaboard first saw the headline. */
 export function itemTime(it: NewsItem): string | undefined {
@@ -384,7 +391,7 @@ function joinByCore(
   }
 }
 
-/** Groups headlines into stories covered by several outlets, most-covered first. */
+/** Groups headlines into stories covered by several outlets, the most covered lately first (see Story.heat). */
 export function findStories(items: NewsItem[], options: StoryOptions = {}): Story[] {
   const { minOutlets = 2, maxAgeMs = 36 * 3600_000, now = Date.now() } = options;
   const cutoff = new Date(now - maxAgeMs).toISOString();
@@ -404,11 +411,15 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
     if (cluster.length < minOutlets) continue;
     const [lead, ...rest] = cluster.map((i) => docs[i].item);
     rest.sort((a, b) => newestFirst(itemTime(a), itemTime(b)));
-    const latest = cluster
-      .map((i) => itemTime(docs[i].item))
-      .reduce<string | undefined>((a, b) => (b && (!a || b > a) ? b : a), undefined);
-    stories.push({ id: lead.link, lead, items: [lead, ...rest], outlets: cluster.length, latest });
+    let latest: string | undefined;
+    let heat = 0;
+    for (const i of cluster) {
+      const t = itemTime(docs[i].item);
+      if (t && (!latest || t > latest)) latest = t;
+      heat += t ? 0.5 ** (Math.max(now - Date.parse(t), 0) / HALF_LIFE_MS) : 1;
+    }
+    stories.push({ id: lead.link, lead, items: [lead, ...rest], outlets: cluster.length, latest, heat });
   }
 
-  return stories.sort((a, b) => b.outlets - a.outlets || newestFirst(a.latest, b.latest));
+  return stories.sort((a, b) => b.heat - a.heat || b.outlets - a.outlets || newestFirst(a.latest, b.latest));
 }

@@ -394,6 +394,8 @@ export function NewsBoard({
   const start = useCallback(
     (manual = false, wantWhole = false) => {
       controllerRef.current?.abort();
+      // A background refresh that began on less of the feed would replace what this brings.
+      quietRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
       const getWhole = wantWhole || hasRef.current === WHOLE;
@@ -406,6 +408,8 @@ export function NewsBoard({
           if (controllerRef.current === controller) wholeLoadingRef.current = false;
           const newer = feed.generatedAt !== generatedAtRef.current;
           if (newer || partOf(feed) > hasRef.current) show(feed);
+          // A held-back refresh this build already includes is no longer new.
+          setPending((p) => (p && p.feed.generatedAt <= feed.generatedAt ? null : p));
           if (manual) {
             clearTimeout(noticeTimer.current);
             setNotice(newer ? t.showingLatest : t.upToDate(nextUpdate(feed.generatedAt, Date.now(), locale)));
@@ -453,6 +457,11 @@ export function NewsBoard({
     (hasRef.current === WHOLE ? loadFeed(controller.signal, "low") : loadHead(pageCategory, controller.signal, "low")).then(
       (feed: NewsFeed | NewsSeed) => {
         if (feed.generatedAt === generatedAtRef.current) return; // No new build since the last look.
+        // The board got the whole feed meanwhile: fetch the new build's whole feed rather than shrink to its head.
+        if (partOf(feed) < hasRef.current) {
+          start(false, true);
+          return;
+        }
         const known = new Set([...resultsRef.current.values()].flatMap((r) => r.items.map((it) => it.link)));
         const fresh = feed.results.reduce((n, r) => n + r.items.filter((it) => !known.has(it.link)).length, 0);
         if (fresh && !document.hidden && window.scrollY > AT_TOP_PX) {
@@ -464,11 +473,12 @@ export function NewsBoard({
       },
       () => {}, // A failed background refresh changes nothing; the next one tries again.
     );
-  }, [show, pageCategory]);
+  }, [show, pageCategory, start]);
 
   const showPending = () => {
     if (!pending) return;
-    show(pending.feed);
+    if (partOf(pending.feed) < hasRef.current) start(false, true);
+    else show(pending.feed);
     setPending(null);
     window.scrollTo({ top: 0 });
   };
@@ -495,10 +505,13 @@ export function NewsBoard({
       : seeded
         ? (seedFits ? whenNeeded : whenSettled)(load)
         : (load(), undefined);
-    const tick = setInterval(() => setNow(Date.now()), 60_000);
+    // A transition: redrawing every headline's age is no reason to hold up a tap.
+    const tick = setInterval(() => startTransition(() => setNow(Date.now())), 60_000);
     return () => {
       cancel?.();
       controllerRef.current?.abort();
+      // Else a remount (StrictMode in dev) takes the aborted load for one under way and never loads.
+      controllerRef.current = null;
       quietRef.current?.abort();
       clearInterval(tick);
       clearTimeout(noticeTimer.current);
@@ -583,9 +596,11 @@ export function NewsBoard({
   const searchQuery = useDeferredValue(query);
   const search = useSearch(searchQuery);
   const filtering = !!search || !!category || onlyNew;
-  // A search runs on what the board has. Until every headline is here, it may not have found everything
-  // yet, so the board says it is still searching rather than "Nothing found". A failed load ends the wait.
-  const searching = !!search && !whole && !error;
+  // The board wants every headline but still has only the head file: a search, another section or Top
+  // may not have found everything yet, so the board says it is still loading rather than "Nothing found".
+  // A failed load ends the wait.
+  const incomplete = needsWhole && !whole && !error;
+  const searching = !!search && incomplete;
   // Once the board has every headline, the search carries on into the last 30 days (OlderResults).
   const searchOlder = !!search && whole && !onlyNew && (view === "sources" || view === "top" || view === "latest");
 
@@ -663,15 +678,27 @@ export function NewsBoard({
   }, [visibleSources, sourceRank, itemsBySource, filtering]);
 
   // Stories are grouped across all outlets in the chosen language (deferred: grouping takes a moment
-  // and sources stream in one by one); the other filters then pick stories with a matching headline.
+  // on a phone); the other filters then pick stories with a matching headline. Grouped once Top has
+  // been opened, then kept when the reader leaves it, and only from every headline: the head file's few
+  // per source would group into different stories. Ages count from the build, not the clock, so the
+  // minute's tick doesn't group everything again.
+  const [storiesWanted, setStoriesWanted] = useState(view === "top");
+  if (view === "top" && !storiesWanted) setStoriesWanted(true);
   const storyItems = useDeferredValue(allItems);
+  const storyLang = useDeferredValue(lang);
+  const storiesReady = storiesWanted && (whole || !!error);
+  const storiesAt = Date.parse(generatedAt ?? "") || undefined;
   const allStories = useMemo(
     () =>
-      view === "top"
-        ? findStories(lang === "all" ? storyItems : storyItems.filter((it) => it.lang === lang), { now })
+      storiesReady
+        ? findStories(storyLang === "all" ? storyItems : storyItems.filter((it) => it.lang === storyLang), {
+            now: storiesAt,
+          })
         : [],
-    [view, storyItems, lang, now],
+    [storiesReady, storyItems, storyLang, storiesAt],
   );
+  // Grouping still to catch up with the language or feed just chosen.
+  const storiesPending = storyItems !== allItems || storyLang !== lang;
   const stories = useMemo(() => {
     const matches = allStories.filter((st) =>
       st.items.some(
@@ -741,11 +768,12 @@ export function NewsBoard({
       updateCardPrefs((p) => {
         for (const id of ids) {
           p.collapsed[id] = collapsed;
-          const lead = itemsBySource.get(id)?.[0]?.link;
+          // The card's lead with no filter on (a filtered card's isn't what its folded header compares to).
+          const lead = results.get(id)?.items[0]?.link;
           if (lead) p.seen[id] = lead;
         }
       }),
-    [updateCardPrefs, itemsBySource],
+    [updateCardPrefs, results],
   );
   const toggleCard = useCallback((id: string, collapsed: boolean) => setCollapsed([id], collapsed), [setCollapsed]);
 
@@ -774,16 +802,20 @@ export function NewsBoard({
   // Labels follow the language filter (Bangla names when only Bangla sources are shown) and are always
   // Bangla on Bangla pages.
   const bn = lang === "bn" || locale === "bn";
-  const categoryTabs = [
-    { id: "", label: bn ? "সব" : "All", href: localePath("/", locale), count: matchingCount },
-    ...CATEGORIES.map((c) => ({
-      id: c.id,
-      label: bn ? c.bn : c.label,
-      title: bn ? c.label : c.bn,
-      href: localePath(categoryPath(c.id) ?? `/?cat=${c.id}`, locale),
-      count: categoryCounts.get(c.id) ?? 0,
-    })),
-  ];
+  // Kept the same between renders unless a count changes: the tabs measure themselves whenever it changes.
+  const categoryTabs = useMemo(
+    () => [
+      { id: "", label: bn ? "সব" : "All", href: localePath("/", locale), count: matchingCount },
+      ...CATEGORIES.map((c) => ({
+        id: c.id,
+        label: bn ? c.bn : c.label,
+        title: bn ? c.label : c.bn,
+        href: localePath(categoryPath(c.id) ?? `/?cat=${c.id}`, locale),
+        count: categoryCounts.get(c.id) ?? 0,
+      })),
+    ],
+    [bn, locale, matchingCount, categoryCounts],
+  );
 
   /** Selects a category; from deep in the page, jumps back to the top of the results. */
   const pickCategory = (id: Category | "") => {
@@ -1199,10 +1231,10 @@ export function NewsBoard({
 
               {hasData && view !== "saved" && view !== "videos" && filtering && filtered.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center" aria-live="polite">
-                  {searching ? (
+                  {incomplete ? (
                     <p className="flex items-center justify-center gap-2 text-sm text-muted">
                       <RefreshIcon spinning className="h-4 w-4" />
-                      {t.searchingAll}
+                      {searching ? t.searchingAll : t.loadingAll}
                     </p>
                   ) : (
                     <>
@@ -1230,12 +1262,12 @@ export function NewsBoard({
                   onToggleSave={toggleSaved}
                   onShare={shareItem}
                   emptyHint={
-                    onlySource
-                      ? t.topEmpty.source(sourceById.get(onlySource)?.name ?? t.topEmpty.thisSource)
-                      : filtering
-                        ? t.topEmpty.filtered
-                        : loading
-                          ? t.topEmpty.grouping
+                    loading || incomplete || storiesPending
+                      ? t.topEmpty.grouping
+                      : onlySource
+                        ? t.topEmpty.source(sourceById.get(onlySource)?.name ?? t.topEmpty.thisSource)
+                        : filtering
+                          ? t.topEmpty.filtered
                           : t.topEmpty.none
                   }
                 />

@@ -90,7 +90,8 @@ export function OlderResults({
   const live = useRef(false);
   /** Outlet and title of each headline shown: some outlets publish the same one at two addresses. */
   const shown = useRef(new Set<string>());
-  const dates = keptDates(now);
+  // Fixed when the search starts: past midnight, "Search further back" carries on from the same day.
+  const [dates] = useState(() => keptDates(now));
 
   const run = async (start: number, round: number, already: number) => {
     setBusy(true);
@@ -100,6 +101,8 @@ export function OlderResults({
       const date = dates[i];
       const items = await loadDay(date);
       if (round !== roundRef.current || !live.current) return;
+      // No file for today yet: the day's first build hasn't run. Older days go on.
+      if (!items && i === 0) continue;
       // No file for this day: the archive starts after it (it is filling up, see archive.ts).
       if (!items) {
         setSearched(dates.length);

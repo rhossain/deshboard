@@ -113,7 +113,8 @@ export const SourceCard = memo(function SourceCard({
           collapsed ? "pb-4" : phoneFolded ? "pb-3 max-md:pb-4" : "pb-3"
         }`}
       >
-        {collapsible && (
+        {/* A filtered card never folds, so its header doesn't offer to. */}
+        {collapsible && !filtering && (
           <button
             type="button"
             onClick={toggle}
@@ -171,7 +172,7 @@ export const SourceCard = memo(function SourceCard({
           )}
           {/* Shown at phone widths even before the board knows it's on a phone (see phoneFolded). */}
           <ChevronIcon
-            className={`h-5 w-5 text-muted transition duration-300 ${collapsible ? "" : "hidden max-md:block"} ${
+            className={`h-5 w-5 text-muted transition duration-300 ${filtering ? "hidden" : collapsible ? "" : "hidden max-md:block"} ${
               collapsed || phoneFolded ? "" : "rotate-180"
             }`}
           />
