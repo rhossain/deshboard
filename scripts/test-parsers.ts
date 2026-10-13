@@ -16,7 +16,7 @@ import {
   parseResolvedUrl,
   siteHost,
 } from "../src/lib/fetchers/google-news";
-import { fullTime, timeAgo } from "../src/components/time";
+import { compactCount, fullTime, timeAgo } from "../src/components/time";
 import { articleUrl } from "../src/lib/article";
 import { canonicalLink, cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
 import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filters";
@@ -378,6 +378,13 @@ test("first seen: an old article resurfacing on the page gets no time", () => {
   assert.equal(later.find((it) => it.link === link(5013))?.seenAt, new Date(t0 + 1_200_000).toISOString());
 });
 
+test("compactCount: each unit while it rounds under 100 of it", () => {
+  assert.equal(compactCount(48_000, "bn"), "৪৮ হাজার");
+  assert.equal(compactCount(99_960, "bn"), "১ লাখ");
+  assert.equal(compactCount(9_999_000, "bn"), "১ কোটি");
+  assert.equal(compactCount(1_234), "1.2K");
+});
+
 test("canonicalLink: AMP, index.php and tracking parameters", () => {
   assert.equal(canonicalLink("https://www.dhakatribune.com/amp/bangladesh/421896/x"), "https://www.dhakatribune.com/bangladesh/421896/x");
   assert.equal(canonicalLink("https://example.com/news/123/amp"), "https://example.com/news/123");
@@ -590,7 +597,7 @@ test("Video titles keep their Bangla parts", () => {
   for (const [raw, clean] of cases) assert.equal(cleanVideoTitle(raw), clean);
 });
 
-test("Videos build up across runs: the last day, at most 30 per channel", () => {
+test("Videos build up across runs: the whole last day, up to 200 per channel", () => {
   const now = Date.parse("2026-10-07T12:00:00Z");
   const v = (id: string, hoursAgo: number, title = id): Video => ({
     id,
@@ -603,8 +610,11 @@ test("Videos build up across runs: the last day, at most 30 per channel", () => 
     mergeVideos([v("a", 1), v("b", 2, "new title")], kept, now).map((x) => `${x.id}:${x.title}`),
     ["a:a", "b:new title", "c:c"],
   );
-  const many = Array.from({ length: 40 }, (_, i) => v(`m${i}`, i / 10));
-  assert.equal(mergeVideos(many, [], now).length, 30);
+  // A busy channel's day (a video every 10 minutes) is all kept; beyond the limit, the newest.
+  const day = Array.from({ length: 140 }, (_, i) => v(`d${i}`, i / 6));
+  assert.equal(mergeVideos(day, [], now).length, 140);
+  const many = Array.from({ length: 250 }, (_, i) => v(`m${i}`, i / 20));
+  assert.equal(mergeVideos(many, [], now).length, 200);
   assert.equal(mergeVideos(many, [], now)[0].id, "m0");
 });
 

@@ -216,6 +216,8 @@ const en = {
   noVideos: "No videos found",
   tryAnotherChannel: "Try another word or channel.",
   nothingFromChannel: "Nothing from this channel today.",
+  nothingYet: "No videos from the channels yet today.",
+  newVideos: (n: number, count: string) => `${count} new video${n === 1 ? "" : "s"}`,
   myChannels: "My channels",
   moreOnStory: (count: string) => `${count} more on this story`,
   story: {
@@ -510,6 +512,8 @@ const bn: Strings = {
   noVideos: "কোনো ভিডিও পাওয়া যায়নি",
   tryAnotherChannel: "অন্য শব্দ বা চ্যানেল দিয়ে চেষ্টা করুন।",
   nothingFromChannel: "আজ এই চ্যানেলের কিছু নেই।",
+  nothingYet: "আজ চ্যানেলগুলোর কোনো ভিডিও এখনো আসেনি।",
+  newVideos: (_n, count) => `${count}টি নতুন ভিডিও`,
   myChannels: "আমার চ্যানেল",
   moreOnStory: (count) => `এই খবরে আরও ${count}টি ভিডিও`,
   story: {

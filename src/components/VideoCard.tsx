@@ -58,7 +58,8 @@ export const VideoCard = memo(function VideoCard({
   /** Whether the related videos' panel is open (one story at a time, see VideoBoard). */
   storyOpen?: boolean;
   /** Opens or closes the panel of the story led by this video. */
-  onToggleStory?: (leadId: string) => void;
+  /** With the story's id (Video.story), which stays the same whichever of its videos leads the card. */
+  onToggleStory?: (story: string) => void;
 }) {
   const t = useStrings();
   const locale = useLocale();
@@ -144,7 +145,7 @@ export const VideoCard = memo(function VideoCard({
           </div>
         </div>
         {story && (
-          <StoryToggle ref={toggle} videos={story} open={open} controls={panelId} onToggle={() => onToggleStory?.(video.id)} />
+          <StoryToggle ref={toggle} videos={story} open={open} controls={panelId} onToggle={() => onToggleStory?.(video.story ?? video.id)} />
         )}
       </li>
       {story && (
@@ -159,7 +160,7 @@ export const VideoCard = memo(function VideoCard({
           savedIds={savedIds}
           pinnedIds={pinnedIds}
           onClose={() => {
-            onToggleStory?.(video.id);
+            onToggleStory?.(video.story ?? video.id);
             toggle.current?.focus();
           }}
           onPlay={onPlay}

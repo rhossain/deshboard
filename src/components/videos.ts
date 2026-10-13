@@ -21,7 +21,8 @@ export function loadVideos(fresh = false, force = false): Promise<VideoFeed> {
   const r = fetch(`/api/videos${force ? "?refresh=1" : ""}`, { cache: "no-store" }).then(async (res) => {
     if (!res.ok) throw new Error(`server returned ${res.status}`);
     const feed = (await res.json()) as VideoFeed;
-    latest = { feed, at: Date.now() };
+    // Requests can finish out of order: an older feed arriving last doesn't replace a newer one.
+    if (!latest || feed.generatedAt >= latest.feed.generatedAt) latest = { feed, at: Date.now() };
     return feed;
   });
   // A failed fetch isn't kept, so the next look tries again.

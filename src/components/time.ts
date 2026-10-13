@@ -105,7 +105,10 @@ export function compactCount(n: number, locale: Locale = "en"): string {
   if (n < 1000) return localDigits(String(n), locale);
   const k = Math.round(n / 100) / 10;
   if (locale === "bn") {
-    return localDigits(n < 100_000 ? `${k} হাজার` : `${Math.round(n / 10_000) / 10} লাখ`, locale);
+    // Each unit while it rounds to under 100 of it: 99,960 is "১ লাখ", not "১০০ হাজার".
+    const lakh = Math.round(n / 10_000) / 10;
+    const text = k < 100 ? `${k} হাজার` : lakh < 100 ? `${lakh} লাখ` : `${Math.round(n / 1_000_000) / 10} কোটি`;
+    return localDigits(text, locale);
   }
   return k < 1000 ? `${k}K` : `${Math.round(k / 100) / 10}M`;
 }
