@@ -213,6 +213,11 @@ const en = {
   nothingFromChannel: "Nothing from this channel today.",
   myChannels: "My channels",
   moreOnStory: (count: string) => `${count} more on this story`,
+  story: {
+    label: "Full coverage",
+    summary: (videos: string, channels: string) => `${videos} videos from ${channels} channels`,
+    close: "Close full coverage",
+  },
   videoLayout: { label: "Layout", grid: "Grid", list: "List" },
   fromYourChannels: "From your channels",
   everythingElse: "Everything else",
@@ -497,6 +502,11 @@ const bn: Strings = {
   nothingFromChannel: "আজ এই চ্যানেলের কিছু নেই।",
   myChannels: "আমার চ্যানেল",
   moreOnStory: (count) => `এই খবরে আরও ${count}টি ভিডিও`,
+  story: {
+    label: "সব চ্যানেলের কভারেজ",
+    summary: (videos, channels) => `${channels}টি চ্যানেলের ${videos}টি ভিডিও`,
+    close: "কভারেজ বন্ধ করুন",
+  },
   videoLayout: { label: "বিন্যাস", grid: "গ্রিড", list: "তালিকা" },
   fromYourChannels: "আপনার চ্যানেল থেকে",
   everythingElse: "বাকি সব",

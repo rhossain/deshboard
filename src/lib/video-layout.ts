@@ -14,8 +14,10 @@ if(l==="grid"||l==="list")document.documentElement.setAttribute(${JSON.stringify
 
 // Each part of a video card, per layout (VideoCard, VideoSkeleton). Default: a row on phones, a card in
 // a grid from `sm`. Grid: cards on phones too. List: rows on every screen, in one column.
+// Dense: an open story's coverage (a row of its own, see VideoCard) goes under its card's row, and the
+// cards after it fill the rest of that row.
 export const VIDEO_LIST =
-  "grid gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-y-7 lg:grid-cols-3 xl:grid-cols-4 " +
+  "grid grid-flow-row-dense gap-x-4 gap-y-4 sm:grid-cols-2 sm:gap-y-7 lg:grid-cols-3 xl:grid-cols-4 " +
   "vgrid:gap-y-6 vlist:max-w-4xl vlist:grid-cols-1 sm:vlist:gap-y-5";
 export const VIDEO_ITEM = "flex gap-3 sm:block vgrid:block vlist:flex sm:vlist:gap-4";
 export const VIDEO_THUMB = "w-40 shrink-0 sm:w-full vgrid:w-full vlist:w-40 sm:vlist:w-60";

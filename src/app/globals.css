@@ -253,6 +253,16 @@ dialog.tour[open],
 .tour-invite {
   animation: fade-in 0.18s ease-out;
 }
+/* A video story's full coverage (src/components/VideoCard.tsx), unfolding under its card's row. */
+.story-panel:not([hidden]) > section {
+  animation: story-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes story-in {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+}
 @keyframes fade-in {
   from {
     opacity: 0;
