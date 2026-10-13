@@ -319,7 +319,7 @@ function rejoinParts(parts: number[][], similarity: (i: number, j: number) => nu
 }
 
 /** Which of the `exclusive` sets a title's words name, as a bit mask (0: none). */
-function outcomesOf(exclusive: string[][]): (words: Iterable<string>) => number {
+export function outcomesOf(exclusive: string[][]): (words: Iterable<string>) => number {
   const bit = new Map<string, number>();
   exclusive.forEach((set, k) => set.forEach((w) => bit.set(w, (bit.get(w) ?? 0) | (1 << k))));
   return (words) => {
