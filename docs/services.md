@@ -10,7 +10,7 @@ those stay in the dashboards and in GitHub's encrypted secrets. Last checked 10 
 | GitHub Actions | rhossain/deshboard | Fetches headlines, builds the site, uploads it every 15 minutes |
 | cron-job.org | — | Starts the deploy workflow every 15 minutes |
 | Supabase | org rshossain | Accounts, sessions and the `profiles` table |
-| Google Cloud | hossain.robin007@gmail.com | "Continue with Google" |
+| Google Cloud | hossain.robin007@gmail.com | "Continue with Google"; the YouTube Data API key for video views |
 | Resend | rshossain.bd | Sends the sign-in emails |
 | Hostinger | — | Domain registrar; serves the old deshboard.rshossain.me address, which redirects here |
 | Google Search Console | rshossain.bd@gmail.com | Indexing, sitemap, search queries |
@@ -46,6 +46,9 @@ and styloviz project; leave them alone.
   (the bKash account readers pay to). Both take effect on the next build.
 - Repository secret: `CLOUDFLARE_API_TOKEN`, the Cloudflare API token Wrangler uploads with (made in Cloudflare →
   My Profile → API Tokens).
+- Repository secret: `YOUTUBE_API_KEY` (optional), the YouTube Data API key from Google Cloud below. Without it, or if
+  the API fails, the videos keep the channel feeds' view counts; the fetch log then says "YouTube Data API views
+  unavailable".
 - cron-job.org calls `POST /repos/rhossain/deshboard/actions/workflows/deploy.yml/dispatches` with
   `{"ref":"main"}` every 15 minutes, using a fine-grained token that can only run this repo's Actions.
 
@@ -90,6 +93,12 @@ Project "Bartaboard" (`durable-sky-511119-q1`), under hossain.robin007@gmail.com
   stored only in Supabase; to replace it, add a new secret here and paste it into Supabase.
 - Google's consent screen says "continue to errwyvuguelgifuusbky.supabase.co". Showing bartaboard.com instead needs a
   Supabase custom domain, a paid add-on.
+- **YouTube Data API v3**, enabled for the videos' current view counts (`src/lib/fetchers/youtube-api.ts`). One API
+  key, restricted to this API only, with no application restriction (GitHub Actions' addresses change). It is stored
+  only in the GitHub secret `YOUTUBE_API_KEY` (and the environment of a main-branch server, if one runs); to replace
+  it, make a new key here and update the secret. No billing: the free quota is 10,000 units a day, and each fetch uses
+  about 13 (50 videos a request), roughly 1,250 a day at one deploy every 15 minutes. Usage is under APIs & Services →
+  YouTube Data API v3 → Quotas.
 
 ## Resend
 
