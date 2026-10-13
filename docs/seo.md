@@ -20,19 +20,45 @@ section 4 now carries its status: ✅ done, 🟡 partly done, ⬜ open, 🔁 ong
 
 ## Recheck (13 October 2026, after the videos and tour work)
 
-Lighthouse 12.8.2 locally against the live site (simulated mid-range phone on slow 4G unless marked desktop),
-then against a local build with the fixes below. Search Console and SEO checks on the live site.
+Lighthouse 12.8.2 run locally against the live site, simulated mid-range phone on slow 4G unless marked
+desktop. "Before" is the live site that morning; the scores are the live site after the fixes below deployed
+(10:30 UTC). Search Console and SEO checks on the live site.
 
 | Page | Performance | SEO | Accessibility | Best practices | LCP | TBT | CLS |
 |---|---|---|---|---|---|---|---|
-| `/` | 87 (68–87) | 100 | 100 | 100 | 3.4 s | 80 ms | 0 |
-| `/bn/` | 99 | 100 | 100 | 100 | 1.7 s | 70 ms | 0 |
-| `/news/sports/` | 92–93 | 100 | 100 | 100 | 3.2 s | 30–60 ms | 0 |
-| `/videos/` (desktop) | 74 → 99 | 100 | 100 | 100 | 2.3 → 0.9 s | 0 ms | 0.127 → 0 |
-| `/videos/` | 74 → on a par with the other pages | 100 | 100 | 100 | 6.1 s before | 70 ms | 0.007 → 0 |
-| `/sources/` | 97 | 100 | 100 | 100 | 2.6 s | 40 ms | 0 |
-| `/sources/prothomalo/` | 92 | 100 | 100 | 100 | 3.3 s | 30 ms | 0 |
-| `/about/` | 99 | 100 | 100 | 100 | 2.0 s | 30 ms | 0 |
+| `/` (desktop) | 98 → 97 | 100 | 100 | 100 | 1.0 s | 0 ms | 0.001 → 0 |
+| `/videos/` (desktop) | 74 → 98 | 100 | 100 | 100 | 2.3 → 1.1 s | 0 ms | 0.126 → 0 |
+| `/` | 70 → 84 | 100 | 100 | 100 | 4.5 s | 460 → 50 ms | 0 |
+| `/bn/` | 99 → 87 | 100 | 100 | 100 | 1.7 → 4.1 s | 70 → 20 ms | 0 |
+| `/news/sports/` | 64 → 93 | 100 | 100 | 100 | 2.5 → 3.2 s | 2,730 → 20 ms | 0 |
+| `/videos/` | 74 → 89 | 100 | 100 | 100 | 6.1 → 3.6 s | 70 → 20 ms | 0.007 → 0 |
+| `/bn/videos/` | 75–76 | 100 | 100 | 100 | 5.1–5.2 s | 50 ms | 0 |
+| `/sources/` | 97 → 97 | 100 | 100 | 100 | 2.6 s | 40 → 10 ms | 0 |
+| `/sources/prothomalo/` | 92 → 84 | 100 | 100 | 100 | 3.3 → 4.4 s | 30 → 20 ms | 0 |
+| `/about/` | 99 → 84–97 | 100 | 100 | 100 | 2.0 → 2.5–4.4 s | 30 → 60 ms | 0 |
+
+**Read the phone scores as a range, not a number.** The same page moves 10–20 points between runs here
+(`/about/`, 65 elements and no change, scored 97, 86 and 84 in three runs), so drops like `/bn/` and
+`/sources/prothomalo/` above are the machine and the network, not the page. What the fixes did change shows
+in every run: the Videos page's layout shift is gone, and its LCP no longer waits for a script.
+`/bn/videos/` scores lower than `/videos/` in every run, but timed in Chrome (4× CPU slowdown) it paints
+as fast (0.44–0.90 s against 0.38–0.74 s); the difference is Lighthouse's simulation.
+
+**The headline feed** (deployed 11:45 UTC, measured on the live site with Cloudflare's own compression):
+
+| Download | Before | After |
+|---|---|---|
+| Full feed, first load (search, Top stories, Latest, filters) | ≈ 1,000 KB, 15,265 headlines | 754 KB, 12,130 headlines |
+| Each 15-minute refresh in a tab that has it | ≈ 1,000 KB, the whole feed again | 15 KB (`delta.json`) |
+| Head file (plain visits) | ≈ 43 KB | 40 KB |
+| A day file (search past the board) | ≈ 509 KB (gzip, measured locally) | 437 KB |
+
+The board's feed now holds 48 hours, not 72 (the day files still hold every headline for 30 days, so search and
+shared links reach as far back), headlines are packed (`src/lib/packed.ts`), and an open tab applies the build's
+changes instead of downloading the feed again. Checked in a live browser across the 12:01 build: Refresh
+downloaded only `delta.json` and said "Showing the latest". The old addresses (`/data/news.json`, `/data/head/`,
+`/data/days/`) still answer with Cloudflare's copies from before the change, so tabs open on older code keep
+their headlines until they reload.
 
 **Blocking time swings from run to run on this machine** (80 → 890 ms on `/`, 30 → 2,730 ms on
 `/news/sports/`): the long tasks in those traces have no script in them, so they are the laptop, not the page.
