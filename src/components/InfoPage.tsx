@@ -82,7 +82,7 @@ export function InfoPage({
               href={other}
               hrefLang={otherLocale}
               lang={otherLocale}
-              aria-label={t.switchLanguageLabel}
+              aria-label={`${t.switchLanguageShort}: ${t.switchLanguageLabel}`}
               title={t.switchLanguageLabel}
               className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-line px-3 text-sm font-semibold text-foreground transition hover:bg-surface-2 active:scale-95"
             >

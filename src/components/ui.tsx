@@ -331,7 +331,7 @@ export function ItemMenu({
         aria-label={saved ? t.moreActionsSaved : t.moreActions}
         title={t.moreActions}
         className={`flex w-10 shrink-0 items-start justify-center pt-3 transition active:scale-90 ${
-          saved ? "text-gold" : open ? "text-foreground" : "text-muted/60 hover:text-foreground"
+          saved ? "text-gold" : open ? "text-foreground" : "text-muted hover:text-foreground"
         } ${className}`}
       >
         <DotsIcon className="h-[18px] w-[18px]" />

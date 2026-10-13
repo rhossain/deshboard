@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useId, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { Video } from "@/lib/types";
 import { VIDEO_ITEM, VIDEO_TEXT, VIDEO_THUMB } from "@/lib/video-layout";
 import { useLocale, useStrings } from "./locale";
@@ -17,8 +18,9 @@ import { Highlight } from "./Highlight";
  *
  * `related` are other channels' videos of the same news (see video-stories.ts): one card per story
  * instead of one per channel. The card shows a slim strip for them; opening it (`storyOpen`) lays them all out in a
- * panel the width of the grid, under the card's row (the grid is dense, so the cards after it fill
- * that row), as image searches do: the grid keeps its shape however many there are.
+ * panel the width of the grid, under the card's row (in `storySlot`, which VideoBoard puts after the
+ * row's last card, so the keyboard reaches it where it is drawn), as image searches do: the grid
+ * keeps its shape however many there are.
  */
 export const VideoCard = memo(function VideoCard({
   video,
@@ -36,6 +38,7 @@ export const VideoCard = memo(function VideoCard({
   savedIds,
   pinnedIds,
   storyOpen = false,
+  storySlot,
   onToggleStory,
 }: {
   video: Video;
@@ -57,6 +60,8 @@ export const VideoCard = memo(function VideoCard({
   pinnedIds?: Set<string>;
   /** Whether the related videos' panel is open (one story at a time, see VideoBoard). */
   storyOpen?: boolean;
+  /** Where the open panel goes: a row of the grid after this card's row. Until there is one, it follows the card. */
+  storySlot?: HTMLElement | null;
   /** Opens or closes the panel of the story led by this video. */
   /** With the story's id (Video.story), which stays the same whichever of its videos leads the card. */
   onToggleStory?: (story: string) => void;
@@ -148,27 +153,36 @@ export const VideoCard = memo(function VideoCard({
           <StoryToggle ref={toggle} videos={story} open={open} controls={panelId} onToggle={() => onToggleStory?.(video.story ?? video.id)} />
         )}
       </li>
-      {story && (
-        <StoryPanel
-          id={panelId}
-          open={open}
-          card={card}
-          lead={video}
-          leadChannelName={channelName}
-          videos={story}
-          now={now}
-          savedIds={savedIds}
-          pinnedIds={pinnedIds}
-          onClose={() => {
-            onToggleStory?.(video.story ?? video.id);
-            toggle.current?.focus();
-          }}
-          onPlay={onPlay}
-          onToggleSave={onToggleSave}
-          onShare={onShare}
-          onTogglePin={onTogglePin}
-        />
-      )}
+      {story &&
+        (() => {
+          const panel = (
+            <StoryPanel
+              id={panelId}
+              open={open}
+              card={card}
+              lead={video}
+              leadChannelName={channelName}
+              videos={story}
+              now={now}
+              savedIds={savedIds}
+              pinnedIds={pinnedIds}
+              onClose={() => {
+                onToggleStory?.(video.story ?? video.id);
+                toggle.current?.focus();
+              }}
+              onPlay={onPlay}
+              onToggleSave={onToggleSave}
+              onShare={onShare}
+              onTogglePin={onTogglePin}
+            />
+          );
+          if (open && storySlot) return createPortal(panel, storySlot);
+          return (
+            <li hidden={!open} className="col-span-full">
+              {panel}
+            </li>
+          );
+        })()}
     </>
   );
 });
@@ -295,7 +309,7 @@ function StoryPanel({
 }) {
   const t = useStrings();
   const locale = useLocale();
-  const panel = useRef<HTMLLIElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const notch = useRef<HTMLSpanElement>(null);
   const channels = new Set([leadChannelName, ...channelsOf(videos)]).size;
 
@@ -321,7 +335,7 @@ function StoryPanel({
   }, [open, card]);
 
   return (
-    <li
+    <div
       ref={panel}
       id={id}
       hidden={!open}
@@ -332,7 +346,7 @@ function StoryPanel({
           onClose();
         }
       }}
-      className="story-panel col-span-full -mt-1 sm:mt-0"
+      className="story-panel -mt-1 sm:mt-0"
     >
       <section
         aria-labelledby={`${id}-title`}
@@ -439,7 +453,7 @@ function StoryPanel({
           })}
         </ul>
       </section>
-    </li>
+    </div>
   );
 }
 

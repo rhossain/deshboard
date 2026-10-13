@@ -89,6 +89,8 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
   // The stops this page can show, worked out as the tour opens.
   const [steps, setSteps] = useState<typeof STEPS>([]);
   const [at, setAt] = useState(0);
+  // Whether the reader has moved from the first stop: from then on each stop is read out as it comes.
+  const [moved, setMoved] = useState(false);
 
   useEffect(() => {
     const el = dialog.current;
@@ -98,6 +100,7 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
       const frame = requestAnimationFrame(() => {
         setSteps(STEPS.filter((s) => !s.targets || findTarget(s.targets)));
         setAt(0);
+        setMoved(false);
         el.showModal();
       });
       return () => cancelAnimationFrame(frame);
@@ -163,8 +166,15 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
   }, [step, place]);
 
   const last = at === steps.length - 1;
-  const next = () => (last ? onClose() : setAt(at + 1));
-  const back = () => setAt(Math.max(0, at - 1));
+  const next = () => {
+    if (last) return onClose();
+    setAt(at + 1);
+    setMoved(true);
+  };
+  const back = () => {
+    setAt(Math.max(0, at - 1));
+    setMoved(true);
+  };
   const text = step && t.tour.steps[step.id];
 
   return (
@@ -172,7 +182,11 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
       ref={dialog}
       className="tour"
       aria-label={t.tour.label}
-      onClose={onClose}
+      onClose={() => {
+        onClose();
+        // Focus goes back where it was, unless that is gone (the invitation that started the tour).
+        if (document.activeElement === document.body) document.querySelector("main")?.focus({ preventScroll: true });
+      }}
       onKeyDown={(e) => {
         if (e.key === "ArrowRight") next();
         else if (e.key === "ArrowLeft") back();
@@ -187,6 +201,7 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
             role="group"
             aria-roledescription={t.tour.label}
             aria-labelledby="tour-title"
+            aria-describedby="tour-body"
             className="tour-card absolute w-[min(22rem,calc(100%-2rem))] rounded-2xl border border-line bg-surface p-5 text-foreground shadow-2xl"
           >
             <div className="flex items-start justify-between gap-3">
@@ -205,7 +220,13 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
             <h2 id="tour-title" className="mt-1 font-display text-xl font-semibold">
               {text.title}
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted">{text.body}</p>
+            <p id="tour-body" className="mt-2 text-sm leading-relaxed text-muted">
+              {text.body}
+            </p>
+            {/* Focus stays on Next, so each new stop is announced here; the first comes with the card's name. */}
+            <p className="sr-only" aria-live="polite">
+              {moved ? `${text.title}. ${text.body}` : ""}
+            </p>
             <div className="mt-5 flex items-center gap-2">
               <div className="flex gap-1" aria-hidden>
                 {steps.map((s, i) => (

@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  type ComponentProps,
+  type ComponentType,
   Fragment,
   lazy,
   startTransition,
@@ -71,8 +73,13 @@ import {
   VideoIcon,
 } from "./ui";
 
-/** The Videos view is a separate download, fetched only when the reader heads for it. */
-const VideoBoard = lazy(loadVideoBoard);
+/**
+ * The Videos view is a separate download, fetched only when the reader heads for it. The Videos page
+ * passes it in instead (see VideosPageBoard): a lazy board there would render as its skeleton, with
+ * the videos swapped in later (a layout shift, and a late LCP).
+ */
+const LazyVideoBoard = lazy(loadVideoBoard);
+export type VideoBoardComponent = ComponentType<ComponentProps<typeof LazyVideoBoard>>;
 
 const NO_ITEMS: NewsItem[] = [];
 const NO_STORIES: Story[] = [];
@@ -208,12 +215,14 @@ const NO_SHAPES: Record<string, LogoShape | null> = {};
  * `sources` is every listed portal in display order; only the fetchable ones are requested.
  * `initial` is the view and filters from the URL.
  * `seed` is shown from the first paint; each source's result is replaced as the stream delivers it.
+ * `videoBoard` is the Videos view, already loaded on the Videos pages (see VideosPageBoard).
  */
 export function NewsBoard({
   sources: listed,
   initial,
   seed,
   videoSeed,
+  videoBoard: VideoBoard = LazyVideoBoard,
   locale = "en",
 }: {
   sources: NewsSource[];
@@ -221,6 +230,8 @@ export function NewsBoard({
   seed?: NewsSeed;
   /** The newest few cached videos, for the Videos page (see cachedVideoSeed). */
   videoSeed?: VideoFeed;
+  /** The Videos view, already loaded (the Videos page's); otherwise it loads when the reader opens it. */
+  videoBoard?: VideoBoardComponent;
   /** The interface language: Bangla on /bn pages (see src/lib/i18n.ts). */
   locale?: Locale;
 }) {
@@ -977,7 +988,7 @@ export function NewsBoard({
                     hrefLang={otherLocale}
                     lang={otherLocale}
                     data-tour="language"
-                    aria-label={t.switchLanguageLabel}
+                    aria-label={`${t.switchLanguageShort}: ${t.switchLanguageLabel}`}
                     title={t.switchLanguageLabel}
                     className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-line px-3 text-sm font-semibold text-foreground transition hover:bg-surface-2 active:scale-95"
                   >
@@ -989,11 +1000,11 @@ export function NewsBoard({
                     onClick={() => load(true)}
                     disabled={loading}
                     data-tour="refresh"
-                    aria-label={loading ? t.fetchingHeadlines : t.refreshHeadlines}
                     className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-3 text-sm font-semibold text-background transition hover:opacity-90 active:scale-95 disabled:opacity-70 sm:px-4"
                   >
                     <RefreshIcon spinning={loading} className="h-4 w-4" />
-                    <span className="hidden sm:inline">{loading ? t.fetchingShort : t.refresh}</span>
+                    {/* The visible word is the name everywhere (on phones too, for voice control). */}
+                    <span className="max-sm:sr-only">{loading ? t.fetchingShort : t.refresh}</span>
                   </button>
                 </div>
               </div>
@@ -1026,10 +1037,15 @@ export function NewsBoard({
                       {onlyNew && <CloseIcon className="h-3 w-3" />}
                     </button>
                   )}
-                  <span className="inline-flex items-center gap-1.5" aria-live="polite">
+                  <span className="inline-flex items-center gap-1.5">
                     <span className="relative flex h-1.5 w-1.5">
                       {loading && <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />}
                       <span className="relative h-1.5 w-1.5 rounded-full bg-accent" />
+                    </span>
+                    {/* Announced: that headlines are loading. Not the count of sources as they arrive, or the
+                        "Updated … ago" after it, which changes every minute. */}
+                    <span aria-live="polite" className="sr-only">
+                      {loading ? t.fetchingHeadlines : ""}
                     </span>
                     {loading ? (
                       <span className="tabular-nums">
@@ -1082,7 +1098,7 @@ export function NewsBoard({
                         <Icon className="hidden h-4 w-4 lg:block" />
                         {t.sections[value]}
                         {value === "saved" && savedCount > 0 && (
-                          <span className={`text-xs tabular-nums ${active ? "opacity-60" : "text-muted/80"}`}>
+                          <span className={`text-xs tabular-nums ${active ? "opacity-60" : "text-muted"}`}>
                             {formatCount(savedCount, locale)}
                           </span>
                         )}
@@ -1091,6 +1107,18 @@ export function NewsBoard({
                   })}
                 </nav>
 
+                {/* What a search finds, read out as it changes (the Videos view shows only its own). */}
+                <p className="sr-only" role="status">
+                  {search && boardView && hasData
+                    ? searching
+                      ? t.searchingAll
+                      : filtered.length
+                        ? t.searchFound(filtered.length, formatCount(filtered.length, locale))
+                        : searchOlder
+                          ? t.nothingRecent
+                          : t.nothingFound
+                    : ""}
+                </p>
                 <label className="relative min-w-0 flex-1 md:ml-auto md:max-w-xs" data-tour="search">
                   <span className="sr-only">{view === "videos" ? t.searchVideos : t.searchHeadlines}</span>
                   <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted" />
@@ -1107,7 +1135,7 @@ export function NewsBoard({
                     }}
                     placeholder={view === "videos" ? t.searchVideosHint : t.searchHeadlinesHint}
                     enterKeyHint="search"
-                    className="peer h-11 w-full rounded-full border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted/80 focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
+                    className="peer h-11 w-full rounded-full border border-line bg-surface pl-10 pr-10 text-[16px] outline-none transition placeholder:text-muted focus:border-accent focus:ring-4 focus:ring-accent/10 md:h-10 md:text-sm [&::-webkit-search-cancel-button]:hidden"
                   />
                   {query ? (
                     <button
@@ -1147,7 +1175,8 @@ export function NewsBoard({
               )}
             </div>
 
-            <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
+            {/* Focusable from script only: where focus goes when what had it is gone (see Tour). */}
+            <main tabIndex={-1} className="mx-auto max-w-7xl px-4 pt-4 outline-none sm:px-6 sm:pt-6">
               {/* News's views on the left, My news on the right; on larger screens, Filters too (also in Saved). Videos has neither. */}
               {view !== "videos" && (
                 <div className={`mb-4 items-center gap-3 sm:mb-5 ${sectionOf(view) === "news" ? "flex" : "hidden md:flex"}`}>
@@ -1206,7 +1235,10 @@ export function NewsBoard({
               {view !== "videos" && !hasData && loading && <SkeletonGrid />}
 
               {hasData && view !== "saved" && view !== "videos" && filtering && filtered.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center" aria-live="polite">
+                <div
+                  className="rounded-2xl border border-dashed border-line px-6 py-14 text-center"
+                  aria-live={search ? undefined : "polite"}
+                >
                   {incomplete ? (
                     <p className="flex items-center justify-center gap-2 text-sm text-muted">
                       <RefreshIcon spinning className="h-4 w-4" />
@@ -1222,7 +1254,7 @@ export function NewsBoard({
               )}
 
               {hasData && view !== "saved" && view !== "videos" && searching && filtered.length > 0 && (
-                <p className="mb-3 flex items-center gap-2 text-sm text-muted" aria-live="polite">
+                <p className="mb-3 flex items-center gap-2 text-sm text-muted">
                   <RefreshIcon spinning className="h-4 w-4" />
                   {t.searchingAll}
                 </p>
@@ -1283,18 +1315,22 @@ export function NewsBoard({
                 />
               )}
 
-              {view === "videos" && (
-                <Suspense fallback={<VideoSkeleton />}>
-                  <VideoBoard
-                    query={searchQuery}
-                    search={search}
-                    rail={videoRail}
-                    refreshSignal={videoRefresh}
-                    onShare={shareVideo}
-                    seed={videoSeed}
-                  />
-                </Suspense>
-              )}
+              {view === "videos" &&
+                (() => {
+                  const board = (
+                    <VideoBoard
+                      query={searchQuery}
+                      search={search}
+                      rail={videoRail}
+                      refreshSignal={videoRefresh}
+                      onShare={shareVideo}
+                      seed={videoSeed}
+                    />
+                  );
+                  // No boundary around one already loaded: React writes a large one's content at the end
+                  // of the prerendered page, with its fallback in place until a script swaps it in.
+                  return VideoBoard === LazyVideoBoard ? <Suspense fallback={<VideoSkeleton />}>{board}</Suspense> : board;
+                })()}
 
               {hasData && view === "sources" && (
                 <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 compact:gap-3">
@@ -1387,9 +1423,10 @@ export function NewsBoard({
               <InspiredBy locale={locale} />
             </main>
 
-            {/* New headlines from the automatic refresh, held back so nothing moves while reading. */}
-            {pending && view !== "videos" && (
-              <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
+            {/* New headlines from the automatic refresh, held back so nothing moves while reading. Always in
+                the page as a status, so the button is read out when it appears. */}
+            <div role="status" className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
+              {pending && view !== "videos" && (
                 <button
                   type="button"
                   onClick={showPending}
@@ -1398,8 +1435,8 @@ export function NewsBoard({
                   <ChevronIcon className="h-4 w-4 rotate-180" />
                   {t.newHeadlines(pending.fresh, formatCount(pending.fresh, locale))}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Bottom bar (phones) */}
             <nav
@@ -1676,6 +1713,7 @@ function FilterPopover({ count, children }: { count: number; children: React.Rea
         popover="auto"
         onBeforeToggle={(e) => e.newState === "open" && place()}
         onToggle={(e) => setOpen(e.newState === "open")}
+        role="dialog"
         aria-label={t.filters}
         className="fixed inset-auto m-0 w-80 space-y-5 rounded-2xl border border-line bg-surface p-5 text-foreground shadow-card"
       >

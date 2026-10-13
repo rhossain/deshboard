@@ -229,7 +229,6 @@ export function Headline({
     <div className={`flex overflow-hidden border-x border-b border-line bg-surface ${edge}`}>
       <a
         data-headline
-        lang={it.lang}
         href={it.link}
         target="_blank"
         rel="noopener noreferrer"
@@ -250,7 +249,10 @@ export function Headline({
               · <ItemTime item={it} now={now} />
             </span>
           </div>
-          <p className="text-[16px] font-medium leading-[1.55] group-hover:text-accent compact:text-[15px] compact:leading-[1.45]">
+          <p
+            lang={it.lang}
+            className="text-[16px] font-medium leading-[1.55] group-hover:text-accent compact:text-[15px] compact:leading-[1.45]"
+          >
             {isNew(it) && <NewDot className="mr-2 -mt-0.5" />}
             <Highlight text={it.title} />
           </p>

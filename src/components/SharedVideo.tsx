@@ -9,6 +9,9 @@ import { ArrowUpRightIcon } from "./ui";
 import { PlayGlyph } from "./VideoCard";
 import { thumb, watchUrl } from "./youtube";
 
+/** Focus for the player as it replaces the Play button, which had it. */
+const focusOnMount = (el: HTMLIFrameElement | null) => el?.focus();
+
 /** A video shared from Bartaboard (`/s/youtu.be/<id>`): plays in place, with a way to YouTube and to the board's videos. */
 export function SharedVideo({ video, channelName, now }: { video: Video; channelName: string; now: number }) {
   const [playing, setPlaying] = useState(false);
@@ -18,6 +21,7 @@ export function SharedVideo({ video, channelName, now }: { video: Video; channel
       <article className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
         {playing ? (
           <iframe
+            ref={focusOnMount}
             src={`https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&playsinline=1&rel=0`}
             title={video.title}
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
@@ -54,7 +58,7 @@ export function SharedVideo({ video, channelName, now }: { video: Video; channel
             <time dateTime={video.publishedAt} title={fullTime(video.publishedAt)}>
               {timeAgo(video.publishedAt, now)}
             </time>
-            {video.views ? <span>· {compactCount(video.views)} views</span> : null}
+            {video.views ? <span>· {compactCount(video.views)} {video.views === 1 ? "view" : "views"}</span> : null}
           </p>
           <h1 lang="bn" className="mt-3 text-[24px] font-semibold leading-[1.45] tracking-tight sm:text-[28px]">
             {video.title}

@@ -142,7 +142,7 @@ export function CategoryTabs({
               {t.count !== undefined && (
                 <span
                   className={`rounded-full px-1.5 py-px text-[10.5px] font-semibold tabular-nums transition-colors ${
-                    active ? "bg-accent-soft text-accent" : "text-muted/80"
+                    active ? "bg-accent-soft text-accent" : "text-muted"
                   }`}
                 >
                   {compactCount(t.count, locale)}

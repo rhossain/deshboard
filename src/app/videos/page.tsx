@@ -1,5 +1,5 @@
 import type { Metadata, ResolvingMetadata } from "next";
-import { NewsBoard } from "@/components/NewsBoard";
+import { VideosPageBoard } from "@/components/VideosPageBoard";
 import { parseFilters } from "@/lib/filters";
 import { feedLink } from "@/lib/rss";
 import {
@@ -40,7 +40,7 @@ export default async function VideosPage({
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: videosJsonLd(videoSeed?.generatedAt) }} />
-      <NewsBoard sources={SOURCES} initial={initial} videoSeed={videoSeed} />
+      <VideosPageBoard sources={SOURCES} initial={initial} videoSeed={videoSeed} />
     </>
   );
 }

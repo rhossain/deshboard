@@ -1,5 +1,5 @@
 import type { Metadata, ResolvingMetadata } from "next";
-import { NewsBoard } from "@/components/NewsBoard";
+import { VideosPageBoard } from "@/components/VideosPageBoard";
 import { parseFilters } from "@/lib/filters";
 import { localePath } from "@/lib/i18n";
 import {
@@ -42,7 +42,7 @@ export default async function BanglaVideosPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: videosJsonLd(videoSeed?.generatedAt, "bn") }}
       />
-      <NewsBoard sources={SOURCES} initial={initial} videoSeed={videoSeed} locale="bn" />
+      <VideosPageBoard sources={SOURCES} initial={initial} videoSeed={videoSeed} locale="bn" />
     </>
   );
 }
