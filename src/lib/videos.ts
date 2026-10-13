@@ -12,8 +12,11 @@ import { tagStories } from "./video-stories";
 const STORE = "videos";
 /** Videos older than this drop off. */
 const MAX_AGE_MS = 24 * 3600_000;
-/** And each channel keeps at most this many. */
-const PER_CHANNEL = 30;
+/**
+ * And each channel keeps at most this many: a safety limit, well above a day's uploads. (At 30, the
+ * busiest channels kept only their last 5 to 15 hours, and dropped out of a day's stories.)
+ */
+const PER_CHANNEL = 200;
 const CONCURRENCY = 8;
 
 type Stored = Record<string, Video[]>;

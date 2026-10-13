@@ -79,10 +79,11 @@ export default function VideoBoard({
   const [pending, setPending] = useState<Pending | null>(null);
   const [channel, setChannel] = useState("");
   const [playing, setPlaying] = useState<Video | null>(null);
-  // The story whose related videos are laid out (by its lead's id): one at a time, so its panel sits
+  // The story whose related videos are laid out (by its id, Video.story, which stays the same whichever
+  // video leads the card: a pinned channel's, a search's newest hit): one at a time, so its panel sits
   // right under its card.
   const [openStory, setOpenStory] = useState<string | null>(null);
-  const toggleStory = useCallback((leadId: string) => setOpenStory((id) => (id === leadId ? null : leadId)), []);
+  const toggleStory = useCallback((story: string) => setOpenStory((id) => (id === story ? null : story)), []);
   // With a seed, the clock starts at its build time so the prerendered page and hydration agree.
   const [now, setNow] = useState(() => (!cachedVideos() && seed ? Date.parse(seed.generatedAt) : Date.now()));
   const { savedVideoIds, toggleSavedVideo } = useSavedVideos();
@@ -91,17 +92,23 @@ export default function VideoBoard({
   const layout = useVideoLayout();
   const sizes = videoThumbSizes(useVideoLayoutChoice());
   const feedRef = useRef(feed);
-  // The seed is only the start of its build's feed, so the first load replaces it.
-  const partialRef = useRef(feed === seed && !!seed);
+  // The seed is only the start of its build's feed, so the first load replaces it. Until then a search or
+  // channel may not have found everything, and counts are only the seed's.
+  const [partial, setPartial] = useState(feed === seed && !!seed);
+  const partialRef = useRef(partial);
   useEffect(() => {
     feedRef.current = feed;
-  }, [feed]);
+    partialRef.current = partial;
+  }, [feed, partial]);
 
   // The thumbnails' server, and the player's once a video is picked.
   preconnect("https://i.ytimg.com");
 
+  /** Shows a whole feed (never the seed). */
   const show = useCallback((next: VideoFeed) => {
+    partialRef.current = false;
     startTransition(() => {
+      setPartial(false);
       setFeed(next);
       setPending(null);
       setError(null);
@@ -114,6 +121,8 @@ export default function VideoBoard({
     loadVideos(true).then(
       (next) => {
         const current = feedRef.current;
+        // Still on the seed (its first load failed): the whole feed, whichever build, replaces it at once.
+        if (partialRef.current) return show(next);
         if (next.generatedAt === current?.generatedAt) return;
         const known = new Set(current?.videos.map((v) => v.id));
         const fresh = next.videos.filter((v) => !known.has(v.id)).length;
@@ -128,10 +137,7 @@ export default function VideoBoard({
   useEffect(() => {
     if (feedRef.current && !partialRef.current) return;
     loadVideos().then(
-      (next) => {
-        partialRef.current = false;
-        show(next);
-      },
+      show,
       (err: unknown) => setError(err instanceof Error ? err.message : String(err)),
     );
   }, [show]);
@@ -158,8 +164,9 @@ export default function VideoBoard({
     const checkIfDue = () => {
       if (!document.hidden && Date.now() >= due) check();
     };
-    // A cached feed reopened after its next build is due looks right away.
-    timer = setTimeout(check, Math.max(due - Date.now(), 0));
+    // A cached feed reopened after its next build is due looks right away; a seed's first load is
+    // already under way, so it waits a little.
+    timer = setTimeout(check, Math.max(due - Date.now(), partialRef.current ? RETRY_MS : 0));
     document.addEventListener("visibilitychange", checkIfDue);
     const tick = setInterval(() => setNow(Date.now()), 60_000);
     return () => {
@@ -237,6 +244,12 @@ export default function VideoBoard({
   // A new channel, search or set of pins starts again from the first page.
   const listKey = `${channel}\n${query.trim()}\n${[...rank.keys()].join()}`;
   const [paging, setPaging] = useState({ key: listKey, shown: PAGE });
+  // ...and closes the open story, which would otherwise scroll back into view when its card returns.
+  const [openFor, setOpenFor] = useState(listKey);
+  if (openFor !== listKey) {
+    setOpenFor(listKey);
+    setOpenStory(null);
+  }
   const shown = paging.key === listKey ? paging.shown : PAGE;
   const more = shown < list.length;
   const sentinel = useRef<HTMLDivElement>(null);
@@ -292,7 +305,8 @@ export default function VideoBoard({
         feed &&
         createPortal(<CategoryTabs tabs={tabs} value={channel} onChange={pickChannel} label={t.filterByChannel} />, rail)}
 
-      {error && !feed && (
+      {/* (On the seed too: its first load failing leaves only a screenful.) */}
+      {error && (!feed || partial) && (
         <div className="rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
           {t.couldNotLoadVideos(error)}{" "}
           <button
@@ -310,10 +324,15 @@ export default function VideoBoard({
 
       {!feed && !error && <VideoSkeleton />}
 
-      {feed && list.length === 0 && (
+      {/* Nothing in the seed isn't nothing in the feed: wait for it. */}
+      {feed && list.length === 0 && partial && !error && <VideoSkeleton />}
+
+      {feed && list.length === 0 && !partial && (
         <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
           <p className="font-display text-xl">{t.noVideos}</p>
-          <p className="mt-1 text-sm text-muted">{search ? t.tryAnotherChannel : t.nothingFromChannel}</p>
+          <p className="mt-1 text-sm text-muted">
+            {search ? t.tryAnotherChannel : channel ? t.nothingFromChannel : t.nothingYet}
+          </p>
         </div>
       )}
 
@@ -359,7 +378,7 @@ export default function VideoBoard({
                         // Only cards with related videos need these (each save redraws them).
                         savedIds={related.length ? savedVideoIds : undefined}
                         pinnedIds={related.length ? pinnedIds : undefined}
-                        storyOpen={related.length > 0 && openStory === v.id}
+                        storyOpen={related.length > 0 && openStory === (v.story ?? v.id)}
                         onToggleStory={toggleStory}
                       />
                     ))}
@@ -371,7 +390,7 @@ export default function VideoBoard({
       )}
       <div ref={sentinel} aria-hidden />
 
-      {feed && !more && (
+      {feed && !more && !partial && (
         <p className="px-1 pt-8 text-center text-xs leading-relaxed text-muted">
           {t.videosNote(formatCount(feed.channels.length - failed.length, locale))}
           {failed.length > 0 && (
@@ -391,7 +410,7 @@ export default function VideoBoard({
             className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink shadow-card transition active:scale-95"
           >
             <ChevronIcon className="h-4 w-4 rotate-180" />
-            {formatCount(pending.fresh)} new video{pending.fresh === 1 ? "" : "s"}
+            {t.newVideos(pending.fresh, formatCount(pending.fresh, locale))}
           </button>
         </div>
       )}

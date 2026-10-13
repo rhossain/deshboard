@@ -18,7 +18,8 @@ export function loadVideos(fresh = false): Promise<VideoFeed> {
   const r = fetch("/data/videos.json", { cache: "no-cache" }).then(async (res) => {
     if (!res.ok) throw new Error(res.status === 404 ? "no videos have been collected yet" : `server returned ${res.status}`);
     const feed = (await res.json()) as VideoFeed;
-    latest = feed;
+    // Requests can finish out of order: an older build arriving last doesn't replace a newer one.
+    if (!latest || feed.generatedAt >= latest.generatedAt) latest = feed;
     return feed;
   });
   // A failed fetch isn't kept, so the next look tries again.
