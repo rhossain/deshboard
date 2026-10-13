@@ -8,6 +8,7 @@ import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";
 import { cleanVideoTitle, parseYouTubeFeed } from "../src/lib/fetchers/youtube";
+import { parseVideoStats } from "../src/lib/fetchers/youtube-api";
 import {
   articleSignature,
   googleNewsFeedUrl,
@@ -586,6 +587,18 @@ test("YouTube feed: videos with views, Shorts left out", () => {
     { id: "b2", title: "bulletin", publishedAt: "2026-10-07T10:16:50.000Z" },
   ]);
   assert.throws(() => parseYouTubeFeed("<!DOCTYPE html><html></html>"), /not XML/);
+});
+
+test("YouTube Data API: current views, hidden counts left out", () => {
+  const json = JSON.stringify({
+    items: [
+      { id: "a1", statistics: { viewCount: "152340", likeCount: "900" } },
+      { id: "b2", statistics: { likeCount: "3" } },
+      { id: "c3", statistics: { viewCount: "0" } },
+    ],
+  });
+  assert.deepEqual([...parseVideoStats(json)], [["a1", 152340]]);
+  assert.deepEqual([...parseVideoStats("{}")], []);
 });
 
 test("Video titles keep their Bangla parts", () => {

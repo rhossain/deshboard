@@ -125,6 +125,9 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
   `sitemap.xml`, `robots.txt`, structured data and the share image.
 - `NEWS_DATA_DIR` (default `.data/`) — where first-seen times and source health are saved; `NEWS_PERSIST=0` keeps
   them in memory only.
+- `YOUTUBE_API_KEY` (optional) — a YouTube Data API v3 key; videos then show their current view counts instead of the
+  channel feeds' (which stop updating once a video leaves its channel's latest 15). Server side only, about 13 units a
+  fetch of the 10,000 a day; without it, or if the API fails, the feeds' counts are used.
 - `NEWS_CACHE_SECONDS` (default `600`) — how long `npm run check` and the fetch code reuse a source's result.
 
 ## Deploy
@@ -136,7 +139,8 @@ allowed only this repo's Actions), so the copy of the file on `main` is the one 
 Pushes don't start it; to publish at once: `gh workflow run deploy.yml --ref main`.
 
 The workflow does nothing until the `SITE_URL` repository variable is set (GitHub → Settings → Secrets and variables
-→ Actions), e.g. `https://example.com`; it is the address used in the share image link.
+→ Actions), e.g. `https://example.com`; it is the address used in the share image link. The optional `YOUTUBE_API_KEY` secret
+gives the videos their current view counts.
 
 The headlines are as fresh as the last run. For a one-off manual upload instead, `npm run package` builds
 `bartaboard.zip`; extract it into `public_html` (it includes `.htaccess`).
