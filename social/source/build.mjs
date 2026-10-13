@@ -9,8 +9,8 @@ fs.mkdirSync(OUT, { recursive: true });
 const f = (p) => "file://" + path.join(ROOT, p);
 const font = (fam, w, file) =>
   `@font-face{font-family:'${fam}';font-weight:${w};src:url('${f("node_modules/@fontsource/" + file)}') format('woff2');}`;
-const FONTS = [300, 400, 500, 600, 700, 800, 900]
-  .map((w) => font("Montserrat", w, `montserrat/files/montserrat-latin-${w}-normal.woff2`))
+const FONTS = [500, 600, 700]
+  .map((w) => font("Sora", w, `sora/files/sora-latin-${w}-normal.woff2`))
   .concat([400, 500, 600, 700, 800].map((w) => font("Bengali", w, `noto-sans-bengali/files/noto-sans-bengali-bengali-${w}-normal.woff2`)))
   .join("\n");
 
@@ -18,20 +18,20 @@ const THEMES = {
   light: {
     bg: "#f6f4ef", bg2: "#ece7dc", dot: "rgba(23,25,28,.09)", ink: "#17191c", muted: "#5d6168",
     card: "#ffffff", line: "#c9ccd2", shadow: "0 2px 4px rgba(23,25,28,.06), 0 14px 30px -12px rgba(23,25,28,.22)",
-    logo: "bartaboard-logo-light-trim.png", pill: "#0c6b4f", pillInk: "#fff", glow: "rgba(38,190,96,.10)",
+    logo: "kit/svg/bartaboard-logo-light.svg", pill: "#006a4e", pillInk: "#fff", glow: "rgba(0,106,78,.08)", dotc: "#006a4e",
   },
   dark: {
     bg: "#0f1113", bg2: "#08090a", dot: "rgba(235,232,226,.07)", ink: "#ebe8e2", muted: "#a3a7ae",
     card: "#1c1f23", line: "#3a3e45", shadow: "0 2px 4px rgba(0,0,0,.3), 0 18px 36px -14px rgba(0,0,0,.7)",
-    logo: "bartaboard-logo-dark-trim.png", pill: "#26be60", pillInk: "#06140e", glow: "rgba(38,190,96,.13)",
+    logo: "kit/svg/bartaboard-logo-dark.svg", pill: "#34d08a", pillInk: "#06140e", glow: "rgba(52,208,138,.12)", dotc: "#34d08a",
   },
 };
 
 // Headline chips on the decorative cards, half Bangla, half English, like the board itself.
 const CHIPS = [
-  ["রাজনীতি", "#0c6b4f"], ["Sports", "#d4342c"], ["অর্থনীতি", "#7d5c1e"], ["World", "#2a5bd7"],
-  ["খেলা", "#d4342c"], ["Tech", "#6b3fd1"], ["জাতীয়", "#0c6b4f"], ["Business", "#7d5c1e"],
-  ["বিনোদন", "#c2417a"], ["Education", "#0c6b4f"], ["আন্তর্জাতিক", "#2a5bd7"], ["Health", "#0f8a7a"],
+  ["রাজনীতি", "#006a4e"], ["Sports", "#e0303f"], ["অর্থনীতি", "#7d5c1e"], ["World", "#2a5bd7"],
+  ["খেলা", "#e0303f"], ["Tech", "#6b3fd1"], ["জাতীয়", "#006a4e"], ["Business", "#7d5c1e"],
+  ["বিনোদন", "#c2417a"], ["Education", "#006a4e"], ["আন্তর্জাতিক", "#2a5bd7"], ["Health", "#0f8a7a"],
 ];
 
 // Seeded RNG so every render is identical.
@@ -47,7 +47,7 @@ function placed(list, size, seed) {
   return list.map(([x, y, rot, chip, back]) => {
     const c = chip == null ? null : CHIPS.find((k) => k[0] === chip) ?? CHIPS[0];
     const lines = [0.86, 0.94, 0.7].map((w) => `<i style="width:${Math.round((w - r() * 0.15) * 100)}%"></i>`).join("");
-    const bk = { g: "#136b3a", r: "#d4342c" }[back];
+    const bk = { g: "#006a4e", r: "#f42a41" }[back];
     return `<div class="card" style="left:${x}px;top:${y}px;width:${cw}px;height:${ch}px;transform:rotate(${rot}deg)">
       ${bk ? `<div class="back" style="background:${bk}"></div>` : ""}
       <div class="face">${c ? `<b style="background:${c[1]}">${c[0]}</b>` : `<i style="width:40%;opacity:0"></i>`}${lines}</div>
@@ -55,7 +55,7 @@ function placed(list, size, seed) {
   }).join("");
 }
 
-function cards({ W, H, size, keep, seed = 7, density = 1, layout }) {
+function cards({ W, H, size, keep, seed = 7, density = 1, theme, layout }) {
   if (layout) return placed(layout, size, seed);
   const r = rng(seed);
   const cw = size, ch = size * 0.66;
@@ -70,8 +70,8 @@ function cards({ W, H, size, keep, seed = 7, density = 1, layout }) {
       if (hit || jy < 10 || jy + ch > H - 14) continue;
       const rot = (r() - 0.5) * 9;
       const [label, color] = CHIPS[i % CHIPS.length];
-      const back = ["#136b3a", "#d4342c", null, null][Math.floor(r() * 4)];
-      const lines = [0.86, 0.94, 0.7].map((w) => `<i style="width:${Math.round((w - r() * 0.15) * 100)}%"></i>`).join("");
+      const back = ["#006a4e", "#f42a41", null, null][Math.floor(r() * 4)];
+      const lines = [0.86, 0.94, 0.7].map((w, k) => `<i style="width:${Math.round((w - r() * 0.15) * 100)}%"></i>`).join("");
       html += `<div class="card" style="left:${jx}px;top:${jy}px;width:${cw}px;height:${ch}px;transform:rotate(${rot.toFixed(2)}deg)">
         ${back ? `<div class="back" style="background:${back}"></div>` : ""}
         <div class="face">${jx < 0 ? `<i style="width:40%;opacity:0"></i>` : `<b style="background:${color}">${label}</b>`}${lines}</div>
@@ -86,7 +86,7 @@ const BASE = (t, size) => `
 ${FONTS}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%}
-body{background:${t.bg};font-family:Montserrat,Bengali,sans-serif;color:${t.ink};overflow:hidden;position:relative;
+body{background:${t.bg};font-family:Sora,Bengali,sans-serif;color:${t.ink};overflow:hidden;position:relative;
   -webkit-font-smoothing:antialiased}
 .board{position:absolute;inset:0;
   background:
@@ -101,14 +101,14 @@ body{background:${t.bg};font-family:Montserrat,Bengali,sans-serif;color:${t.ink}
   border-radius:99px;letter-spacing:.01em;margin-bottom:${size * 0.015}px}
 .card i{display:block;height:${size * 0.045}px;border-radius:99px;background:${t.line}}
 .pin{position:absolute;top:${-size * 0.05}px;width:${size * 0.1}px;height:${size * 0.1}px;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%, #ff8a80 0 12%, #ef3b2d 35%, #b5170e 100%);
+  background:radial-gradient(circle at 35% 30%, #ff9aa3 0 12%, #f42a41 38%, #b8142a 100%);
   box-shadow:0 ${size * 0.02}px ${size * 0.03}px rgba(0,0,0,.35)}
 .fade{position:absolute;inset:0;pointer-events:none}
 .center{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .logo{display:block;height:auto}
 .bn{font-family:Bengali,sans-serif;font-weight:600;color:${t.ink};letter-spacing:0}
 .meta{display:flex;align-items:center;gap:.7em;color:${t.muted};font-weight:600;letter-spacing:.02em;white-space:nowrap}
-.meta .dot{width:.32em;height:.32em;border-radius:50%;background:#26be60;display:inline-block}
+.meta .dot{width:.32em;height:.32em;border-radius:50%;background:${t.dotc};display:inline-block}
 .url{background:${t.pill};color:${t.pillInk};font-weight:700;border-radius:99px;padding:.45em 1.1em;letter-spacing:.02em}
 .strip{position:absolute;left:0;right:0;bottom:0;display:flex}
 .strip span{display:block;height:100%}
@@ -130,7 +130,7 @@ function cover({ W, H, theme, zone, logoW, bnSize, metaSize, cardSize, seed, ext
     ${showBn ? `<div class="bn" style="font-size:${bnSize}px;margin-top:${bnSize * 0.15}px">দেশের সব খবর, এক বোর্ডে</div>` : ""}
     ${showMeta ? `<div class="meta" style="font-size:${metaSize}px"><span>50+ newspapers</span><span class="dot"></span><span>30+ TV news channels</span><span class="dot"></span><span class="url">bartaboard.com</span></div>` : ""}
   </div>
-  ${strip ? `<div class="strip"><span style="flex:1;background:#0c6b4f"></span><span style="width:12%;background:#e23a2e"></span><span style="flex:1;background:#0c6b4f"></span></div>` : ""}
+  ${strip ? `<div class="strip"><span style="flex:1;background:#006a4e"></span><span style="width:12%;background:#f42a41"></span><span style="flex:1;background:#006a4e"></span></div>` : ""}
   </body></html>`;
 }
 
@@ -138,14 +138,15 @@ function profile({ variant }) {
   const S = 1080;
   const bg = {
     cream: `radial-gradient(circle at 50% 42%, #ffffff 0%, #f6f4ef 60%, #e9e3d6 100%)`,
-    green: `radial-gradient(circle at 50% 38%, #12805f 0%, #0c6b4f 45%, #06402f 100%)`,
-    dark: `radial-gradient(circle at 50% 40%, #23272c 0%, #14161a 55%, #08090a 100%)`,
+    green: `radial-gradient(circle at 50% 40%, #0a7d5c 0%, #006a4e 50%, #003f2e 100%)`,
   }[variant];
-  const shadow = variant === "cream" ? "drop-shadow(0 18px 28px rgba(23,25,28,.18))" : "drop-shadow(0 22px 34px rgba(0,0,0,.45))";
-  // The mark's visual centre sits a little left of and below its box centre (pin at top right).
+  const mark = variant === "green" ? "kit/svg/bartaboard-mark-dark.svg" : "kit/svg/bartaboard-mark.svg";
+  const shadow = variant === "cream" ? "drop-shadow(0 18px 28px rgba(23,25,28,.16))" : "drop-shadow(0 22px 34px rgba(0,0,0,.4))";
+  // The mark (590 × 508) is centred on its visual weight: a touch left, since the pin and card lean right.
+  const w = S * 0.68, h = w * 508 / 590;
   return `<!doctype html><html><head><meta charset="utf-8"><style>*{margin:0}body{width:${S}px;height:${S}px;background:${bg};overflow:hidden;position:relative}
-  img{position:absolute;width:${S * 0.7}px;left:${S * 0.155}px;top:${S * 0.19}px;filter:${shadow}}</style></head>
-  <body><img src="${f("bartaboard-icon-trim.png")}"></body></html>`;
+  img{position:absolute;width:${w}px;height:${h}px;left:${(S - w) / 2 - S * 0.01}px;top:${(S - h) / 2 + S * 0.005}px;filter:${shadow}}</style></head>
+  <body><img src="${f(mark)}"></body></html>`;
 }
 
 const HL = [
@@ -158,7 +159,7 @@ function highlight(icon) {
   svg = svg.replace(/<!--[\s\S]*?-->/g, "").replace(/width="24"/, 'width="460"').replace(/height="24"/, 'height="460"')
     .replace(/stroke="currentColor"/, 'stroke="#ffffff"').replace(/stroke-width="2"/, 'stroke-width="1.6"');
   return `<!doctype html><html><head><meta charset="utf-8"><style>*{margin:0}body{width:1080px;height:1920px;overflow:hidden;
-  background:radial-gradient(circle at 50% 50%, #12805f 0%, #0c6b4f 30%, #06402f 80%);display:grid;place-items:center;position:relative}
+  background:radial-gradient(circle at 50% 50%, #0a7d5c 0%, #006a4e 30%, #003f2e 80%);display:grid;place-items:center;position:relative}
   .ring{position:absolute;left:50%;top:50%;width:700px;height:700px;margin:-350px 0 0 -350px;border-radius:50%;
    box-shadow:inset 0 0 0 0 transparent}
   .pin{position:absolute;left:calc(50% + 150px);top:calc(50% - 255px);width:64px;height:64px;border-radius:50%;

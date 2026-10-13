@@ -1,6 +1,6 @@
 # Bartaboard social kit
 
-Profile, cover and highlight images for the Bartaboard social pages, in the site's colours and logo.
+Profile, cover and highlight images for the Bartaboard social pages, in the brand colours and the new logo (brand-kit/).
 
 ## Files
 
@@ -15,7 +15,7 @@ Profile, cover and highlight images for the Bartaboard social pages, in the site
 | `youtube-banner.png` | 2560×1440 | YouTube channel banner (text sits in the 1546×423 area every device shows). |
 | `linkedin-cover.png` | 1128×191 | LinkedIn Page cover. |
 | `previews/` | | How the covers look with the profile photo over them, and the profile photo at small sizes. |
-| `source/build.mjs` | | The script that draws them (Playwright + @fontsource Montserrat / Noto Sans Bengali + lucide-static). Edit the text or counts there and re-run. |
+| `source/build.mjs` | | The script that draws them (Playwright + @fontsource Sora / Noto Sans Bengali + lucide-static; logos from brand-kit/svg). Edit the text or counts there and re-run. |
 
 Facebook's desktop shows the cover at 820×312 with the profile photo over the bottom-left; the app shows roughly the
 centre two-thirds. Everything that has to be read sits in that centre, and only the decorative cards sit at the edges.
