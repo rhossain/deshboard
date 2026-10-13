@@ -154,9 +154,10 @@ const en = {
   earlierToday: "Earlier today",
   yesterday: "Yesterday",
   older: "Older",
+  noTime: "Time not known",
   noneMatch: "No headlines match.",
   undated: (count: string) =>
-    `${count} headlines from homepage-scraped sources have no time yet — find them in “Newsstand”. New ones are timed from when they first appear on the homepage.`,
+    `The ${count} headlines under “Time not known” were on their homepages before Bartaboard first read them. New ones are timed from when they first appear on the homepage.`,
 
   // Saved
   nothingSaved: "Nothing saved yet",
@@ -455,9 +456,10 @@ const bn: Strings = {
   earlierToday: "আজ এর আগে",
   yesterday: "গতকাল",
   older: "আরও আগে",
+  noTime: "সময় জানা নেই",
   noneMatch: "কোনো শিরোনাম মেলেনি।",
   undated: (count) =>
-    `প্রথম পাতা থেকে নেওয়া ${count}টি শিরোনামের এখনো সময় নেই — সেগুলো “পত্রিকা”-য় পাবেন। নতুনগুলোর সময় ধরা হয় প্রথম পাতায় প্রথম দেখা যাওয়ার মুহূর্ত থেকে।`,
+    `“সময় জানা নেই”-এর ${count}টি শিরোনাম বার্তাবোর্ড প্রথমবার পড়ার আগেই প্রথম পাতায় ছিল। নতুনগুলোর সময় ধরা হয় প্রথম পাতায় প্রথম দেখা যাওয়ার মুহূর্ত থেকে।`,
 
   nothingSaved: "এখনো কিছু সংরক্ষণ করা হয়নি",
   savedHint:

@@ -20,9 +20,11 @@ export function byNewest(a: NewsItem, b: NewsItem): number {
   return newestFirst(itemTime(a), itemTime(b));
 }
 
-type Group = "lastHour" | "earlierToday" | "yesterday" | "older";
+type Group = "lastHour" | "earlierToday" | "yesterday" | "older" | "noTime";
 
-function groupLabel(iso: string, now: number): Group {
+/** A headline's group; one with no time (a homepage's, from before Bartaboard first read it) goes last. */
+function groupLabel(iso: string | undefined, now: number): Group {
+  if (!iso) return "noTime";
   const t = new Date(iso).getTime();
   if (now - t < 3600_000) return "lastHour";
   const day = dhakaDay(t);
@@ -79,21 +81,21 @@ export function LatestList({
   const locale = useLocale();
   const [shown, setShown] = useState(PAGE);
   const estimate = useNewsDensity() === "compact" ? ESTIMATE_COMPACT : ESTIMATE;
-  // The parts, each newest first: just one unless some, but not all, headlines are from pinned sources.
-  const { parts, dated } = useMemo(() => {
-    const dated = items.filter(itemTime).sort(byNewest);
-    const mine = pinned?.size ? dated.filter((it) => pinned.has(it.sourceId)) : [];
+  // The parts, each newest first, those with no time last: just one part unless some, but not all,
+  // headlines are from pinned sources.
+  const { parts, undated } = useMemo(() => {
+    const all = [...items].sort(byNewest);
+    const mine = pinned?.size ? all.filter((it) => pinned.has(it.sourceId)) : [];
     const parts: { label?: "yourNews" | "otherNews"; items: NewsItem[] }[] =
-      mine.length && mine.length < dated.length
+      mine.length && mine.length < all.length
         ? [
             { label: "yourNews", items: mine },
-            { label: "otherNews", items: dated.filter((it) => !pinned!.has(it.sourceId)) },
+            { label: "otherNews", items: all.filter((it) => !pinned!.has(it.sourceId)) },
           ]
-        : [{ items: dated }];
-    return { parts, dated: dated.length };
+        : [{ items: all }];
+    return { parts, undated: all.filter((it) => !itemTime(it)).length };
   }, [items, pinned]);
-  const undated = items.length - dated;
-  const more = shown < dated;
+  const more = shown < items.length;
 
   const rows = useMemo(() => {
     const rows: Row[] = [];
@@ -105,13 +107,13 @@ export function LatestList({
       if (part.label) rows.push({ kind: "section", label: part.label, count: part.items.length, first: p === 0 });
       let label: Group | undefined;
       page.forEach((item, i) => {
-        const next = groupLabel(itemTime(item)!, now);
+        const next = groupLabel(itemTime(item), now);
         if (next !== label) {
           rows.push({ kind: "heading", label: next, part: p, first: rows.at(-1)?.kind !== "item" });
           label = next;
         }
         const after = page[i + 1];
-        const last = !after || groupLabel(itemTime(after)!, now) !== next;
+        const last = !after || groupLabel(itemTime(after), now) !== next;
         rows.push({ kind: "item", item, first: rows.at(-1)!.kind === "heading", last });
       });
     });
@@ -188,7 +190,7 @@ export function LatestList({
           })}
         </div>
       </div>
-      {dated === 0 && (
+      {items.length === 0 && (
         <p className="rounded-2xl border border-dashed border-line px-4 py-12 text-center text-sm text-muted">
           {t.noneMatch}
         </p>

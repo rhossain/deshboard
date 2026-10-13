@@ -176,6 +176,9 @@ function alternative(phrase: string[], typed: boolean): Alternative {
   return { test: new RegExp(source, "iu"), all: new RegExp(source, "giu") };
 }
 
+/** Titles whose ranges one search keeps (a few thousand are on screen at most). */
+const MAX_RANGES_KEPT = 5000;
+
 /** The query as a Search, or null when it has nothing to search for. */
 export function compileSearch(query: string): Search | null {
   const typed = words(query.slice(0, 200));
@@ -207,9 +210,15 @@ export function compileSearch(query: string): Search | null {
   const kept = terms.some((t) => !t.stopword) ? terms.filter((t) => !t.stopword) : terms;
   if (!kept.length) return null;
 
+  // Each title's ranges, worked out once per search: the lists draw them again on every update (the
+  // clock's tick, a save), and only a new search changes them.
+  const rangesOf = new Map<string, [number, number][]>();
   return {
     matches: (text) => kept.every((t) => t.alternatives.some((a) => a.test.test(text))),
     ranges(text) {
+      const known = rangesOf.get(text);
+      if (known) return known;
+      if (rangesOf.size >= MAX_RANGES_KEPT) rangesOf.clear();
       const found: [number, number][] = [];
       for (const t of kept) {
         for (const a of t.alternatives) {
@@ -229,6 +238,7 @@ export function compileSearch(query: string): Search | null {
         if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
         else merged.push(r);
       }
+      rangesOf.set(text, merged);
       return merged;
     },
   };

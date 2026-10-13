@@ -30,7 +30,7 @@ export function cachedSeed(category?: Category, fullCards?: number) {
     counts,
     category,
     totals,
-    ages: ageSteps(all, generatedAt),
+    ages: ageSteps(category ? all.filter((it) => it.category === category) : all, generatedAt),
     logoShapes: cachedLogoShapes(),
   };
 }

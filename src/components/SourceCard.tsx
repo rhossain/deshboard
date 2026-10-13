@@ -308,7 +308,7 @@ function Fold({ open, phoneFolded, children }: { open: boolean; phoneFolded: boo
   );
 }
 
-/** Memoized, so a search only re-renders the headlines it adds or removes. */
+/** Memoized: a search re-renders only the headlines it adds, and each title's marks (Highlight, which reads the search). */
 const Headline = memo(function Headline({
   item,
   now,

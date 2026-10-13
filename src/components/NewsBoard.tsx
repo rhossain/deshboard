@@ -24,7 +24,7 @@ import { type Locale, localePath } from "@/lib/i18n";
 import { boardHeading, categoryPath, categoryTitle, siteTitle, VIDEOS_PATH, videosTitle } from "@/lib/site";
 import { STRINGS, type Strings } from "@/lib/strings";
 import { isFetched } from "@/lib/sources";
-import { countSince, findStories, itemTime, newestFirst } from "@/lib/stories";
+import { countSince, findStories, itemTime, newestFirst, type Story } from "@/lib/stories";
 import type { Theme } from "@/lib/theme";
 import type { LogoShape, NewsItem, NewsSource, NewsStreamMessage, SourceResult, Video, VideoFeed } from "@/lib/types";
 import { PHONE, useCardPrefs, useIsPhone } from "./card-prefs";
@@ -74,6 +74,9 @@ import {
 /** The Videos view is a separate download, fetched only when the reader heads for it. */
 const VideoBoard = lazy(loadVideoBoard);
 
+const NO_ITEMS: NewsItem[] = [];
+const NO_STORIES: Story[] = [];
+const NO_SAVED_VIDEOS: ReturnType<typeof useSavedVideos>["savedVideos"] = [];
 /** Top stories need this many outlets, unless no story has that many. */
 const TOP_MIN_OUTLETS = 3;
 
@@ -522,13 +525,6 @@ export function NewsBoard({
   // Headlines since the reader's last visit (none on a first visit).
   const lastVisit = useDeferredValue(useLastVisit());
   const isNew = useCallback((it: NewsItem) => !!lastVisit && (itemTime(it) ?? "") > lastVisit, [lastVisit]);
-  const newCount = useMemo(
-    () =>
-      lastVisit && seedAges && generatedAt
-        ? countSince(seedAges, generatedAt, lastVisit)
-        : allItems.filter(isNew).length,
-    [allItems, isNew, lastVisit, seedAges, generatedAt],
-  );
 
   // The search filters behind the typing: the box keeps up while the results catch up.
   const searchQuery = useDeferredValue(query);
@@ -542,28 +538,75 @@ export function NewsBoard({
   // Once the board has every headline, the search carries on into the last 30 days (OlderResults).
   const searchOlder = !!search && whole && !onlyNew && (view === "sources" || view === "top" || view === "latest");
 
+  // The headline views. Saved and Videos list their own things, so the board's headlines aren't
+  // filtered for them (a search there would otherwise go through every headline at each key press).
+  const boardView = view === "sources" || view === "top" || view === "latest";
+
+  // How many headlines "new" shows with the other filters as they are: what its button counts. With
+  // only the page's head file, the seed's count by age for its own section (exact enough, and the
+  // button's number doesn't jump); with other filters, none until every headline is here.
+  const newCount = useMemo(() => {
+    if (!lastVisit) return 0;
+    if (!whole) {
+      const pageFilters = lang === "all" && !onlySource && !search && (category || undefined) === seed?.category;
+      return pageFilters && seedAges && generatedAt ? countSince(seedAges, generatedAt, lastVisit) : 0;
+    }
+    let n = 0;
+    for (const it of allItems)
+      if (
+        isNew(it) &&
+        (lang === "all" || it.lang === lang) &&
+        (!onlySource || it.sourceId === onlySource) &&
+        (!category || it.category === category) &&
+        (!search || search.matches(it.title))
+      )
+        n++;
+    return n;
+  }, [whole, allItems, isNew, lastVisit, seedAges, generatedAt, lang, onlySource, category, search, seed?.category]);
+
   // Everything except the category filter, so the chips can show counts.
   const matching = useMemo(
     () =>
-      allItems.filter(
-        (it) =>
+      boardView
+        ? allItems.filter(
+            (it) =>
+              (lang === "all" || it.lang === lang) &&
+              (!onlySource || it.sourceId === onlySource) &&
+              (!onlyNew || isNew(it)) &&
+              (!search || search.matches(it.title)),
+          )
+        : NO_ITEMS,
+    [boardView, allItems, lang, onlySource, onlyNew, isNew, search],
+  );
+
+  // Saved headlines go through the same filters, except "new"; here all but the section, for its tabs.
+  const { saved, savedLinks: savedLinksNow, toggleSaved } = useSaved();
+  const savedLinks = useDeferredValue(savedLinksNow);
+  const savedAll = useMemo(
+    () =>
+      saved.filter(
+        ({ item: it }) =>
           (lang === "all" || it.lang === lang) &&
           (!onlySource || it.sourceId === onlySource) &&
-          (!onlyNew || isNew(it)) &&
           (!search || search.matches(it.title)),
       ),
-    [allItems, lang, onlySource, onlyNew, isNew, search],
+    [saved, lang, onlySource, search],
   );
 
   // Until the stream has delivered every source, the unfiltered counts come with the seed, so the
-  // tabs don't widen as sources arrive.
+  // tabs don't widen as sources arrive. On Saved, the tabs count the saved headlines.
   const unfiltered = !onlyNew && lang === "all" && !onlySource && !search;
   const categoryCounts = useMemo(() => {
+    if (view === "saved") {
+      const counts = new Map<Category, number>();
+      for (const { item } of savedAll) counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
+      return counts;
+    }
     if (seedCounts && unfiltered) return new Map(Object.entries(seedCounts) as [Category, number][]);
     const counts = new Map<Category, number>();
     for (const it of matching) counts.set(it.category, (counts.get(it.category) ?? 0) + 1);
     return counts;
-  }, [matching, seedCounts, unfiltered]);
+  }, [view, savedAll, matching, seedCounts, unfiltered]);
   // Each card's final size while it still shows the seed's or head's headlines (counted with the default filters).
   const cardTotals = seedTotals && unfiltered && (category || undefined) === pageCategory ? seedTotals : undefined;
   const matchingCount = useMemo(() => [...categoryCounts.values()].reduce((a, b) => a + b, 0), [categoryCounts]);
@@ -638,6 +681,7 @@ export function NewsBoard({
   // Grouping still to catch up with the language or feed just chosen.
   const storiesPending = storyItems !== allItems || storyLang !== lang;
   const stories = useMemo(() => {
+    if (view !== "top") return NO_STORIES;
     const matches = allStories.filter((st) =>
       st.items.some(
         (it) =>
@@ -649,29 +693,20 @@ export function NewsBoard({
     );
     const big = matches.filter((st) => st.outlets >= TOP_MIN_OUTLETS);
     return big.length ? big : matches;
-  }, [allStories, search, onlySource, category, onlyNew, isNew]);
+  }, [view, allStories, search, onlySource, category, onlyNew, isNew]);
 
-  // Saved headlines go through the same filters, except "new".
-  const { saved, savedLinks: savedLinksNow, toggleSaved } = useSaved();
-  const savedLinks = useDeferredValue(savedLinksNow);
   const savedMatching = useMemo(
-    () =>
-      saved.filter(
-        ({ item: it }) =>
-          (lang === "all" || it.lang === lang) &&
-          (!onlySource || it.sourceId === onlySource) &&
-          (!category || it.category === category) &&
-          (!search || search.matches(it.title)),
-      ),
-    [saved, lang, onlySource, category, search],
+    () => (category ? savedAll.filter(({ item }) => item.category === category) : savedAll),
+    [savedAll, category],
   );
   // Saved videos only go through the search: they are TV channels' Bangla videos, with no source or
   // category of the board's, so a source, category or English filter leaves them out.
   const { savedVideos, toggleSavedVideo } = useSavedVideos();
-  const savedVideosMatching = useMemo(() => {
-    if (lang === "en" || onlySource || category) return [];
+  const savedVideosAll = useMemo(() => {
+    if (lang === "en" || onlySource) return [];
     return search ? savedVideos.filter((e) => search.matches(e.video.title)) : savedVideos;
-  }, [savedVideos, lang, onlySource, category, search]);
+  }, [savedVideos, lang, onlySource, search]);
+  const savedVideosMatching = category ? NO_SAVED_VIDEOS : savedVideosAll;
   const savedCount = saved.length + savedVideos.length;
 
   // Single sources failing are explained on their cards (and on /health); half or more failing two
@@ -743,7 +778,13 @@ export function NewsBoard({
   // Kept the same between renders unless a count changes: the tabs measure themselves whenever it changes.
   const categoryTabs = useMemo(
     () => [
-      { id: "", label: bn ? "সব" : "All", href: localePath("/", locale), count: matchingCount },
+      {
+        id: "",
+        label: bn ? "সব" : "All",
+        href: localePath("/", locale),
+        // On Saved, "All" also lists the saved videos.
+        count: matchingCount + (view === "saved" ? savedVideosAll.length : 0),
+      },
       ...CATEGORIES.map((c) => ({
         id: c.id,
         label: bn ? c.bn : c.label,
@@ -752,7 +793,7 @@ export function NewsBoard({
         count: categoryCounts.get(c.id) ?? 0,
       })),
     ],
-    [bn, locale, matchingCount, categoryCounts],
+    [bn, locale, matchingCount, categoryCounts, view, savedVideosAll],
   );
 
   /** Selects a category; from deep in the page, jumps back to the top of the results. */
@@ -1189,6 +1230,8 @@ export function NewsBoard({
 
               {hasData && view === "top" && !(filtering && filtered.length === 0) && (
                 <TopStories
+                  // A new filter starts from the first page of stories again.
+                  key={`${filtersToSearch({ ...DEFAULT_FILTERS, lang, source: onlySource, category, query: searchQuery })}${onlyNew ? "&new" : ""}`}
                   stories={stories}
                   sourceById={sourceById}
                   now={now}
@@ -1244,6 +1287,7 @@ export function NewsBoard({
                 <Suspense fallback={<VideoSkeleton />}>
                   <VideoBoard
                     query={searchQuery}
+                    search={search}
                     rail={videoRail}
                     refreshSignal={videoRefresh}
                     onShare={shareVideo}
@@ -1436,7 +1480,11 @@ export function NewsBoard({
                   onClick={() => setFiltersOpen(false)}
                   className="h-12 flex-[2] rounded-xl bg-foreground text-sm font-semibold text-background transition active:scale-[0.98]"
                 >
-                  {view === "videos" ? t.done : t.showHeadlines(formatCount(filtered.length, locale))}
+                  {view === "videos"
+                    ? t.done
+                    : t.showHeadlines(
+                        formatCount(view === "saved" ? savedMatching.length + savedVideosMatching.length : filtered.length, locale),
+                      )}
                 </button>
               </div>
             </Sheet>

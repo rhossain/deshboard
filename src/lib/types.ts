@@ -113,4 +113,9 @@ export interface VideoFeed {
   channels: (Pick<VideoChannel, "id" | "name"> & { ok: boolean; error?: string })[];
   /** The last day's videos, newest first, Shorts left out. */
   videos: Video[];
+  /**
+   * Only on the seed (the first cards, prerendered): each channel's videos in the whole feed, so the
+   * channel rail shows its final counts before the rest arrives.
+   */
+  counts?: Record<string, number>;
 }

@@ -147,5 +147,7 @@ export function cachedVideoSeed(): VideoFeed | undefined {
     if (v.story) stories.add(v.story);
     else lone.add(v.id);
   }
-  return { ...feed, videos: feed.videos.filter((v) => lone.has(v.id) || (!!v.story && stories.has(v.story))) };
+  const counts: Record<string, number> = {};
+  for (const v of feed.videos) counts[v.channel] = (counts[v.channel] ?? 0) + 1;
+  return { ...feed, videos: feed.videos.filter((v) => lone.has(v.id) || (!!v.story && stories.has(v.story))), counts };
 }
