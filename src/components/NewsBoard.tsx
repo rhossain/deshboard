@@ -29,6 +29,7 @@ import { sourceName } from "@/lib/bn-names";
 import { type Locale, localePath } from "@/lib/i18n";
 import { STRINGS, type Strings } from "@/lib/strings";
 import type { Theme } from "@/lib/theme";
+import { applyDelta, DATA_DIR, type FeedDelta, type PackedFeed, type PackedSeed, unpackFeed } from "@/lib/packed";
 import type { NewsFeed, NewsItem, NewsSeed, NewsSource, SourceResult, Video, VideoFeed } from "@/lib/types";
 import { PHONE, useCardPrefs, useIsPhone } from "./card-prefs";
 import { CategoryTabs } from "./CategoryTabs";
@@ -194,12 +195,23 @@ function whenNeeded(fn: () => void): () => void {
  * `priority: "low"` when the page already shows headlines, so it doesn't hold up the logos and fonts.
  */
 export async function loadFeed(signal?: AbortSignal, priority: RequestPriority = "auto"): Promise<NewsFeed> {
-  return (await loadData("/data/news.json", signal, priority)) as NewsFeed;
+  return unpackFeed((await loadData(`${DATA_DIR}/news.json`, signal, priority)) as PackedFeed);
 }
 
 /** A page's head file: every source's newest headlines, all the cards show (see NewsSeed). */
 async function loadHead(category: Category | undefined, signal: AbortSignal, priority: RequestPriority): Promise<NewsSeed> {
-  return (await loadData(`/data/head/${category ?? "all"}.json`, signal, priority)) as NewsSeed;
+  return unpackFeed((await loadData(`${DATA_DIR}/head/${category ?? "all"}.json`, signal, priority)) as PackedSeed);
+}
+
+/**
+ * The newest build's whole feed, for a board that has a whole feed (`base`): made from delta.json, a few
+ * dozen KB, when `base` is the build before it; otherwise the whole file, about 700 KB. `base` again when
+ * there is no newer build.
+ */
+async function loadNewerFeed(base: NewsFeed, signal: AbortSignal, priority: RequestPriority): Promise<NewsFeed> {
+  const delta = (await loadData(`${DATA_DIR}/delta.json`, signal, priority)) as FeedDelta;
+  if (delta.generatedAt === base.generatedAt) return base;
+  return applyDelta(base, delta) ?? loadFeed(signal, priority);
 }
 
 async function loadData(url: string, signal: AbortSignal | undefined, priority: RequestPriority): Promise<unknown> {
@@ -358,6 +370,8 @@ export function NewsBoard({
   const quietRef = useRef<AbortController | null>(null);
   const resultsRef = useRef(results);
   const generatedAtRef = useRef(generatedAt);
+  // The whole feed on show (null while only part of it is): what a refresh's delta is made against.
+  const wholeRef = useRef<NewsFeed | null>(null);
   // What the last Refresh found, shown for a few seconds in the status line.
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -399,6 +413,7 @@ export function NewsBoard({
   const show = useCallback((feed: NewsFeed | NewsSeed) => {
     const part = "counts" in feed ? feed : undefined;
     hasRef.current = partOf(feed);
+    wholeRef.current = part ? null : feed;
     startTransition(() => {
       setResults(byId(feed));
       setLogos({ logos: feed.logos, logoShapes: feed.logoShapes });
@@ -409,6 +424,15 @@ export function NewsBoard({
       setGeneratedAt(feed.generatedAt);
       setNow(Date.now());
     });
+  }, []);
+
+  /**
+   * The whole feed: with the whole of an earlier build on show, only what changed since (see
+   * loadNewerFeed); otherwise all of it.
+   */
+  const loadWhole = useCallback((signal: AbortSignal, priority: RequestPriority) => {
+    const base = wholeRef.current;
+    return base ? loadNewerFeed(base, signal, priority) : loadFeed(signal, priority);
   }, []);
 
   /**
@@ -428,7 +452,7 @@ export function NewsBoard({
 
       // Only the Refresh button, a page without a seed, or a reader who asked for more is waiting on it.
       const priority = manual || hasRef.current === NONE || wantWhole ? "auto" : "low";
-      (getWhole ? loadFeed(controller.signal, priority) : loadHead(pageCategory, controller.signal, priority)).then(
+      (getWhole ? loadWhole(controller.signal, priority) : loadHead(pageCategory, controller.signal, priority)).then(
         (feed: NewsFeed | NewsSeed) => {
           if (controllerRef.current === controller) wholeLoadingRef.current = false;
           const newer = feed.generatedAt !== generatedAtRef.current;
@@ -451,7 +475,7 @@ export function NewsBoard({
         },
       );
     },
-    [show, pageCategory, t, locale],
+    [show, pageCategory, t, locale, loadWhole],
   );
 
   /** The Refresh button and `r`. */
@@ -479,7 +503,7 @@ export function NewsBoard({
     quietRef.current?.abort();
     const controller = new AbortController();
     quietRef.current = controller;
-    (hasRef.current === WHOLE ? loadFeed(controller.signal, "low") : loadHead(pageCategory, controller.signal, "low")).then(
+    (hasRef.current === WHOLE ? loadWhole(controller.signal, "low") : loadHead(pageCategory, controller.signal, "low")).then(
       (feed: NewsFeed | NewsSeed) => {
         if (feed.generatedAt === generatedAtRef.current) return; // No new build since the last look.
         // The board got the whole feed meanwhile: fetch the new build's whole feed rather than shrink to its head.
@@ -498,7 +522,7 @@ export function NewsBoard({
       },
       () => {}, // A failed background refresh changes nothing; the next one tries again.
     );
-  }, [show, pageCategory, start]);
+  }, [show, pageCategory, start, loadWhole]);
 
   const showPending = () => {
     if (!pending) return;

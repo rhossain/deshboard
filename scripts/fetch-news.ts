@@ -1,10 +1,12 @@
 /**
  * Collect the headlines for a static build: npm run fetch
  *
- * Fetches every active source and each outlet's logo, then writes what the static site serves:
- *   public/data/news.json   the board's headlines (see NewsFeed)
- *   public/data/head/<all|category>.json the newest of them for each page, read first (see NewsSeed)
- *   public/data/days/<date>.json every headline of the last 30 days, by day (see NewsDay, archive.ts)
+ * Fetches every active source and each outlet's logo, then writes what the static site serves (the
+ * headline files packed, in public/data/v2: see packed.ts):
+ *   news.json   the board's headlines (see NewsFeed)
+ *   delta.json  how they differ from the last run's, for a board that has those (see FeedDelta)
+ *   head/<all|category>.json the newest of them for each page, read first (see NewsSeed)
+ *   days/<date>.json every headline of the last 30 days, by day (see NewsDay, archive.ts)
  *   public/data/videos.json the Videos view: TV channels' latest YouTube videos (see VideoFeed)
  *   public/logos/<id>.<ext> logos, resized for the cards (see prepareLogo)
  * and updates `.data/` (first-seen times, source health, which `next build` reads for /health, and
@@ -18,6 +20,7 @@ import { getLogo, prepareLogo } from "../src/lib/logos";
 import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { addressKey } from "../src/lib/fetchers/utils";
 import { toSeed } from "../src/lib/feed";
+import { DATA_DIR, makeDelta, packDay, packFeed, type PackedDay, type PackedFeed, unpackDay, unpackFeed } from "../src/lib/packed";
 import { CATEGORY_PAGES } from "../src/lib/site";
 import { cachedResult, getNews } from "../src/lib/news";
 import { getVideos } from "../src/lib/videos";
@@ -26,6 +29,8 @@ import { flushStores } from "../src/lib/store";
 import type { LogoShape, NewsDay, NewsFeed, NewsItem, SourceResult } from "../src/lib/types";
 
 const PUBLIC = path.join(process.cwd(), "public");
+/** The packed headline files (see packed.ts). */
+const DATA = path.join(PUBLIC, DATA_DIR);
 /** The logos as the outlets publish them. */
 const ORIGINAL_DIR = path.join(process.cwd(), ".data", "logos");
 /** The logos the site serves, made from the originals on every run. */
@@ -100,18 +105,29 @@ async function publishLogos(originals: Record<string, string>): Promise<Pick<New
 const DAYS_ARCHIVE = path.join(process.cwd(), ".data", "days");
 const DAY_DOWNLOAD_TIMEOUT_MS = 10_000;
 
-/**
- * A day file from the live site, for a day the archive is missing (the Actions cache was lost or is new):
- * the site serves every kept day, so it is the backup. Null when SITE_URL isn't set or the site lacks it.
- */
-async function downloadDay(date: string): Promise<NewsDay | null> {
+/** A file from the live site (SITE_URL), parsed; null when SITE_URL isn't set or the site lacks it. */
+async function download<T>(url: string): Promise<T | null> {
   const site = process.env.SITE_URL?.replace(/\/+$/, "");
   if (!site) return null;
   try {
-    const res = await fetch(`${site}/data/days/${date}.json`, { signal: AbortSignal.timeout(DAY_DOWNLOAD_TIMEOUT_MS) });
-    if (!res.ok) return null;
-    const day = (await res.json()) as NewsDay;
-    return day.date === date && Array.isArray(day.items) ? day : null;
+    const res = await fetch(`${site}${url}`, { signal: AbortSignal.timeout(DAY_DOWNLOAD_TIMEOUT_MS) });
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A day file from the live site, for a day the archive is missing (the Actions cache was lost or is new):
+ * the site serves every kept day, so it is the backup. Before the files were packed they were in /data/days.
+ */
+async function downloadDay(date: string): Promise<NewsDay | null> {
+  const raw =
+    (await download<PackedDay | NewsDay>(`${DATA_DIR}/days/${date}.json`)) ??
+    (await download<PackedDay | NewsDay>(`/data/days/${date}.json`));
+  try {
+    const day = raw && unpackDay(raw);
+    return day?.date === date && Array.isArray(day.items) ? day : null;
   } catch {
     return null;
   }
@@ -128,7 +144,7 @@ async function writeDays(): Promise<number> {
   const archived = (date: string) => path.join(DAYS_ARCHIVE, `${date}.json`);
   const read = (date: string): NewsItem[] => {
     try {
-      return existsSync(archived(date)) ? (JSON.parse(readFileSync(archived(date), "utf8")) as NewsDay).items : [];
+      return existsSync(archived(date)) ? unpackDay(JSON.parse(readFileSync(archived(date), "utf8"))).items : [];
     } catch (err) {
       // A damaged file is started over rather than stopping every run from here on.
       console.warn(`  ! ${date}.json could not be read, starting it over:`, err instanceof Error ? err.message : err);
@@ -136,7 +152,7 @@ async function writeDays(): Promise<number> {
     }
   };
   const write = (day: NewsDay) => {
-    writeFileSync(`${archived(day.date)}.tmp`, JSON.stringify(day));
+    writeFileSync(`${archived(day.date)}.tmp`, JSON.stringify(packDay(day)));
     renameSync(`${archived(day.date)}.tmp`, archived(day.date));
   };
 
@@ -160,11 +176,19 @@ async function writeDays(): Promise<number> {
   for (const file of readdirSync(DAYS_ARCHIVE)) {
     if (!keep.includes(file.replace(/\.json$/, ""))) rmSync(path.join(DAYS_ARCHIVE, file));
   }
-  const dir = path.join(PUBLIC, "data", "days");
+  const dir = path.join(DATA, "days");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   const files = readdirSync(DAYS_ARCHIVE);
-  for (const file of files) writeFileSync(path.join(dir, file), readFileSync(path.join(DAYS_ARCHIVE, file)));
+  for (const file of files) {
+    // Days the archive still has from before the files were packed are packed on the way.
+    try {
+      const day = JSON.parse(readFileSync(path.join(DAYS_ARCHIVE, file), "utf8")) as PackedDay | NewsDay;
+      writeFileSync(path.join(dir, file), JSON.stringify("items" in day ? packDay(day) : day));
+    } catch (err) {
+      console.warn(`  ! ${file} could not be read, left out:`, err instanceof Error ? err.message : err);
+    }
+  }
   return files.length;
 }
 
@@ -173,12 +197,37 @@ async function writeDays(): Promise<number> {
  * board loads until the reader wants more than the cards show, a small part of news.json.
  */
 function writeHeads(feed: NewsFeed) {
-  const dir = path.join(PUBLIC, "data", "head");
+  const dir = path.join(DATA, "head");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   for (const category of [undefined, ...CATEGORY_PAGES.map((c) => c.id)]) {
-    writeFileSync(path.join(dir, `${category ?? "all"}.json`), JSON.stringify(toSeed(feed, category, Infinity)));
+    writeFileSync(path.join(dir, `${category ?? "all"}.json`), JSON.stringify(packFeed(toSeed(feed, category, Infinity))));
   }
+}
+
+/** The last run's feed, kept between runs (the Actions cache keeps .data), for when the live site's can't be had. */
+const LAST_FEED = path.join(process.cwd(), ".data", "board.json");
+
+/**
+ * The feed and how it differs from the one before (see FeedDelta): the live site's, which is what open
+ * boards have (a run whose upload failed never reached them), else the last run's kept copy. With
+ * neither, the delta fits no board, which then loads the whole feed.
+ */
+async function writeFeed(feed: NewsFeed) {
+  let last = await download<PackedFeed>(`${DATA_DIR}/news.json`);
+  if (!last?.results) {
+    try {
+      last = existsSync(LAST_FEED) ? (JSON.parse(readFileSync(LAST_FEED, "utf8")) as PackedFeed) : null;
+    } catch {
+      last = null; // A damaged copy: no delta this time.
+    }
+  }
+  const previous: NewsFeed = last?.results ? unpackFeed(last) : { generatedAt: "", results: [], logos: {}, logoShapes: {} };
+
+  const packed = JSON.stringify(packFeed(feed));
+  writeFileSync(path.join(DATA, "news.json"), packed);
+  writeFileSync(path.join(DATA, "delta.json"), JSON.stringify(makeDelta(previous, feed)));
+  writeFileSync(LAST_FEED, packed);
 }
 
 async function main() {
@@ -191,8 +240,11 @@ async function main() {
   for (const item of news.items) bySource.get(item.sourceId)?.items.push(item);
 
   const feed: NewsFeed = { generatedAt: news.generatedAt, results: [...bySource.values()], logos, logoShapes };
-  mkdirSync(path.join(PUBLIC, "data"), { recursive: true });
-  writeFileSync(path.join(PUBLIC, "data", "news.json"), JSON.stringify(feed));
+  // The unpacked files from before (news.json, head/, days/) are gone from the site with this.
+  for (const old of ["news.json", "head", "days"]) rmSync(path.join(PUBLIC, "data", old), { recursive: true, force: true });
+  mkdirSync(DATA, { recursive: true });
+  mkdirSync(path.dirname(LAST_FEED), { recursive: true });
+  await writeFeed(feed);
   writeFileSync(path.join(PUBLIC, "data", "videos.json"), JSON.stringify(videos));
   writeHeads(feed);
   const days = await writeDays();

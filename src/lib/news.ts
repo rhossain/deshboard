@@ -20,9 +20,11 @@ const CONCURRENCY = 8;
 /** Headlines older than this drop off (as long as first-seen.ts remembers a link). */
 export const MAX_AGE_MS = 72 * 3600_000;
 /**
- * The board gets each source's newest this many: a day or more for all but the busiest outlets.
- * The rest of the 72 hours stays in the cache for shared links.
+ * The board's headlines go back this far: two days. The cache keeps all of MAX_AGE_MS, for the day
+ * files (which the search and shared links reach further back with) and the first publish times.
  */
+export const BOARD_MAX_AGE_MS = 48 * 3600_000;
+/** The board gets each source's newest this many at most: a day or more for all but the busiest outlets. */
 const PER_SOURCE = 300;
 /** Publish times up to this far ahead of now are clock drift; later ones are wrong. */
 const MAX_AHEAD_MS = 15 * 60_000;
@@ -112,9 +114,14 @@ export function mergeNews(fresh: NewsItem[], kept: NewsItem[], now = Date.now())
     .slice(0, MAX_KEPT);
 }
 
-/** A source's result as the board gets it: only its newest PER_SOURCE headlines. */
-export function forBoard<T extends SourceResult>(result: T): T {
-  return result.items.length > PER_SOURCE ? { ...result, items: result.items.slice(0, PER_SOURCE) } : result;
+/**
+ * A source's result as the board gets it: the headlines of the last BOARD_MAX_AGE_MS, and only its
+ * newest PER_SOURCE of those. Undated ones are on the outlet's page now, so they stay.
+ */
+export function forBoard<T extends SourceResult>(result: T, now = Date.now()): T {
+  const cutoff = new Date(now - BOARD_MAX_AGE_MS).toISOString();
+  const items = result.items.filter((it) => (itemTime(it) ?? cutoff) >= cutoff).slice(0, PER_SOURCE);
+  return items.length === result.items.length ? result : { ...result, items };
 }
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));

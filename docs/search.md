@@ -77,8 +77,8 @@ until it arrives the words match as typed. Compiling a query takes about 0.03 ms
 The board holds each outlet's newest headlines (about 3,500 in all), which for the busiest is less than a day. The
 search now carries on past it into every headline of the last 30 days.
 
-**The day files.** One file per Dhaka day, `/data/days/<date>.json` (`NewsDay`), with every headline the fetch has
-seen that day. The build used to keep 72 hours of them, for shared links; it now keeps 30 days (`src/lib/archive.ts`).
+**The day files.** One file per Dhaka day, `/data/v2/days/<date>.json` (`NewsDay`, packed by outlet: see
+`src/lib/packed.ts`; `/data/days/` on `main`, unpacked), with every headline the fetch has seen that day. The build used to keep 72 hours of them, for shared links; it now keeps 30 days (`src/lib/archive.ts`).
 The fetch's cache only reaches back 72 hours, so each run merges what it has into the day files kept before
 (`.data/days`, which the Actions cache carries from run to run). A slimmer search-only file was measured and isn't
 worth it: compressed, it is 3% smaller.

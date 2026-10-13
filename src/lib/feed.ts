@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { Category } from "./categories";
 import { dedupeByLink } from "./fetchers/utils";
+import { DATA_DIR, type PackedFeed, unpackFeed } from "./packed";
 import { seedResults } from "./site";
 import { ageSteps, itemTime } from "./stories";
 import type { NewsFeed, NewsSeed, VideoFeed } from "./types";
@@ -38,16 +39,17 @@ export function toSeed(feed: NewsFeed, category?: Category, fullCards?: number):
 const parsed = new Map<string, { mtimeMs: number; data: unknown }>();
 
 /**
- * A file under public/data, parsed once per version of it: a build reads news.json for every page (a
- * few MB each time). Callers must not change what they get.
+ * A file under public (`url` is its address on the site), parsed (and made into what the callers want,
+ * `read`) once per version of it: a build reads news.json for every page (a few MB each time). Callers
+ * must not change what they get.
  */
-function readData<T>(name: string): T | undefined {
-  const file = path.join(process.cwd(), "public", "data", name);
+function readData<T>(url: string, read: (json: never) => T = (json) => json): T | undefined {
+  const file = path.join(process.cwd(), "public", url);
   try {
     const { mtimeMs } = statSync(file);
     const hit = parsed.get(file);
     if (hit?.mtimeMs === mtimeMs) return hit.data as T;
-    const data = JSON.parse(readFileSync(file, "utf8")) as T;
+    const data = read(JSON.parse(readFileSync(file, "utf8")) as never);
     parsed.set(file, { mtimeMs, data });
     return data;
   } catch {
@@ -57,7 +59,7 @@ function readData<T>(name: string): T | undefined {
 
 /** The whole feed from `npm run fetch`, or undefined when nothing has been fetched yet. */
 export function readFeed(): NewsFeed | undefined {
-  return readData<NewsFeed>("news.json");
+  return readData(`${DATA_DIR}/news.json`, (json: PackedFeed) => unpackFeed(json));
 }
 
 /**
@@ -100,5 +102,5 @@ export function readVideoSeed(): VideoFeed | undefined {
 
 /** The whole videos feed from `npm run fetch`, or undefined when nothing has been fetched yet. */
 export function readVideos(): VideoFeed | undefined {
-  return readData<VideoFeed>("videos.json");
+  return readData<VideoFeed>("/data/videos.json");
 }

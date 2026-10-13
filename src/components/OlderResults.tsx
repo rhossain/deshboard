@@ -6,7 +6,8 @@ import { keptDates } from "@/lib/archive";
 import type { LangFilter } from "@/lib/filters";
 import type { Search } from "@/lib/search";
 import { titleKey } from "@/lib/fetchers/utils";
-import type { NewsDay, NewsItem, NewsSource } from "@/lib/types";
+import { DATA_DIR, type PackedDay, unpackDay } from "@/lib/packed";
+import type { NewsItem, NewsSource } from "@/lib/types";
 import { Headline } from "./LatestList";
 import { useLocale, useStrings } from "./locale";
 import { dhakaDate } from "./time";
@@ -37,10 +38,10 @@ function loadDay(date: string, today: boolean): Promise<NewsItem[] | "missing"> 
     days.set(date, kept);
     return kept;
   }
-  const day = fetch(`/data/days/${date}.json`).then(async (res) => {
+  const day = fetch(`${DATA_DIR}/days/${date}.json`).then(async (res) => {
     if (res.status === 404) return "missing" as const;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return ((await res.json()) as NewsDay).items;
+    return unpackDay((await res.json()) as PackedDay).items;
   });
   if (!today) {
     days.set(date, day);
@@ -59,7 +60,7 @@ interface Found {
 }
 
 /**
- * The search, carried on past the board's 72 hours into the day files of the last 30 days (docs/search.md):
+ * The search, carried on past the board's 48 hours into the day files of the last 30 days (docs/search.md):
  * newest first, a round of days at a time, so a search that finds plenty early downloads little. It starts
  * from today, since the board holds only each outlet's newest 300 (less than a day for the busiest), and
  * leaves out what the board already shows (`boardKeys`: its links, and each outlet's titles, see

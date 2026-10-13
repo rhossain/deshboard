@@ -63,7 +63,7 @@ export interface SourceResult {
 
 export type SourceStatus = Omit<SourceResult, "items">;
 
-/** `/data/news.json`: what the board reads, written by `npm run fetch` before each build. */
+/** `/data/v2/news.json` (packed, see packed.ts): what the board reads, written by `npm run fetch` before each build. */
 export interface NewsFeed {
   generatedAt: string;
   /** Every fetched source's latest result, in display order. */
@@ -76,7 +76,7 @@ export interface NewsFeed {
 
 /**
  * One Dhaka calendar day of headlines from the last 72 hours, every source's, newest first
- * (public/data/days/<date>.json). The board only has each source's newest few hundred; these let a
+ * (public/data/v2/days/<date>.json, packed). The board only has each source's newest few hundred; these let a
  * shared link to an older headline still show it.
  */
 export interface NewsDay {
@@ -88,7 +88,7 @@ export interface NewsDay {
 /**
  * Part of the feed: a few headlines per source (see seedResults), with what the board needs from the
  * whole feed to draw at its final size. Prerendered into a page, and written for each page as
- * `/data/head/<all|category>.json`, which the board reads in place of `/data/news.json` until it needs more.
+ * `/data/v2/head/<all|category>.json`, which the board reads in place of `news.json` until it needs more.
  */
 export interface NewsSeed extends NewsFeed {
   /** Headlines per section in the whole feed, so the section tabs start out with their final counts. */

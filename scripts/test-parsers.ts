@@ -23,13 +23,14 @@ import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filte
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
 import { forBoard, mergeNews } from "../src/lib/news";
+import { applyDelta, makeDelta, packDay, packFeed, unpackDay, unpackFeed } from "../src/lib/packed";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
 import { articleUrl, linkKey, SHARE_TARGETS, sharedVideoId, sharePath, videoSharePath } from "../src/lib/share";
 import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { compileSearch, installSearchTerms } from "../src/lib/search";
 import { SEARCH_TERMS } from "../src/lib/search-terms";
 import { findStories, keywords } from "../src/lib/stories";
-import type { NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
+import type { NewsFeed, NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
 import { mergeVideos } from "../src/lib/videos";
 import { groupVideos, tagStories, videoKeywords } from "../src/lib/video-stories";
 
@@ -798,7 +799,7 @@ test("Videos about the same news group across channels; different events don't",
   );
 });
 
-test("Headlines build up across runs: the last 72 hours kept, the newest 300 on the board", () => {
+test("Headlines build up across runs: the last 72 hours kept, the newest 300 of 48 hours on the board", () => {
   const now = Date.parse("2026-10-07T12:00:00Z");
   const at = (hoursAgo: number) => new Date(now - hoursAgo * 3600_000).toISOString();
   const it = (link: string, hoursAgo?: number, title = link, seen = false): NewsItem => ({
@@ -835,8 +836,11 @@ test("Headlines build up across runs: the last 72 hours kept, the newest 300 on 
     durationMs: 0,
     items: many,
   };
-  assert.deepEqual(forBoard(result).items, many.slice(0, 300));
-  assert.equal(forBoard({ ...result, items: many.slice(0, 5) }).items.length, 5);
+  assert.deepEqual(forBoard(result, now).items, many.slice(0, 300));
+  assert.equal(forBoard({ ...result, items: many.slice(0, 5) }, now).items.length, 5);
+  // Older than 48 hours: kept for the day files, not on the board. Undated: on the outlet's page now.
+  const aged = { ...result, items: [it("new", 1), it("two-days", 47), it("three-days", 60), it("undated")] };
+  assert.deepEqual(forBoard(aged, now).items.map((x) => x.title), ["new", "two-days", "undated"]);
 });
 
 test("Google News: one site's last day, in its language's edition", () => {
@@ -924,6 +928,58 @@ test("Fallback note: why a source's headlines come from Google News", () => {
   // A site read only through Google News: its notes say why.
   const jsOnly = fallbackNote({ ...base, via: "google-news", directError: "No feed/sitemap; homepage JS-rendered" });
   assert.match(jsOnly?.detail ?? "", /loads its headlines with JavaScript.*Google News instead/);
+});
+
+test("Packed files: the same headlines back, and a delta that turns one build into the next", () => {
+  const item = (source: string, n: number, extra: Partial<NewsItem> = {}): NewsItem => ({
+    title: `${source} ${n}`,
+    link: `https://${source}.com/${n}`,
+    publishedAt: new Date(Date.UTC(2026, 9, 13, 10, 0, n)).toISOString(),
+    sourceId: source,
+    sourceName: source.toUpperCase(),
+    lang: source === "a" ? "bn" : "en",
+    category: "national",
+    ...extra,
+  });
+  const result = (source: string, items: NewsItem[]): SourceResult => ({
+    sourceId: source,
+    sourceName: source.toUpperCase(),
+    method: "rss",
+    ok: true,
+    count: items.length,
+    durationMs: 1,
+    fetchedAt: "2026-10-13T10:00:00.000Z",
+    items,
+  });
+  // (As the files would have them: no keys set to undefined.)
+  const feed = (at: string, results: SourceResult[]): NewsFeed =>
+    JSON.parse(JSON.stringify({ generatedAt: at, results, logos: {}, logoShapes: {} }));
+  // Undated, first seen (with milliseconds), dated: all as they were.
+  const undated = item("a", 9, { publishedAt: undefined });
+  const seen = item("a", 8, { publishedAt: undefined, seenAt: "2026-10-13T09:59:58.123Z" });
+  const one = feed("2026-10-13T10:00:00.000Z", [result("a", [item("a", 3), seen, undated]), result("b", [item("b", 1)]), result("c", [])]);
+  assert.deepEqual(unpackFeed(JSON.parse(JSON.stringify(packFeed(one)))), one);
+
+  // The next build: new headlines on top, one gone, one retitled, one source new, one source gone.
+  const two = feed("2026-10-13T10:15:00.000Z", [
+    result("a", [item("a", 5), item("a", 4), item("a", 3), undated]),
+    result("b", [item("b", 1, { title: "b one, corrected" })]),
+    result("d", [item("d", 1)]),
+  ]);
+  const delta = JSON.parse(JSON.stringify(makeDelta(one, two)));
+  assert.deepEqual(delta.results[0].items.slice(2), [[0, 1], [2, 1]]);
+  const applied = applyDelta(one, delta);
+  assert.deepEqual(applied, two);
+  // Headlines the board had are the same objects, so their cards don't redraw.
+  assert.equal(applied?.results[0].items[2], one.results[0].items[0]);
+  // A board on another build, or whose headlines don't fit the runs, loads the whole feed instead.
+  assert.equal(applyDelta({ ...one, generatedAt: "2026-10-13T09:45:00.000Z" }, delta), null);
+  assert.equal(applyDelta({ ...one, results: [result("a", [])] }, delta), null);
+
+  // Day files by outlet, newest first again; ones written before packing still read.
+  const day = { date: "2026-10-13", items: [item("b", 7), item("a", 6), item("b", 5), item("a", 4)] };
+  assert.deepEqual(unpackDay(JSON.parse(JSON.stringify(packDay(day)))), day);
+  assert.equal(unpackDay(day), day);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

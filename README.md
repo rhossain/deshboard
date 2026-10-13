@@ -50,16 +50,23 @@ npm test           # offline parser tests
 
 ## Data
 
-`npm run fetch` (`scripts/fetch-news.ts`) writes what the site serves:
+`npm run fetch` (`scripts/fetch-news.ts`) writes what the site serves. The headline files are in `public/data/v2`,
+packed (`src/lib/packed.ts`): each headline is `[title, link, section, publish time, first-seen time]` under its
+outlet, times in seconds, which is about a tenth smaller than spelling everything out. The folder is new with each
+change of format, so a page still open on older code can't misread the files.
 
-- `public/data/news.json` — `{ generatedAt, results, logos, logoShapes }`: each fetched source's result (a status
-  plus its `items`), each source's logo path, and each logo's size and whether it is light on transparent (so cards
-  draw it at its final size and on the right plate from the first paint). The board loads it once the reader needs
-  more than the cards show (Top stories, Latest, a search or filter, another section, a card's "Show all").
-- `public/data/head/<all|section>.json` — for the board and each section page, every source's newest 8 headlines
-  (a full card) with the whole feed's counts and headline ages (`NewsSeed`): about 40 KB compressed against roughly
-  a megabyte for `news.json`. The board loads this after the reader's first scroll or tap, and checks whichever
-  file it has again every 10 minutes.
+- `v2/news.json` — `{ generatedAt, results, logos, logoShapes }`: each fetched source's result (a status plus its
+  `items`: its newest 300 at most, from the last 48 hours), each source's logo path, and each logo's size and
+  whether it is light on transparent (so cards draw it at its final size and on the right plate from the first
+  paint). About 700 KB compressed. The board loads it once the reader needs more than the cards show (Top stories,
+  Latest, a search or filter, another section, a card's "Show all").
+- `v2/delta.json` — how `news.json` differs from the run before's (`FeedDelta`): new headlines in full, the rest as
+  runs of the ones the board already has. A board with the whole earlier feed downloads this, a few dozen KB,
+  instead of the whole feed again; a board on any other build gets `news.json`. The fetch makes it against the
+  live site's `news.json` (`SITE_URL`), or the last run's copy in `.data/board.json`.
+- `v2/head/<all|section>.json` — for the board and each section page, every source's newest 8 headlines
+  (a full card) with the whole feed's counts and headline ages (`NewsSeed`): about 40 KB compressed. The board
+  loads this after the reader's first scroll or tap, and checks whichever file it has again every 10 minutes.
 - `public/data/videos.json` — `{ generatedAt, channels, videos }`: the Videos view, 31 TV news channels' YouTube
   videos from the last day (at most 30 per channel), newest first, without Shorts. Each channel's feed only has its
   latest 15, so each run adds to what earlier runs kept in `.data/videos.json`. Thumbnails and the player come
@@ -110,7 +117,7 @@ src/lib/google-news.ts     the fallback for sites that refuse us: address cache 
 src/components/NewsBoard.tsx  UI: top stories, Newsstand (cards by outlet), latest timeline, filters, search, "new" marks
 src/components/VideoBoard.tsx Videos view (its own chunk, loaded with videos.json only when Videos is opened)
 src/components/SharedHeadline.tsx  the page for shared headlines (and unknown addresses)
-scripts/fetch-news.ts      collects public/data/news.json and logos before a build
+scripts/fetch-news.ts      collects public/data (headlines, videos, day files) and logos before a build
 public/.htaccess           Apache / LiteSpeed rules: share links, 404 page, headers
 ```
 

@@ -5,7 +5,8 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { CATEGORIES } from "@/lib/categories";
 import { articleUrl, linkKey, sharedVideoId } from "@/lib/share";
 import { findStories, itemTime } from "@/lib/stories";
-import type { NewsDay, NewsFeed, NewsItem, NewsSource, Video } from "@/lib/types";
+import { DATA_DIR, type PackedDay, unpackDay } from "@/lib/packed";
+import type { NewsFeed, NewsItem, NewsSource, Video } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { BartaboardLogo } from "./BartaboardLogo";
 import { loadFeed } from "./NewsBoard";
@@ -18,7 +19,7 @@ import { watchUrl } from "./youtube";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
 const RELATED_MAX = 6;
-/** Days of headlines kept besides the board (public/data/days): the last 72 hours span four. */
+/** Days of headlines kept besides the board (public/data/v2/days): the fetch's 72 hours span four. */
 const ARCHIVE_DAYS = 4;
 
 const noSubscribe = () => () => {};
@@ -49,9 +50,9 @@ interface SharedClip {
 /** A headline that has left the board, with the rest of its day's; null if no day file has it. */
 async function findInDays(key: string, signal: AbortSignal): Promise<{ item: NewsItem; items: NewsItem[] } | null> {
   for (let i = 0; i < ARCHIVE_DAYS; i++) {
-    const res = await fetch(`/data/days/${dhakaDay(Date.now() - i * 86_400_000)}.json`, { cache: "no-cache", signal });
+    const res = await fetch(`${DATA_DIR}/days/${dhakaDay(Date.now() - i * 86_400_000)}.json`, { cache: "no-cache", signal });
     if (!res.ok) continue;
-    const { items } = (await res.json()) as NewsDay;
+    const { items } = unpackDay((await res.json()) as PackedDay);
     const item = items.find((it) => linkKey(it.link) === key);
     if (item) return { item, items };
   }

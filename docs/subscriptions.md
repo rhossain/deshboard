@@ -29,7 +29,7 @@ on the About, Privacy and Terms pages.
 | --- | --- | --- |
 | **Keyword alerts** (a name, a company, a district) by Telegram, email or push | Nothing else watches 59 Bangladeshi portals and 31 TV channels at once | Low. The fetch every 15 minutes already sees every new headline |
 | Up to 10 keywords, sent **as they appear** (within about 15 minutes) | Free gets 1 keyword, once a day | Low |
-| **Search and an archive beyond 72 hours** | The board forgets after 3 days | Medium. Needs a database of headlines |
+| **Search and an archive beyond 72 hours** | The board forgets after 2 days | Medium. Needs a database of headlines |
 | **Morning digest**: top stories by email or Telegram at 7am | A habit, which keeps people subscribed | Low |
 | **AI summaries**: "how 8 papers covered this story", Bangla↔English translation | Builds on the Top Stories grouping (`src/lib/stories.ts`) | Charged per call, so cap it per day |
 
