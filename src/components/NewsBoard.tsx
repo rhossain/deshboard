@@ -15,7 +15,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { CATEGORIES, type Category } from "@/lib/categories";
-import { DEFAULT_FILTERS, type Filters, filtersToSearch, type LangFilter, type Order, parseFilters, type View } from "@/lib/filters";
+import { DEFAULT_FILTERS, type Filters, filtersToSearch, type LangFilter, MAX_QUERY, type Order, parseFilters, type View } from "@/lib/filters";
 import { usePlansVisible } from "@/lib/plans";
 import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
@@ -39,7 +39,7 @@ import { InspiredBy, SITE_LINKS, siteLinkHref } from "./InfoPage";
 import { PageNotes } from "./PageNotes";
 import { setNewsDensity, useNewsDensity } from "./news-density";
 import { SearchProvider } from "./Highlight";
-import { OlderResults } from "./OlderResults";
+import { articleKey, OlderResults } from "./OlderResults";
 import { useSearch } from "./use-search";
 import { MAX_PINS, pinRanks, togglePin, usePinnedSources } from "./pinned";
 import { PinPicker, PinsButton } from "./PinPicker";
@@ -358,7 +358,8 @@ export function NewsBoard({
   const needsWhole =
     view === "top" ||
     view === "latest" ||
-    !!query.trim() ||
+    // A search on the news views (not Saved or Videos, which search their own), with something to find.
+    (view !== "saved" && view !== "videos" && /[\p{L}\p{N}]/u.test(query)) ||
     lang !== "all" ||
     !!onlySource ||
     onlyNew ||
@@ -572,7 +573,8 @@ export function NewsBoard({
 
   // Two outlets can list the same article (e.g. a homepage linking a sister site), so keep the first.
   const allItems = useMemo(() => dedupeByLink([...results.values()].flatMap((r) => r.items)), [results]);
-  const boardLinks = useMemo(() => new Set(allItems.map((it) => it.link)), [allItems]);
+  // What the board shows, for the earlier-headlines search to leave out: links, and each outlet's titles.
+  const boardKeys = useMemo(() => new Set(allItems.flatMap((it) => [it.link, articleKey(it)])), [allItems]);
   const statuses = useMemo(() => [...results.values()], [results]);
   const hasData = results.size > 0;
 
@@ -1123,6 +1125,7 @@ export function NewsBoard({
                     ref={searchRef}
                     type="search"
                     value={query}
+                    maxLength={MAX_QUERY}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key !== "Escape") return;
@@ -1353,7 +1356,7 @@ export function NewsBoard({
                 <OlderResults
                   key={filtersToSearch({ ...DEFAULT_FILTERS, lang, source: onlySource, category, query: searchQuery })}
                   search={search}
-                  boardLinks={boardLinks}
+                  boardKeys={boardKeys}
                   lang={lang}
                   source={onlySource}
                   category={category}

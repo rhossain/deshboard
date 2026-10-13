@@ -78,6 +78,7 @@ const en = {
   searchedBackTo: (date: string) => `Searched back to ${date}`,
   searchFurther: "Search further back",
   noOlder: "No earlier headlines match either.",
+  olderFailed: (date: string) => `Couldn't load ${date}.`,
   tryAnother: "Try another word or category.",
   topEmpty: {
     source: (name: string) => `Nothing from ${name} is covered by other outlets right now.`,
@@ -378,6 +379,7 @@ const bn: Strings = {
   searchedBackTo: (date) => `${date} পর্যন্ত খোঁজা হয়েছে`,
   searchFurther: "আরও আগে খুঁজুন",
   noOlder: "আগের শিরোনামেও কিছু মেলেনি।",
+  olderFailed: (date) => `${date} তারিখের শিরোনাম আনা যায়নি।`,
   tryAnother: "অন্য শব্দ বা বিভাগ দিয়ে চেষ্টা করুন।",
   topEmpty: {
     source: (name) => `${possessive(name)} কোনো খবর এই মুহূর্তে অন্য কোনো মাধ্যমে নেই।`,

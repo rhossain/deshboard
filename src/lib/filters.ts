@@ -48,10 +48,13 @@ export function parseFilters(params: Params, sourceIds: Set<string>): Filters {
     lang: lang === "bn" || lang === "en" ? lang : "all",
     source: sourceIds.has(source) ? source : "",
     category: CATEGORY_IDS.has(category) ? (category as Category) : "",
-    query: get("q").slice(0, 200),
+    query: get("q").slice(0, MAX_QUERY),
     order: get("order") === "newest" ? "newest" : "default",
   };
 }
+
+/** The longest search kept (the box, the address, the matching): longer is pasted text, not a search. */
+export const MAX_QUERY = 200;
 
 /** `?view=…&…` for the non-default filters, or "" when everything is default. */
 export function filtersToSearch(f: Filters): string {
@@ -60,7 +63,7 @@ export function filtersToSearch(f: Filters): string {
   if (f.lang !== "all") params.set("lang", f.lang);
   if (f.source) params.set("source", f.source);
   if (f.category) params.set("cat", f.category);
-  if (f.query.trim()) params.set("q", f.query.trim());
+  if (f.query.trim()) params.set("q", f.query.trim().slice(0, MAX_QUERY));
   if (f.view === "sources" && f.order !== "default") params.set("order", f.order);
   const s = params.toString();
   return s ? `?${s}` : "";
