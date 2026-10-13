@@ -75,7 +75,9 @@ export function siteDescription(locale: Locale = "en"): string {
 export function categoryTitle(category: Category, locale: Locale = "en"): string {
   const c = PAGE_BY_ID.get(category)!;
   if (locale === "bn") return `আজকের ${bnNews(category)}: সব পত্রিকা এক জায়গায় | ${SITE_NAME}`;
-  return `Bangladesh ${c.label} News Today (${c.bn}) | ${SITE_NAME}`;
+  const title = `Bangladesh ${c.label} News Today (${c.bn})`;
+  // Past about 60 characters Google cuts the title short; the section's own words matter more than the name.
+  return title.length + SITE_NAME.length + 3 > 60 ? title : `${title} | ${SITE_NAME}`;
 }
 
 /** The Videos view's own page: TV news channels' latest videos. */

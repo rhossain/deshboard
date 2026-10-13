@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { Locale } from "@/lib/i18n";
+import { STRINGS } from "@/lib/strings";
 import { ArrowUpIcon } from "./ui";
+
+const noSubscribe = () => () => {};
 
 // Ring around the arrow that fills with how far down the page the reader is.
 const R = 20;
@@ -11,6 +15,13 @@ const CIRCUMFERENCE = 2 * Math.PI * R;
 export function BackToTop() {
   const [shown, setShown] = useState(false);
   const ring = useRef<SVGCircleElement>(null);
+  // Outside the pages' LocaleProvider (it is in the root layout): the page's language, from <html lang>.
+  const locale = useSyncExternalStore<Locale>(
+    noSubscribe,
+    () => (document.documentElement.lang === "bn" ? "bn" : "en"),
+    () => "en",
+  );
+  const t = STRINGS[locale];
 
   useEffect(() => {
     let frame = 0;
@@ -44,8 +55,8 @@ export function BackToTop() {
     <button
       type="button"
       onClick={toTop}
-      aria-label="Back to top"
-      title="Back to top"
+      aria-label={t.backToTop}
+      title={t.backToTop}
       aria-hidden={!shown}
       tabIndex={shown ? 0 : -1}
       className={`back-to-top group fixed right-4 z-30 grid h-12 w-12 place-items-center rounded-full border border-line bg-surface/90 text-foreground shadow-card backdrop-blur-xl backdrop-saturate-150 transition duration-300 ease-out hover:text-accent active:scale-90 md:right-6 ${

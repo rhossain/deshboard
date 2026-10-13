@@ -102,6 +102,10 @@ export function ShareOptions({ shared }: { shared: Shareable }) {
         >
           {copied ? t.copied : t.copy}
         </button>
+        {/* The button's new word isn't read out on its own. */}
+        <span className="sr-only" role="status">
+          {copied ? t.copied : ""}
+        </span>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">
         {shared.video ? t.shareVideoNote : t.shareHeadlineNote(sourceName)}

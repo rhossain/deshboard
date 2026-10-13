@@ -1,5 +1,5 @@
 import type { Metadata, ResolvingMetadata } from "next";
-import { NewsBoardFromUrl } from "@/components/NewsBoard";
+import { VideosPageBoard } from "@/components/VideosPageBoard";
 import { readVideoSeed } from "@/lib/feed";
 import { localePath } from "@/lib/i18n";
 import {
@@ -35,7 +35,7 @@ export default function BanglaVideosPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: videosJsonLd(videoSeed?.generatedAt, "bn") }}
       />
-      <NewsBoardFromUrl sources={SOURCES} view="videos" videoSeed={videoSeed} locale="bn" />
+      <VideosPageBoard sources={SOURCES} view="videos" videoSeed={videoSeed} locale="bn" />
     </>
   );
 }

@@ -151,10 +151,10 @@ export const SourceCard = memo(function SourceCard({
               type="button"
               onClick={() => onTogglePin(source.id)}
               aria-pressed={pinned}
-              aria-label={pinned ? `Unpin ${source.name}` : `Pin ${source.name}: show it first`}
-              title={pinned ? "Pinned: shown first. Click to unpin." : "Pin: show this site first"}
+              aria-label={t.pins.pinName(source.name)}
+              title={pinned ? t.pins.unpin(source.name) : t.pins.pinName(source.name)}
               className={`pointer-events-auto -my-2 flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-surface-2 active:scale-90 ${
-                pinned ? "text-gold" : "text-muted/60 hover:text-foreground"
+                pinned ? "text-gold" : "text-muted hover:text-foreground"
               }`}
             >
               <StarIcon filled={pinned} className="h-[18px] w-[18px]" />
@@ -162,7 +162,7 @@ export const SourceCard = memo(function SourceCard({
           )}
           {hasNew && (
             <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gold">
-              New
+              {t.newBadge}
             </span>
           )}
           {(!problem || stale) && !pending && items.length > 0 && (
@@ -331,13 +331,13 @@ const Headline = memo(function Headline({
     <div className="flex">
       <a
         data-headline
-        lang={item.lang}
         href={item.link}
         target="_blank"
         rel="noopener noreferrer"
         className="group block min-w-0 flex-1 py-3 pl-4 text-foreground transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 compact:py-2"
       >
         <span
+          lang={item.lang}
           className={`block leading-[1.55] group-hover:text-accent compact:leading-[1.45] ${
             lead ? "text-[17px] font-semibold compact:text-[16px]" : "text-[15px] compact:text-[14px]"
           }`}

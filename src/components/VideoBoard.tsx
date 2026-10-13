@@ -98,6 +98,18 @@ export default function VideoBoard({
   // right under its card.
   const [openStory, setOpenStory] = useState<string | null>(null);
   const toggleStory = useCallback((story: string) => setOpenStory((id) => (id === story ? null : story)), []);
+  // The open story's panel goes in a row of its own after its card's row, in the page as on screen (so
+  // the keyboard reaches it after that row's cards): the grid's columns say where that row ends.
+  const [storySlot, setStorySlot] = useState<HTMLLIElement | null>(null);
+  const [columns, setColumns] = useState(1);
+  const grid = useCallback((ul: HTMLUListElement | null) => {
+    if (!ul) return;
+    const measure = () => setColumns(getComputedStyle(ul).gridTemplateColumns.split(" ").filter(Boolean).length || 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(ul);
+    return () => observer.disconnect();
+  }, []);
   // With a seed, the clock starts at its build time so the prerendered page and hydration agree.
   const [now, setNow] = useState(() => (!cachedVideos() && seed ? Date.parse(seed.generatedAt) : Date.now()));
   const { savedVideoIds, toggleSavedVideo } = useSavedVideos();
@@ -371,6 +383,17 @@ export default function VideoBoard({
         </div>
       )}
 
+      {/* What a search finds, read out as it changes (nothing while the seed's few wait for the rest). */}
+      <p className="sr-only" role="status">
+        {feed && search
+          ? listedVideos
+            ? t.videosFound(listedVideos, formatCount(listedVideos, locale))
+            : partial
+              ? ""
+              : t.noVideos
+          : ""}
+      </p>
+
       {!feed && !error && <VideoSkeleton />}
 
       {/* Nothing in the seed isn't nothing in the feed: wait for it. */}
@@ -425,29 +448,39 @@ export default function VideoBoard({
                       )}
                     </h2>
                   )}
-                  <ul className={VIDEO_LIST}>
-                    {part.map(({ lead: v, related }, i) => (
-                      <VideoCard
-                        key={channel ? v.id : (v.story ?? v.id)}
-                        video={v}
-                        channelName={names.get(v.channel) ?? v.channel}
-                        now={now}
-                        eager={p === 0 && i < EAGER}
-                        sizes={sizes}
-                        saved={savedVideoIds.has(v.id)}
-                        onPlay={play}
-                        onToggleSave={toggleSavedVideo}
-                        onShare={onShare}
-                        pinned={pinnedIds.has(v.channel)}
-                        onTogglePin={togglePinned}
-                        related={related}
-                        // Only cards with related videos need these (each save redraws them).
-                        savedIds={related.length ? savedVideoIds : undefined}
-                        pinnedIds={related.length ? pinnedIds : undefined}
-                        storyOpen={related.length > 0 && openStory === (v.story ?? v.id)}
-                        onToggleStory={toggleStory}
-                      />
-                    ))}
+                  <ul ref={p === 0 ? grid : undefined} className={VIDEO_LIST}>
+                    {(() => {
+                      // The slot for the open story's panel goes after the last card of its card's row.
+                      const open = part.findIndex(({ lead, related }) => related.length > 0 && openStory === (lead.story ?? lead.id));
+                      const rowEnd = open < 0 ? -1 : Math.min(part.length - 1, (Math.floor(open / columns) + 1) * columns - 1);
+                      return part.flatMap(({ lead: v, related }, i) => {
+                        const card = (
+                          <VideoCard
+                            key={channel ? v.id : (v.story ?? v.id)}
+                            video={v}
+                            channelName={names.get(v.channel) ?? v.channel}
+                            now={now}
+                            eager={p === 0 && i < EAGER}
+                            sizes={sizes}
+                            saved={savedVideoIds.has(v.id)}
+                            onPlay={play}
+                            onToggleSave={toggleSavedVideo}
+                            onShare={onShare}
+                            pinned={pinnedIds.has(v.channel)}
+                            onTogglePin={togglePinned}
+                            related={related}
+                            // Only cards with related videos need these (each save redraws them).
+                            savedIds={related.length ? savedVideoIds : undefined}
+                            pinnedIds={related.length ? pinnedIds : undefined}
+                            storyOpen={i === open}
+                            storySlot={i === open ? storySlot : undefined}
+                            onToggleStory={toggleStory}
+                          />
+                        );
+                        if (i !== rowEnd) return [card];
+                        return [card, <li key="story-slot" ref={setStorySlot} className="col-span-full empty:hidden" />];
+                      });
+                    })()}
                   </ul>
                 </Fragment>
               ),
@@ -468,8 +501,9 @@ export default function VideoBoard({
         </p>
       )}
 
-      {pending && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
+      {/* Always in the page as a status, so the button is read out when it appears. */}
+      <div role="status" className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 md:bottom-8">
+        {pending && (
           <button
             type="button"
             onClick={showPending}
@@ -478,8 +512,8 @@ export default function VideoBoard({
             <ChevronIcon className="h-4 w-4 rotate-180" />
             {t.newVideos(pending.fresh, formatCount(pending.fresh, locale))}
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <Sheet open={pinsOpen} onClose={() => setPinsOpen(false)} title={t.myChannels}>
         <PinPicker

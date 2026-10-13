@@ -111,7 +111,6 @@ function StoryCard({
       <div className="flex">
         <a
           data-headline
-          lang={lead.lang}
           href={lead.link}
           target="_blank"
           rel="noopener noreferrer"
@@ -124,7 +123,10 @@ function StoryCard({
             </span>
             {story.latest && <span className="text-muted">{t.storyUpdated(timeAgo(story.latest, now, locale))}</span>}
           </div>
-          <p className="text-[18px] font-semibold leading-[1.5] group-hover:text-accent compact:text-[16px] compact:leading-[1.45]">
+          <p
+            lang={lead.lang}
+            className="text-[18px] font-semibold leading-[1.5] group-hover:text-accent compact:text-[16px] compact:leading-[1.45]"
+          >
             {story.items.some(isNew) && <NewDot className="mr-2 -mt-0.5" />}
             <Highlight text={lead.title} />
           </p>
@@ -145,14 +147,13 @@ function StoryCard({
           <li key={it.link} className="flex border-b border-line last:border-b-0">
             <a
               data-headline
-              lang={it.lang}
               href={it.link}
               target="_blank"
               rel="noopener noreferrer"
               className="group flex min-w-0 flex-1 gap-3 py-2.5 pl-4 text-[14px] leading-[1.5] transition visited:text-muted active:bg-surface-2 hover:bg-surface-2/60 sm:pl-5 compact:py-1.5 compact:text-[13px]"
             >
               <span className="w-28 shrink-0 truncate pt-px text-xs font-semibold text-accent">{name(it)}</span>
-              <span className="min-w-0 group-hover:text-accent">
+              <span lang={it.lang} className="min-w-0 group-hover:text-accent">
                 {isNew(it) && <NewDot className="mr-1.5 -mt-0.5" />}
                 <Highlight text={it.title} />
               </span>

@@ -18,6 +18,59 @@ section 4 now carries its status: ✅ done, 🟡 partly done, ⬜ open, 🔁 ong
 - ⬜ **Open:** links and presence off the site (#22), and the monthly Search Console
   review (#23). `Organization.sameAs` and `twitter:site` wait for the first social profile.
 
+## Recheck (13 October 2026, after the videos and tour work)
+
+Lighthouse 12.8.2 locally against the live site (simulated mid-range phone on slow 4G unless marked desktop),
+then against a local build with the fixes below. Search Console and SEO checks on the live site.
+
+| Page | Performance | SEO | Accessibility | Best practices | LCP | TBT | CLS |
+|---|---|---|---|---|---|---|---|
+| `/` | 87 (68–87) | 100 | 100 | 100 | 3.4 s | 80 ms | 0 |
+| `/bn/` | 99 | 100 | 100 | 100 | 1.7 s | 70 ms | 0 |
+| `/news/sports/` | 92–93 | 100 | 100 | 100 | 3.2 s | 30–60 ms | 0 |
+| `/videos/` (desktop) | 74 → 99 | 100 | 100 | 100 | 2.3 → 0.9 s | 0 ms | 0.127 → 0 |
+| `/videos/` | 74 → on a par with the other pages | 100 | 100 | 100 | 6.1 s before | 70 ms | 0.007 → 0 |
+| `/sources/` | 97 | 100 | 100 | 100 | 2.6 s | 40 ms | 0 |
+| `/sources/prothomalo/` | 92 | 100 | 100 | 100 | 3.3 s | 30 ms | 0 |
+| `/about/` | 99 | 100 | 100 | 100 | 2.0 s | 30 ms | 0 |
+
+**Blocking time swings from run to run on this machine** (80 → 890 ms on `/`, 30 → 2,730 ms on
+`/news/sports/`): the long tasks in those traces have no script in them, so they are the laptop, not the page.
+A CPU profile of the section page at 4× slowdown shows two long tasks, 142 and 89 ms, all hydration.
+
+**Fixed: the Videos page prerendered as its skeleton.** The Videos view was a lazy download inside a Suspense
+boundary, and React writes a large finished boundary at the end of the page with the fallback in its place
+until a script swaps it in. So the first paint showed eight grey rows, the intro under them jumped down
+three times as the cards arrived (CLS 0.127 on desktop), and the first thumbnail was the LCP only after the
+swap (6.1 s simulated). The Videos pages now load the view with the page (`VideosPageBoard`) and render it
+without a boundary; elsewhere it is still fetched only when the reader heads for it.
+
+**Fixed, accessibility** (Lighthouse scored 100 throughout; these are what it doesn't check):
+- Light theme contrast: `--gold` `#a9802f` → `#7d5c1e` (dates, step counter, rank numbers, "N new", "New":
+  2.8–3.6:1 → 4.5–5.6:1) and `--muted` `#6a6d73` → `#63666c` (4.48 → 4.97:1 on `surface-2`). The ⋮ and
+  pin buttons and the tab counts dropped their faded `/60` and `/80` text.
+- The "Updated N min ago" line was inside a live region, so screen readers announced it every minute. Only
+  loading and notices are announced now.
+- A search announces what it found ("151 headlines found", "Nothing found") from one status line.
+- The tour reads each step out as it changes, and focus goes to the page when the invitation that started
+  it is gone. The shared-video player takes focus when Play replaces it.
+- `lang="bn"` sits on the headline text, not the whole link, so the time and outlet are read in the page's
+  language. The Refresh and language links' names start with their visible words; pin, New and Back to top
+  are in Bangla on Bangla pages; the Filters panel is a named dialog.
+
+**Fixed, SEO:** the tech section's title was 69 characters; titles that would pass 60 drop "| Bartaboard".
+"1 views" reads "1 view".
+
+**Checked and right:** all 196 sitemap URLs answer 200, are their own canonical, are indexable, and have one H1;
+titles and descriptions are unique; hreflang pairs on every page; JSON-LD parses; robots, 404s, `www` and
+`http` redirects and `X-Robots-Tag: noindex` on `/data/` as before.
+
+**Fixed, then:** a video story's panel came right after its card in the page but was drawn below the whole
+row (a dense grid), so the keyboard went into it and then back up to the rest of the row. The open panel now
+goes in a row of its own after the row's last card, in the page as on screen, and moves when the columns
+change; the grid is no longer dense. "Copied", the "N new headlines/videos" buttons and a search in Videos
+("12 videos found", "No videos found") are now announced.
+
 ## Recheck (12 October 2026, after the search work)
 
 Lighthouse 12.8.2 run locally (PageSpeed Insights' free quota was used up), simulated mid-range phone on slow 4G
