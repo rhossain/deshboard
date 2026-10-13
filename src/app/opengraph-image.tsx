@@ -26,14 +26,14 @@ async function loadFont(file: string): Promise<ArrayBuffer | null> {
 // build time. Without the fonts it falls back to the renderer's built-in one. Latin text only:
 // these fonts have no Bangla glyphs.
 export default async function OpengraphImage() {
-  const [icon, montserrat, inter, interMedium] = await Promise.all([
+  const [icon, sora, inter, interMedium] = await Promise.all([
     readFile(path.join(process.cwd(), "public/brand/bartaboard-icon-512.png")),
-    loadFont("montserrat@latest/latin-900-normal.ttf"),
+    loadFont("sora@latest/latin-700-normal.ttf"),
     loadFont("inter@latest/latin-700-normal.ttf"),
     loadFont("inter@latest/latin-500-normal.ttf"),
   ]);
   const fonts = [
-    montserrat && { name: "Montserrat", data: montserrat, weight: 900 as const },
+    sora && { name: "Sora", data: sora, weight: 700 as const },
     inter && { name: "Inter", data: inter, weight: 700 as const },
     interMedium && { name: "Inter", data: interMedium, weight: 500 as const },
   ].filter((f) => !!f);
@@ -53,12 +53,12 @@ export default async function OpengraphImage() {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-        <img src={`data:image/png;base64,${icon.toString("base64")}`} width={168} height={168} alt="" />
+        <img src={`data:image/png;base64,${icon.toString("base64")}`} width={176} height={176} alt="" />
         <div
-          style={{ display: "flex", fontFamily: "Montserrat", fontWeight: 900, fontSize: 132, letterSpacing: -6, lineHeight: 1 }}
+          style={{ display: "flex", fontFamily: "Sora", fontWeight: 700, fontSize: 132, letterSpacing: -6, lineHeight: 1 }}
         >
-          <span style={{ color: BARTA_GREEN }}>Barta</span>
-          <span>board</span>
+          <span style={{ color: BARTA_GREEN }}>barta</span>
+          <span style={{ color: "#0f1720" }}>board</span>
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
@@ -69,7 +69,7 @@ export default async function OpengraphImage() {
           {[`${ACTIVE_SOURCES.length} news portals`, "Bangla & English", "Top stories across outlets"].map((t) => (
             <span
               key={t}
-              style={{ padding: "10px 22px", borderRadius: 999, background: "#e3f6ea", color: "#13803f" }}
+              style={{ padding: "10px 22px", borderRadius: 999, background: "#e2f1ec", color: BARTA_GREEN }}
             >
               {t}
             </span>
