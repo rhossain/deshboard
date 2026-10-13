@@ -50,6 +50,7 @@ import { AUTO_REFRESH_MS } from "./schedule";
 import { type Shareable, ShareOptions, shareUrl, videoShareUrl } from "./ShareOptions";
 import { LogoShapes, SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
+import { ConsentChoicesLink } from "./ConsentBanner";
 import { markTourSeen, Tour, TourInvite } from "./Tour";
 import { setTheme, useTheme } from "./theme";
 import { cachedVideos, loadVideoBoard, prefetchVideos } from "./videos";
@@ -1412,6 +1413,7 @@ export function NewsBoard({
                 <button type="button" onClick={startTour} className="hover:text-foreground">
                   {t.tour.footer}
                 </button>
+                <ConsentChoicesLink />
                 <button
                   type="button"
                   onClick={() => setShortcutsOpen(true)}

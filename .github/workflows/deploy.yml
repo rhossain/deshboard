@@ -69,6 +69,8 @@ jobs:
           SITE_URL: ${{ vars.SITE_URL }}
           # Paid plans stay hidden until PLANS is `on`; BKASH_NUMBER is the account readers pay to (src/lib/plans.ts).
           NEXT_PUBLIC_PLANS: ${{ vars.PLANS }}
+          # The cookie question for readers outside Bangladesh shows once CONSENT is `on` (src/lib/consent.ts).
+          NEXT_PUBLIC_CONSENT: ${{ vars.CONSENT }}
           NEXT_PUBLIC_BKASH_NUMBER: ${{ vars.BKASH_NUMBER }}
       # Uploads straight from here: Pages' own Git builds would run out at 500 a month. The first run
       # creates the project.

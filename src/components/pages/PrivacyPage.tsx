@@ -7,13 +7,13 @@ const PATH = "/privacy";
 const WORDS = {
   en: {
     title: "Privacy policy",
-    description: "What Bartaboard stores about you, where, and how to delete it.",
-    updated: "12 October 2026",
+    description: "What Bartaboard and its analytics collect about you (very little), and how to delete your data.",
+    updated: "13 October 2026",
   },
   bn: {
     title: "গোপনীয়তা নীতি",
-    description: "বার্তাবোর্ড আপনার সম্পর্কে কী রাখে, কোথায় রাখে, আর কীভাবে মুছবেন।",
-    updated: "১২ অক্টোবর ২০২৬",
+    description: "বার্তাবোর্ড ও এর অ্যানালিটিক্স আপনার সম্পর্কে কী তথ্য নেয় (খুব সামান্য), আর কীভাবে মুছবেন।",
+    updated: "১৩ অক্টোবর ২০২৬",
   },
 };
 
@@ -52,7 +52,11 @@ function English() {
 
       <h2>Reading without an account</h2>
       <ul>
-        <li>There are no ads, no analytics and no tracking cookies today. Ads are planned; see below.</li>
+        <li>Bartaboard itself keeps no personal data about readers without an account.</li>
+        <li>
+          There are no ads and no tracking cookies. We count visits with Cloudflare Web Analytics, which sets no cookies:
+          see <a href="#analytics">Analytics</a> below.
+        </li>
         <li>
           Your theme, saved stories, pinned sources, card settings and the time of your last visit are kept only in your
           own browser&apos;s storage. They never reach us, and clearing your browser&apos;s site data removes them.
@@ -84,7 +88,19 @@ function English() {
         don&apos;t sell or share your information with anyone else, and we don&apos;t use it for advertising.
       </p>
 
-      <h2>Ads</h2>
+      <h2 id="analytics">Analytics</h2>
+      <p>
+        To learn how many people visit, which pages they read and how fast the site loads, we use{" "}
+        <a href="https://www.cloudflare.com/web-analytics/" rel="noopener">
+          Cloudflare Web Analytics
+        </a>
+        . It sets no cookies, keeps nothing in your browser and doesn&apos;t follow you to other sites. For each page you
+        open, your browser tells Cloudflare the page&apos;s address, the site you came from, your browser and device
+        type, and how long the page took to load; Cloudflare works out the country from your connection. We see only
+        totals, such as page views and visits, and Bartaboard keeps nothing about you.
+      </p>
+
+      <h2 id="ads">Ads</h2>
       <p>
         Bartaboard doesn&apos;t show ads yet, but plans to. Before the first ad appears, this policy will be updated to
         name who shows them, what they collect (such as cookies or your IP address) and the choices you have, and the
@@ -131,7 +147,11 @@ function Bangla() {
 
       <h2>অ্যাকাউন্ট ছাড়া পড়লে</h2>
       <ul>
-        <li>এখন কোনো বিজ্ঞাপন, অ্যানালিটিক্স বা ট্র্যাকিং কুকি নেই। বিজ্ঞাপনের পরিকল্পনা আছে; নিচে দেখুন।</li>
+        <li>অ্যাকাউন্ট ছাড়া যাঁরা পড়েন, তাঁদের কোনো ব্যক্তিগত তথ্য বার্তাবোর্ড নিজে রাখে না।</li>
+        <li>
+          কোনো বিজ্ঞাপন বা ট্র্যাকিং কুকি নেই। ভিজিট গুনতে আমরা ক্লাউডফ্লেয়ার ওয়েব অ্যানালিটিক্স ব্যবহার করি, যা কোনো কুকি
+          রাখে না: নিচের <a href="#analytics">অ্যানালিটিক্স</a> অংশ দেখুন।
+        </li>
         <li>
           আপনার থিম, সংরক্ষিত খবর, পিন করা উৎস, কার্ডের সেটিংস আর শেষবার আসার সময় শুধু আপনার নিজের ব্রাউজারের স্টোরেজে
           থাকে। এগুলো কখনো আমাদের কাছে আসে না, আর ব্রাউজারের সাইট ডেটা মুছলে এগুলোও মুছে যায়।
@@ -160,7 +180,19 @@ function Bangla() {
         আর কারও কাছে বিক্রি বা শেয়ার করি না, বিজ্ঞাপনের কাজেও ব্যবহার করি না।
       </p>
 
-      <h2>বিজ্ঞাপন</h2>
+      <h2 id="analytics">অ্যানালিটিক্স</h2>
+      <p>
+        কতজন আসেন, কোন পাতা পড়েন আর সাইট কত দ্রুত খোলে তা জানতে আমরা{" "}
+        <a href="https://www.cloudflare.com/web-analytics/" rel="noopener">
+          ক্লাউডফ্লেয়ার ওয়েব অ্যানালিটিক্স
+        </a>{" "}
+        ব্যবহার করি। এটি কোনো কুকি রাখে না, আপনার ব্রাউজারে কিছু জমা রাখে না, আর অন্য সাইটে আপনাকে অনুসরণ করে না। আপনি
+        যে পাতা খোলেন, তার ঠিকানা, কোন সাইট থেকে এসেছেন, আপনার ব্রাউজার ও ডিভাইসের ধরন আর পাতাটি খুলতে কত সময় লাগল,
+        তা আপনার ব্রাউজার ক্লাউডফ্লেয়ারকে জানায়; দেশটি ক্লাউডফ্লেয়ার আপনার সংযোগ থেকে বোঝে। আমরা দেখি শুধু মোট হিসাব,
+        যেমন কতবার পাতা খোলা হলো বা কতজন এলেন, আর আপনার সম্পর্কে বার্তাবোর্ড কিছুই রাখে না।
+      </p>
+
+      <h2 id="ads">বিজ্ঞাপন</h2>
       <p>
         বার্তাবোর্ডে এখনো বিজ্ঞাপন নেই, তবে দেখানোর পরিকল্পনা আছে। প্রথম বিজ্ঞাপন আসার আগে এই নীতি হালনাগাদ করে জানানো হবে
         কারা বিজ্ঞাপন দেখাবে, তারা কী তথ্য নেয় (যেমন কুকি বা আপনার আইপি ঠিকানা) আর আপনার কী কী বেছে নেওয়ার সুযোগ থাকবে;

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, Noto_Sans_Bengali } from "next/font/google";
-import { KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
+import { ANALYTICS_TOKEN, KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { THEME_SCRIPT } from "@/lib/theme";
 import { NEWS_DENSITY_SCRIPT } from "@/lib/news-density";
 import { VIDEO_LAYOUT_SCRIPT } from "@/lib/video-layout";
@@ -12,6 +12,7 @@ import { VIDEO_LAYOUT_SCRIPT } from "@/lib/video-layout";
  */
 const LANG_SCRIPT = 'var p=location.pathname;if(p==="/bn"||p.indexOf("/bn/")===0)document.documentElement.lang="bn"';
 import { BackToTop } from "@/components/BackToTop";
+import { ConsentBanner } from "@/components/ConsentBanner";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -72,6 +73,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full">
         {children}
         <BackToTop />
+        <ConsentBanner />
+        {ANALYTICS_TOKEN && (
+          <script
+            defer
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={JSON.stringify({ token: ANALYTICS_TOKEN })}
+          />
+        )}
       </body>
     </html>
   );
