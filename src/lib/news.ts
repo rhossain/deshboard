@@ -6,7 +6,7 @@ import { extractHeadlines } from "./fetchers/html";
 import { fetchText } from "./fetchers/http";
 import { parseFeed, type RawItem } from "./fetchers/rss";
 import { parseNewsSitemap } from "./fetchers/sitemap";
-import { dedupeByLink, dhakaDate, shiftDhakaAsUtc } from "./fetchers/utils";
+import { canonicalLink, dedupeByLink, dhakaDate, addressKey, shiftDhakaAsUtc, titleKey } from "./fetchers/utils";
 import { saveDays } from "./days";
 import { ACTIVE_SOURCES, getSource } from "./sources";
 import { readStore, writeStoreSoon } from "./store";
@@ -25,6 +25,8 @@ export const MAX_AGE_MS = 72 * 3600_000;
  * The rest of the 72 hours stays in the cache for shared links.
  */
 const PER_SOURCE = 300;
+/** Publish times up to this far ahead of now are clock drift; later ones are wrong. */
+const MAX_AHEAD_MS = 15 * 60_000;
 /** A safety limit on what is kept, should a sitemap start listing thousands of links. */
 const MAX_KEPT = 3000;
 
@@ -83,12 +85,31 @@ async function fetchRaw(source: NewsSource): Promise<{ items: RawItem[]; url: st
  * A source's headlines: this fetch's, then the ones kept from before, so a short feed (ten items, an
  * hour's worth for some outlets) builds up between runs while a sitemap of a thousand is cut down.
  * Headlines with no time stay only while they are on the page; the rest drop off at MAX_AGE_MS.
+ *
+ * A link keeps the earliest publish time it had: Google News (and some sites' feeds) re-date an article
+ * when it is edited, which would bring a day-old story back to the top of Latest. And one headline at
+ * two addresses (another section's, an older id) is shown once.
  */
 export function mergeNews(fresh: NewsItem[], kept: NewsItem[], now = Date.now()): NewsItem[] {
   const cutoff = new Date(now - MAX_AGE_MS).toISOString();
-  const recent = (it: NewsItem) => (itemTime(it) ?? "") >= cutoff;
+  const ahead = new Date(now + MAX_AHEAD_MS).toISOString();
+  // (Kept ones still ahead of now were kept before such times were left out; see load.)
+  const recent = (it: NewsItem) => (itemTime(it) ?? "") >= cutoff && (itemTime(it) ?? "") <= ahead;
+  const firstTime = new Map<string, string>();
+  for (const it of kept) if (it.publishedAt) firstTime.set(addressKey(it.link), it.publishedAt);
+  const redated = fresh.map((it) => {
+    const first = it.publishedAt && firstTime.get(addressKey(it.link));
+    return first && first < it.publishedAt! ? { ...it, publishedAt: first } : it;
+  });
   // dedupeByLink keeps the first of each link, so this fetch's title and section win.
-  return dedupeByLink([...fresh.filter((it) => !itemTime(it) || recent(it)), ...kept.filter(recent)])
+  const titles = new Set<string>();
+  return dedupeByLink([...redated.filter((it) => !itemTime(it) || recent(it)), ...kept.filter(recent)])
+    .filter((it) => {
+      const key = titleKey(it.title);
+      if (titles.has(key)) return false;
+      titles.add(key);
+      return true;
+    })
     .sort((a, b) => newestFirst(itemTime(a), itemTime(b)))
     .slice(0, MAX_KEPT);
 }
@@ -124,9 +145,11 @@ async function fetchWithFallback(
 async function load(source: NewsSource): Promise<SourceResult> {
   const started = Date.now();
   // Headlines kept from before that no section was found for get another look, by their words.
-  const kept = (cache.get(source.id)?.result.items ?? []).map((it) =>
-    it.category === "other" ? { ...it, category: categorize(it.link, [], it.title) } : it,
-  );
+  const kept = (cache.get(source.id)?.result.items ?? []).map((it) => ({
+    ...it,
+    link: canonicalLink(it.link),
+    ...(it.category === "other" ? { category: categorize(it.link, [], it.title) } : {}),
+  }));
   const base = {
     sourceId: source.id,
     sourceName: source.name,
@@ -135,17 +158,21 @@ async function load(source: NewsSource): Promise<SourceResult> {
   };
   try {
     const { items, url, via, directError } = await fetchWithFallback(source);
+    const futureLimit = new Date(Date.now() + MAX_AHEAD_MS).toISOString();
     const unmapped = new Map<string, number>();
-    const news: NewsItem[] = dedupeByLink(items).map(({ tags, ...it }) => {
+    const news: NewsItem[] = dedupeByLink(items.map((it) => ({ ...it, link: canonicalLink(it.link) }))).map(({ tags, ...it }) => {
       const category = categorize(it.link, tags, it.title);
       if (category === "other") {
         const section = unmappedSection(it.link, tags);
         unmapped.set(section, (unmapped.get(section) ?? 0) + 1);
       }
+      // Google's dates are right; only the site's own feed has the Dhaka-time quirk.
+      const publishedAt = source.dhakaTimeAsUtc && !via ? shiftDhakaAsUtc(it.publishedAt) : it.publishedAt;
       return {
         ...it,
-        // Google's dates are right; only the site's own feed has the Dhaka-time quirk.
-        publishedAt: source.dhakaTimeAsUtc && !via ? shiftDhakaAsUtc(it.publishedAt) : it.publishedAt,
+        // A time still ahead of now is a feed's time-zone mistake: it would sit atop Latest for hours.
+        // Left out, the headline is timed by when it was first seen.
+        publishedAt: publishedAt && publishedAt <= futureLimit ? publishedAt : undefined,
         sourceId: source.id,
         sourceName: source.name,
         lang: source.lang,

@@ -18,7 +18,7 @@ import {
 } from "../src/lib/fetchers/google-news";
 import { fullTime, timeAgo } from "../src/components/time";
 import { articleUrl } from "../src/lib/article";
-import { cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
+import { canonicalLink, cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
 import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filters";
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
@@ -103,6 +103,12 @@ test("Date formats seen on BD feeds", () => {
   assert.equal(parseDate("Sun, 04 Oct 2026 23:43:43 +06"), "2026-10-04T17:43:43.000Z");
   assert.equal(parseDate("2026-10-05T00:11:06+06:00"), "2026-10-04T18:11:06.000Z");
   assert.equal(parseDate("not a date"), undefined);
+  // A bare date has no time to order by.
+  assert.equal(parseDate("2026-10-13"), undefined);
+  // No zone: Dhaka time, whatever the machine's zone.
+  assert.equal(parseDate("Sun, 04 Oct 2026 22:31:55"), "2026-10-04T16:31:55.000Z");
+  assert.equal(parseDate("2026-10-04 10:31:55 PM"), "2026-10-04T16:31:55.000Z");
+  assert.equal(parseDate("Sun, 04 Oct 2026 22:31:55 GMT"), "2026-10-04T22:31:55.000Z");
 });
 
 test("Dhaka time mislabelled as UTC is shifted back 6 hours", () => {
@@ -359,6 +365,27 @@ test("stories: one headline per outlet, old headlines left out", () => {
   assert.equal(stories[0].items.length, 2);
 });
 
+test("first seen: an old article resurfacing on the page gets no time", () => {
+  const link = (n: number) => `https://paper.test/news/${n}`;
+  const page = (ns: number[]) => ns.map((n) => item("paper", `Headline ${n}`, { link: link(n) }));
+  const t0 = Date.parse("2026-10-05T10:00:00Z");
+  stampFirstSeen("paper", page([1000]), t0); // first fetch
+  // A day's new articles, 5001-5012, then an old one (1200, from "most read") and a new one (5013).
+  stampFirstSeen("paper", page(Array.from({ length: 12 }, (_, i) => 5001 + i)), t0 + 600_000);
+  const later = page([...Array.from({ length: 12 }, (_, i) => 5001 + i), 1200, 5013]);
+  stampFirstSeen("paper", later, t0 + 1_200_000);
+  assert.equal(later.find((it) => it.link === link(1200))?.seenAt, undefined);
+  assert.equal(later.find((it) => it.link === link(5013))?.seenAt, new Date(t0 + 1_200_000).toISOString());
+});
+
+test("canonicalLink: AMP, index.php and tracking parameters", () => {
+  assert.equal(canonicalLink("https://www.dhakatribune.com/amp/bangladesh/421896/x"), "https://www.dhakatribune.com/bangladesh/421896/x");
+  assert.equal(canonicalLink("https://example.com/news/123/amp"), "https://example.com/news/123");
+  assert.equal(canonicalLink("https://www.daily-sun.com/index.php/world/903200/x"), "https://www.daily-sun.com/world/903200/x");
+  assert.equal(canonicalLink("https://Example.com/a?id=5&utm_source=fb&fbclid=1"), "https://example.com/a?id=5");
+  assert.equal(canonicalLink("https://example.com/amp"), "https://example.com/amp");
+});
+
 test("first seen: none on a source's first fetch, then stamped once", () => {
   const first = [item("home", "Old headline")];
   stampFirstSeen("home", first, Date.parse("2026-10-05T10:00:00Z"));
@@ -377,6 +404,16 @@ test("first seen: none on a source's first fetch, then stamped once", () => {
   const third = [item("home", "Fresh headline")];
   stampFirstSeen("home", third, Date.parse("2026-10-05T10:20:00Z"));
   assert.equal(third[0].seenAt, "2026-10-05T10:10:00.000Z");
+
+  // After a long gap, what turned up meanwhile could be hours old: no time, as on the first fetch.
+  const later = [item("home", "Fresh headline"), item("home", "Turned up during the gap")];
+  stampFirstSeen("home", later, Date.parse("2026-10-05T15:00:00Z"));
+  assert.equal(later[0].seenAt, "2026-10-05T10:10:00.000Z");
+  assert.equal(later[1].seenAt, undefined);
+  const next = [item("home", "Turned up during the gap"), item("home", "Newest")];
+  stampFirstSeen("home", next, Date.parse("2026-10-05T15:15:00Z"));
+  assert.equal(next[0].seenAt, undefined);
+  assert.equal(next[1].seenAt, "2026-10-05T15:15:00.000Z");
 });
 
 test("categorize: Bangla spelled with a precomposed য় still matches", () => {
@@ -753,6 +790,10 @@ test("Headlines build up across runs: the last 72 hours kept, the newest 300 on 
     ["a:a", "b:new title", "d:d", "c:c", "e:e"],
   );
   assert.deepEqual(mergeNews([], kept, now).map((x) => x.title), ["old title", "d", "c"]);
+  // Re-dated (Google News, after an edit): the first time stays. The same headline at another address: once.
+  const redated = mergeNews([it("c", 1), it("c2", 0.5, "c")], kept, now);
+  assert.equal(redated.find((x) => x.title === "c")?.publishedAt, at(50));
+  assert.equal(redated.filter((x) => x.title === "c").length, 1);
   const many = mergeNews(Array.from({ length: 700 }, (_, i) => it(`m${i}`, i / 10)), [], now);
   assert.equal(many.length, 700);
   const result: SourceResult = {
@@ -792,6 +833,18 @@ test("Google News feed: the site's own articles, without the publisher suffix", 
     { id: "CBMiAAA", title: "ম্যাজিস্ট্রেট নওশাদ বিমানবন্দরেই আছেন", publishedAt: "2026-10-07T08:31:19.000Z" },
     { id: "CBMiCCC", title: "A title - with a dash", publishedAt: "2026-10-07T08:31:19.000Z" },
   ]);
+  // The site's own addition, on most of its titles, goes; a headline naming the paper in passing stays.
+  const bss = (id: string, title: string) => item(id, `${title} | আন্তর্জাতিক | বাংলাদেশ সংবাদ সংস্থা (বাসস)`, "বাসস", "https://bssnews.net");
+  const suffixed = `<?xml version="1.0"?><rss version="2.0"><channel>
+    ${bss("a", "গাজায় ত্রাণ পৌঁছাল আজ সকালে")}${bss("b", "জাপানে ভূমিকম্পে নিহত তিন")}${bss("c", "ইউরোপে তাপপ্রবাহ চলছেই")}
+    ${item("d", "কর্মীদের বেতন বাড়াল বাসস কর্তৃপক্ষ", "বাসস", "https://bssnews.net")}
+  </channel></rss>`;
+  assert.deepEqual(parseGoogleNewsFeed(suffixed, "bssnews.net").map((e) => e.title), [
+    "গাজায় ত্রাণ পৌঁছাল আজ সকালে",
+    "জাপানে ভূমিকম্পে নিহত তিন",
+    "ইউরোপে তাপপ্রবাহ চলছেই",
+    "কর্মীদের বেতন বাড়াল বাসস কর্তৃপক্ষ",
+  ]);
   assert.throws(() => parseGoogleNewsFeed("<!doctype html><html></html>", "kalbela.com"), /web page/);
 });
 
@@ -813,6 +866,9 @@ test("Google News feed: pages that aren't articles are left out", () => {
   );
   assert.equal(looksLikeArticle("https://dailyinqilab.com/national/article/812345"), true);
   assert.equal(looksLikeArticle("https://sangbad.net/news/19926/"), true);
+  assert.equal(looksLikeArticle("https://www.kalerkantho.com/topic/770"), false);
+  assert.equal(looksLikeArticle("https://www.kalerkantho.com/archive/2026-10-13"), false);
+  assert.equal(looksLikeArticle("https://www.kalbela.com/video-gallery/123"), false);
   assert.equal(looksLikeArticle("https://www.newagebd.net/post/country/279134"), true);
   assert.equal(looksLikeArticle("https://www.bd-pratidin.com/national/2026/10/07/1182345"), true);
   assert.equal(looksLikeArticle("https://dailyinqilab.com/"), false);
