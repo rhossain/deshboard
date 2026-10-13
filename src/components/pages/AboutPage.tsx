@@ -67,7 +67,7 @@ function English() {
         </li>
         <li>
           <strong>Top stories</strong> groups the same event reported by several outlets, by matching their headlines.
-          The more outlets cover it, the higher it ranks.
+          The more outlets cover it, and the more recently, the higher it ranks.
         </li>
         <li>
           <Link href={VIDEOS_PATH}>Videos</Link> shows the last day&apos;s news videos from the TV channels&apos; YouTube
@@ -141,8 +141,8 @@ function Bangla() {
           প্রকাশকের নিজের সাইটেই পড়েন।
         </li>
         <li>
-          <strong>শীর্ষ খবর</strong> একাধিক মাধ্যমে আসা একই ঘটনাকে শিরোনাম মিলিয়ে একসঙ্গে রাখে। যত বেশি মাধ্যমে খবরটি আসে,
-          তত ওপরে থাকে।
+          <strong>শীর্ষ খবর</strong> একাধিক মাধ্যমে আসা একই ঘটনাকে শিরোনাম মিলিয়ে একসঙ্গে রাখে। যত বেশি মাধ্যমে, যত সাম্প্রতিক সময়ে খবরটি
+          আসে, তত ওপরে থাকে।
         </li>
         <li>
           <Link href={localePath(VIDEOS_PATH, "bn")}>ভিডিও</Link> বিভাগে টিভি চ্যানেলগুলোর ইউটিউব চ্যানেলের গত এক দিনের সংবাদ

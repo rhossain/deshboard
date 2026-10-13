@@ -128,7 +128,7 @@ hosted service (Cloudflare, Supabase, Google sign-in, Resend email) and what is 
   per outlet), Top stories and Latest; it reopens on the last one used. On phones the bottom bar is News · Videos ·
   Saved · Filters.
 - **Top stories** — headlines are reduced to weighted keywords (Bangla suffixes stripped, rare words count more) and
-  linked when two outlets share most of them; the stories covered by the most outlets rank first. Runs in the browser.
+  linked when two outlets share most of them; the stories covered by the most outlets lately rank first (each headline counts half as much after 12 hours). Runs in the browser.
 - **New since your last visit** — headlines newer than the end of the reader's previous visit get a gold dot, with a
   "N new" filter. A visit ends after 30 minutes away (`src/components/last-visit.ts`); opened headlines turn muted.
 - **Shareable filters** — view, language, source, category, search and order live in the URL

@@ -343,6 +343,8 @@ export function NewsBoard({
         setSeedAges(undefined);
         setWhole(true);
         setGeneratedAt(at);
+        // A held-back refresh is older than, or the same as, what this stream brought.
+        setPending(null);
         setError(null);
         setNow(Date.now());
         setLoading(false);
@@ -360,6 +362,8 @@ export function NewsBoard({
   const startHead = useCallback(
     (priority: RequestPriority) => {
       controllerRef.current?.abort();
+      // A background refresh that began on less of the feed would replace what this brings.
+      quietRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
       loadHead(pageCategory, controller.signal, priority).then(
@@ -418,7 +422,8 @@ export function NewsBoard({
     };
     if (!wholeRef.current) {
       loadHead(pageCategory, controller.signal, "low").then(
-        (head) => offer(byId(head.results), () => showHead(head)),
+        // Once the board has every headline (streamed meanwhile), a head would only shrink it.
+        (head) => !wholeRef.current && offer(byId(head.results), () => !wholeRef.current && showHead(head)),
         () => {}, // A failed background refresh changes nothing; the next one tries again.
       );
       return;
@@ -459,9 +464,12 @@ export function NewsBoard({
     }
     // The Videos view looks for its own updates; the headlines wait until the reader is back.
     const refresh = setInterval(() => viewRef.current !== "videos" && refreshQuietly(), AUTO_REFRESH_MS);
-    const tick = setInterval(() => setNow(Date.now()), 60_000);
+    // A transition: redrawing every headline's age is no reason to hold up a tap.
+    const tick = setInterval(() => startTransition(() => setNow(Date.now())), 60_000);
     return () => {
       controllerRef.current?.abort();
+      // Else a remount (StrictMode in dev) takes the aborted load for one under way and never loads.
+      controllerRef.current = null;
       quietRef.current?.abort();
       clearInterval(refresh);
       clearInterval(tick);
@@ -524,9 +532,11 @@ export function NewsBoard({
   const searchQuery = useDeferredValue(query);
   const search = useSearch(searchQuery);
   const filtering = !!search || !!category || onlyNew;
-  // A search runs on what the board has. Until every headline is here, it may not have found everything
-  // yet, so the board says it is still searching rather than "Nothing found". A failed load ends the wait.
-  const searching = !!search && !whole && !error;
+  // The board wants every headline but still has only the head file: a search, another section or Top
+  // may not have found everything yet, so the board says it is still loading rather than "Nothing found".
+  // A failed load ends the wait.
+  const incomplete = needsWhole && !whole && !error;
+  const searching = !!search && incomplete;
   // Once the board has every headline, the search carries on into the last 30 days (OlderResults).
   const searchOlder = !!search && whole && !onlyNew && (view === "sources" || view === "top" || view === "latest");
 
@@ -604,15 +614,27 @@ export function NewsBoard({
   }, [visibleSources, sourceRank, itemsBySource, filtering]);
 
   // Stories are grouped across all outlets in the chosen language (deferred: grouping takes a moment
-  // and sources stream in one by one); the other filters then pick stories with a matching headline.
+  // on a phone); the other filters then pick stories with a matching headline. Grouped once Top has
+  // been opened, then kept when the reader leaves it, and only from every headline: the head file's few
+  // per source would group into different stories. Ages count from the build, not the clock, so the
+  // minute's tick doesn't group everything again.
+  const [storiesWanted, setStoriesWanted] = useState(view === "top");
+  if (view === "top" && !storiesWanted) setStoriesWanted(true);
   const storyItems = useDeferredValue(allItems);
+  const storyLang = useDeferredValue(lang);
+  const storiesReady = storiesWanted && (whole || !!error);
+  const storiesAt = Date.parse(generatedAt ?? "") || undefined;
   const allStories = useMemo(
     () =>
-      view === "top"
-        ? findStories(lang === "all" ? storyItems : storyItems.filter((it) => it.lang === lang), { now })
+      storiesReady
+        ? findStories(storyLang === "all" ? storyItems : storyItems.filter((it) => it.lang === storyLang), {
+            now: storiesAt,
+          })
         : [],
-    [view, storyItems, lang, now],
+    [storiesReady, storyItems, storyLang, storiesAt],
   );
+  // Grouping still to catch up with the language or feed just chosen.
+  const storiesPending = storyItems !== allItems || storyLang !== lang;
   const stories = useMemo(() => {
     const matches = allStories.filter((st) =>
       st.items.some(
@@ -682,11 +704,12 @@ export function NewsBoard({
       updateCardPrefs((p) => {
         for (const id of ids) {
           p.collapsed[id] = collapsed;
-          const lead = itemsBySource.get(id)?.[0]?.link;
+          // The card's lead with no filter on (a filtered card's isn't what its folded header compares to).
+          const lead = results.get(id)?.items[0]?.link;
           if (lead) p.seen[id] = lead;
         }
       }),
-    [updateCardPrefs, itemsBySource],
+    [updateCardPrefs, results],
   );
   const toggleCard = useCallback((id: string, collapsed: boolean) => setCollapsed([id], collapsed), [setCollapsed]);
 
@@ -715,16 +738,20 @@ export function NewsBoard({
   // Labels follow the language filter (Bangla names when only Bangla sources are shown) and are always
   // Bangla on Bangla pages.
   const bn = lang === "bn" || locale === "bn";
-  const categoryTabs = [
-    { id: "", label: bn ? "সব" : "All", href: localePath("/", locale), count: matchingCount },
-    ...CATEGORIES.map((c) => ({
-      id: c.id,
-      label: bn ? c.bn : c.label,
-      title: bn ? c.label : c.bn,
-      href: localePath(categoryPath(c.id) ?? `/?cat=${c.id}`, locale),
-      count: categoryCounts.get(c.id) ?? 0,
-    })),
-  ];
+  // Kept the same between renders unless a count changes: the tabs measure themselves whenever it changes.
+  const categoryTabs = useMemo(
+    () => [
+      { id: "", label: bn ? "সব" : "All", href: localePath("/", locale), count: matchingCount },
+      ...CATEGORIES.map((c) => ({
+        id: c.id,
+        label: bn ? c.bn : c.label,
+        title: bn ? c.label : c.bn,
+        href: localePath(categoryPath(c.id) ?? `/?cat=${c.id}`, locale),
+        count: categoryCounts.get(c.id) ?? 0,
+      })),
+    ],
+    [bn, locale, matchingCount, categoryCounts],
+  );
 
   /** Selects a category; from deep in the page, jumps back to the top of the results. */
   const pickCategory = (id: Category | "") => {
@@ -1136,10 +1163,10 @@ export function NewsBoard({
 
               {hasData && view !== "saved" && view !== "videos" && filtering && filtered.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center" aria-live="polite">
-                  {searching ? (
+                  {incomplete ? (
                     <p className="flex items-center justify-center gap-2 text-sm text-muted">
                       <RefreshIcon spinning className="h-4 w-4" />
-                      {t.searchingAll}
+                      {searching ? t.searchingAll : t.loadingAll}
                     </p>
                   ) : (
                     <>
@@ -1167,12 +1194,12 @@ export function NewsBoard({
                   onToggleSave={toggleSaved}
                   onShare={shareItem}
                   emptyHint={
-                    onlySource
-                      ? t.topEmpty.source(sourceById.get(onlySource)?.name ?? t.topEmpty.thisSource)
-                      : filtering
-                        ? t.topEmpty.filtered
-                        : loading
-                          ? t.topEmpty.grouping
+                    loading || incomplete || storiesPending
+                      ? t.topEmpty.grouping
+                      : onlySource
+                        ? t.topEmpty.source(sourceById.get(onlySource)?.name ?? t.topEmpty.thisSource)
+                        : filtering
+                          ? t.topEmpty.filtered
                           : t.topEmpty.none
                   }
                 />
