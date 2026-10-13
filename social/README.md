@@ -21,6 +21,24 @@ Facebook's desktop shows the cover at 820×312 with the profile photo over the b
 centre two-thirds. Everything that has to be read sits in that centre, and only the decorative cards sit at the edges.
 The circle crop of the profile photo keeps the whole mark inside it, and it still reads at 40 px.
 
+## More covers and profile photos (v2)
+
+Alternatives drawn from the final logo. Covers are 1640×624; profile photos are 1080×1080.
+
+| File | What it is |
+| --- | --- |
+| `facebook-cover-v2-1-pinned-green.png` | The logo on a white card pinned to a green board |
+| `facebook-cover-v2-2-bangla-headline.png` | "দেশের সব খবর, এক বোর্ডে" in large type, with the logo underneath |
+| `facebook-cover-v2-3-map.png` | Bangladesh map with pins on the divisional cities: "দেশের প্রতিটি প্রান্তের খবর, এক বোর্ডে" |
+| `facebook-cover-v2-4-flag.png` | Green field with the red flag disc behind the mark |
+| `facebook-cover-v2-5-masthead.png` | Newspaper-style masthead with section names |
+| `facebook-cover-v2-6-dark-fan.png` | Dark background with the mark's cards fanned out |
+| `profile-v2-1-ring.png` | The mark inside a green ring with a red arc |
+| `profile-v2-2-flag.png` | The mark on the red flag disc over green |
+| `profile-v2-3-map-pin.png` | White Bangladesh map on green with a red pin at Dhaka |
+| `profile-v2-4-b-monogram.png` | Lowercase "b" with the red flag disc in its bowl |
+| `profile-v2-5-dark.png` | The mark on charcoal (for dark themes) |
+
 ## Page copy
 
 - **Name:** Bartaboard
