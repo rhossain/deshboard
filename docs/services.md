@@ -27,7 +27,8 @@ and styloviz project; leave them alone.
   `public/_redirects` set headers and rewrites there.
 - **Web Analytics** (Analytics & Logs → Web Analytics): site `bartaboard.com`, no cookies. The beacon is in the
   page itself (`ANALYTICS_TOKEN` in `src/lib/site.ts`, loaded only when `SITE_URL` is `https://bartaboard.com`);
-  the dashboard's automatic injection stays off so visits aren't counted twice.
+  Manage site is set to **Enable with JS Snippet installation**: "Disable" refuses the beacon's reports (CORS errors in
+  the console), and "Enable" would inject a second copy and count visits twice.
 - **Redirect rule** (Rules → Redirect Rules): `https://www.*` → `https://${1}`, 301, query string kept. Plain http
   goes to https first ("Always Use HTTPS"), then to the bare domain.
 - **DNS records**
