@@ -590,6 +590,83 @@ test("Video titles: masked words made whole, bulletins and dates leave nothing t
   }
   // Numbers that are news stay.
   assert.ok(videoKeywords("কুমিল্লায় অভিযান, আটক ৩৫৩").includes("353"));
+  // A word and its inflections, and two spellings of a name, are one word; small numbers in words go.
+  assert.deepEqual(videoKeywords("চকবাজার মার্কেটে ছয় ঘন্টা"), videoKeywords("চকবাজারের মার্কেট ৬ ঘণ্টার"));
+  assert.deepEqual(videoKeywords("বগুড়ার শাহেদ"), videoKeywords("বগুড়ার সাহেদ"));
+  assert.deepEqual(videoKeywords("গু-ন্ডা, বি-স্ফোরক"), videoKeywords("গুন্ডা, বিস্ফোরক"));
+  // Stripped further, "মেয়ে" would be "মে" (May), which is ignored: it stays.
+  assert.equal(videoKeywords("এমপির মেয়ে").length, 2);
+});
+
+test("A fire told from every angle all day is one story; another fire and other news aren't", () => {
+  const now = Date.parse("2026-10-13T02:30:00Z");
+  let n = 0;
+  const v = (channel: string, title: string, hoursAgo: number): Video => ({
+    id: `f${n++}`,
+    channel,
+    title,
+    publishedAt: new Date(now - hoursAgo * 3600_000).toISOString(),
+  });
+  const fire = [
+    v("deepto", "তিন ঘণ্টা পরও নিয়ন্ত্রণ আসেনি চকবাজারের আ'গু'ন‌, সরাসরি", 12.7),
+    v("itv", "পুরান ঢাকার চকবাজারে বহুতল ভবনে আগুন, নিয়ন্ত্রণে সার্ভিসের ৫ ইউনিট", 11.8),
+    v("ekhon", "চকবাজারে দোকানে অগ্নিকাণ্ড, ছড়িয়েছে পাশেও", 11),
+    v("itv", "চকবাজারে আগুন: ৫ ঘণ্টাতেও আগুন নিয়ন্ত্রণে আসেনি, কিসের সংকট?", 9.9),
+    v("somoy", "চকবাজারে আগুন: সরু রাস্তা ও পানি সংকটে আগুন নেভাতে ভোগান্তি", 9.3),
+    v("globaltv", "চকবাজারের আ/গু/ন নিয়ন্ত্রণে, পরিদর্শনে আসলেন প্রশাসক আব্দুস সালাম", 9.4),
+    v("jamuna", "দীর্ঘ ছয় ঘণ্টার চেষ্টায় নিয়ন্ত্রণে চকবাজারের আগুন; নেই হতাহতের ঘটনা", 8),
+    v("ntv", "৬ ঘন্টা চেষ্টায় নিয়ন্ত্রণে চকবাজারের আ/গু/ন", 6),
+    v("jamuna", "চকবাজারে আগুন: ছয় ঘণ্টা পর নিয়ন্ত্রণে এলেও গভীর রাতেও জ্বলছিল আগুন", 0.9),
+    v("atn-bangla", "সাড়ে ৫ ঘণ্টার চেষ্টায় পুরান ঢাকার চকবাজারের আগুন নিয়ন্ত্রণে", 0.25),
+  ];
+  const others = [
+    // Another fire the same day, elsewhere.
+    v("rtv", "গাজীপুরে পোশাক কারখানায় আগুন, নিয়ন্ত্রণে ৫ ইউনিট", 5),
+    v("somoy", "গাজীপুরের কারখানায় আগুন, পুড়ে ছাই কাপড়", 4.5),
+    // Chawkbazar, no fire.
+    v("dbc", "চকবাজারে ইফতারির বাজার জমজমাট", 3),
+    // The confined CUET VC (that day's titles): the last one shares too little with any one title,
+    // but has the story's core.
+    v("somoy", "নিজ দপ্তরে ২২ ঘণ্টা ধরে অবরুদ্ধ চুয়েটের নবনিযুক্ত ভিসি", 0.1),
+    v("dbc", "১৯ ঘণ্টা ধরে অবরুদ্ধ চুয়েটের নতুন উপাচার্য", 0.7),
+    v("itv", "চুয়েট: ‘পদত্যাগ করলে খুলবে তালা’, অবরুদ্ধ উপাচার্যকে আল্টিমেটাম", 10.3),
+    v("etv-news", "চুয়েটে চরম উত্তেজনা, কার্যালয়ে অবরুদ্ধ নতুন উপাচার্য", 10.4),
+    v("news24", "চুয়েটে অবরুদ্ধ ভিসির জন্য খাবার পাঠিয়ে তা নিয়ে যেতে মাইকিং শিক্ষার্থীর", 11.6),
+    v("somoy", "ক্যাম্পাসে অবরুদ্ধ চুয়েটের নবনিযুক্ত ভিসি", 11.7),
+    v("maasranga", "অবরুদ্ধ অবস্থায় শিক্ষার্থীদের উদ্দেশ্যে চুয়েট ভিসি যা বললেন", 12.4),
+    v("rtv", "ক্যাম্পাস ত্যাগের আলটিমেটাম পার হতেই অবরুদ্ধ চুয়েট উপাচার্য", 12.5),
+    ...[
+      "জাপানে প্রবাসী বাংলাদেশিদের নতুন উদ্যোগ, ঘরে বসেই অনলাইন ব্যবসা",
+      "জ্বালানি সংকটে বিনিয়োগে অনাগ্রহ বিদেশিদের",
+      "দখল-দূষণে মৃতপ্রায় খাকদোন নদী, ২০ কোটি টাকায় খননের উদ্যোগ",
+      "কিলবিল করা এই মাছ খেতে এত পাগল কেন জাপানিরা?",
+      "নাটোরে নজর কেড়েছে ভুট্টা সাবুদানায় তৈরি প্রতিমা",
+      "শ্রীমঙ্গলে শুরু হয়েছে নবদূর্গা পূজা",
+      "সৌদি আরব ও হুতিদের সামরিক শক্তির তুলনা",
+      "ক্ষেপণাস্ত্র ছুড়েছে উত্তর কোরিয়া; নিন্দা দক্ষিণ কোরিয়া, জাপানের",
+      "ঢাকায় ১২ নভেম্বর টেক্সটাইল ইনোভেশন এক্সপো",
+      "অর্থনীতিতে নোবেল পেলেন রবার্ট ই. হল ও মাইকেল উডফোর্ড",
+    ].map((title, i) => v(`filler${i}`, title, 1 + i)),
+    // A day's worth of other videos, so how common a word is counts as on a real day (~750 videos).
+    ...Array.from({ length: 700 }, (_, i) => v(`day${i % 30}`, `item${i} topic${i % 97}`, (i % 24) + 0.5)),
+  ];
+  const videos = [...fire, ...others].sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
+  const groups = groupVideos(videos).filter((g) => g.videos.length > 1);
+  const ids = (list: Video[]) =>
+    list
+      .map((x) => x.id)
+      .sort()
+      .join();
+  assert.ok(
+    groups.some((g) => ids(g.videos) === ids(fire)),
+    "the fire is one story",
+  );
+  const cuet = videos.filter((x) => /চুয়েট/.test(x.title));
+  assert.ok(
+    groups.some((g) => ids(g.videos) === ids(cuet)),
+    groups.map((g) => g.videos.map((x) => x.title).join(" | ")).join("\n"),
+  );
+  assert.equal(groups.length, 2, groups.map((g) => g.videos.map((x) => x.title).join(" | ")).join("\n"));
 });
 
 test("Videos about the same news group across channels; different events don't", () => {
