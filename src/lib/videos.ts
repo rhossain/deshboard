@@ -1,6 +1,7 @@
 import { CHANNELS } from "./channels";
 import { fetchText } from "./fetchers/http";
 import { parseYouTubeFeed } from "./fetchers/youtube";
+import { withCurrentViews } from "./fetchers/youtube-api";
 import { readStore, writeStoreSoon } from "./store";
 import type { Video, VideoChannel, VideoFeed } from "./types";
 import { tagStories } from "./video-stories";
@@ -80,8 +81,11 @@ async function collect(previous: VideoFeed | undefined): Promise<VideoFeed> {
   };
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
+  // Every kept video's views brought up to date, not only the ones still in their channel's feed.
+  const all = await withCurrentViews(byChannel.flat());
+
   // Newest first, with the videos about the same news tagged as one story.
-  const videos = tagStories(byChannel.flat().sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1)));
+  const videos = tagStories([...all].sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1)));
   return { generatedAt: new Date().toISOString(), channels, videos };
 }
 

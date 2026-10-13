@@ -110,6 +110,9 @@ that source's `articlePattern` (it is tested against the URL **pathname**, e.g. 
 
 ## Config
 
+- `YOUTUBE_API_KEY` (optional) — a YouTube Data API v3 key; videos then show their current view counts instead of the
+  channel feeds' (which stop updating once a video leaves its channel's latest 15). Server side only, about 13 units a
+  refresh of the 10,000 a day; without it, or if the API fails, the feeds' counts are used.
 - `NEWS_CACHE_SECONDS` (default `600`) — how long each source's result (and the videos) is reused.
 - `NEWS_BACKGROUND_REFRESH` — set to `0` to fetch only when a reader asks. Otherwise the server refreshes stale
   sources and the videos at startup and every half TTL, so readers get headlines and videos from a warm cache.
