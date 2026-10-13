@@ -12,7 +12,10 @@ import type { NewsItem } from "./types";
  */
 
 export interface Story {
-  /** Stable while the lead headline stays the same. */
+  /**
+   * The link of its first headline (the earliest, by time then link): stays the same as outlets join and
+   * the lead changes, so an open story stays open across updates.
+   */
   id: string;
   /** The headline most similar to the rest of the story. */
   lead: NewsItem;
@@ -418,7 +421,13 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
       if (t && (!latest || t > latest)) latest = t;
       heat += t ? 0.5 ** (Math.max(now - Date.parse(t), 0) / HALF_LIFE_MS) : 1;
     }
-    stories.push({ id: lead.link, lead, items: [lead, ...rest], outlets: cluster.length, latest, heat });
+    let first = lead;
+    for (const it of rest) {
+      const a = itemTime(it) ?? "\uffff";
+      const b = itemTime(first) ?? "\uffff";
+      if (a < b || (a === b && it.link < first.link)) first = it;
+    }
+    stories.push({ id: first.link, lead, items: [lead, ...rest], outlets: cluster.length, latest, heat });
   }
 
   return stories.sort((a, b) => b.heat - a.heat || b.outlets - a.outlets || newestFirst(a.latest, b.latest));

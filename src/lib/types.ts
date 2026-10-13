@@ -97,7 +97,10 @@ export interface NewsSeed extends NewsFeed {
   category?: Category;
   /** Source id → its headlines in the whole feed, so each card starts out at its final size. */
   totals: Record<string, number>;
-  /** Every headline in the whole feed by age (see ageSteps), for the "new since your last visit" count. */
+  /**
+   * Every headline in the whole feed by age (see ageSteps), only the section's when `category` is set:
+   * the "new since your last visit" count before the rest arrives.
+   */
   ages: number[];
 }
 
@@ -141,4 +144,9 @@ export interface VideoFeed {
   channels: (Pick<VideoChannel, "id" | "name"> & { ok: boolean; error?: string })[];
   /** The last day's videos, newest first, Shorts left out. */
   videos: Video[];
+  /**
+   * Only on the seed (the first cards, prerendered): each channel's videos in the whole feed, so the
+   * channel rail shows its final counts before the rest arrives.
+   */
+  counts?: Record<string, number>;
 }

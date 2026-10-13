@@ -19,7 +19,7 @@ import { Player, type RelatedVideo, VideoCard } from "./VideoCard";
 import { cachedVideos, loadVideos } from "./videos";
 import { setVideoLayout, useVideoLayout, useVideoLayoutChoice } from "./video-layout";
 import { VideoSkeleton } from "./VideoSkeleton";
-import { useSearch } from "./use-search";
+import type { Search } from "@/lib/search";
 
 /** Videos drawn at first, and added each time the reader nears the end. */
 const PAGE = 24;
@@ -31,8 +31,11 @@ const EAGER = 6;
 /** A newer build from the automatic refresh, with how many of its videos the page doesn't show yet. */
 type Pending = { feed: VideoFeed; fresh: number };
 
-/** One card: a video, and other channels' videos of the same news listed under it. */
-type Card = { lead: Video; related: RelatedVideo[] };
+/**
+ * One card: a video, and other channels' videos of the same news listed under it; `hits`, how many of its
+ * videos the search matches (all of them with no search), which is what the counts add up.
+ */
+type Card = { lead: Video; related: RelatedVideo[]; hits: number };
 const NO_RELATED: RelatedVideo[] = [];
 
 /** The feed's videos with each story's together, at its newest video's place (see Video.story). */
@@ -60,12 +63,15 @@ function byStory(videos: Video[]): Video[][] {
  */
 export default function VideoBoard({
   query,
+  search,
   rail,
   refreshSignal,
   onShare,
   seed,
 }: {
   query: string;
+  /** `query` compiled: the board's, so a key press compiles it once for both. */
+  search: Search | null;
   /** Where the channel rail goes (in the sticky toolbar). */
   rail: HTMLElement | null;
   /** Changes when the reader presses Refresh. */
@@ -197,7 +203,6 @@ export default function VideoBoard({
     },
     [pins, updatePins],
   );
-  const search = useSearch(query);
   const matching = useMemo(
     () => (search ? (feed?.videos ?? []).filter((v) => search.matches(v.title)) : (feed?.videos ?? [])),
     [feed, search],
@@ -214,7 +219,7 @@ export default function VideoBoard({
   // videos are one card each.
   const { list, mine, mineVideos } = useMemo(() => {
     if (channel) {
-      const list = matching.filter((v) => v.channel === channel).map((lead) => ({ lead, related: NO_RELATED }));
+      const list = matching.filter((v) => v.channel === channel).map((lead) => ({ lead, related: NO_RELATED, hits: 1 }));
       return { list, mine: 0, mineVideos: 0 };
     }
     const cards: Card[] = [];
@@ -223,23 +228,26 @@ export default function VideoBoard({
     for (const story of stories) {
       const hits = search ? story.filter((v) => search.matches(v.title)) : story;
       if (!hits.length) continue;
-      const lead = hits.find((v) => rank.has(v.channel)) ?? hits[0];
+      // The reader's highest-placed channel's video leads, the newest of its; else the newest.
+      let lead = hits[0];
+      for (const v of hits) if ((rank.get(v.channel) ?? MAX_PINS) < (rank.get(lead.channel) ?? MAX_PINS)) lead = v;
       const related =
         story.length > 1
           ? story.filter((v) => v !== lead).map((video) => ({ video, channelName: names.get(video.channel) ?? video.channel }))
           : NO_RELATED;
-      const card = { lead, related };
+      const card = { lead, related, hits: hits.length };
       cards.push(card);
       if (rank.has(lead.channel)) {
         pinned.push(card);
-        pinnedVideos += story.length;
+        pinnedVideos += hits.length;
       }
     }
     if (!pinned.length || pinned.length === cards.length) return { list: cards, mine: 0, mineVideos: 0 };
     const yours = new Set(pinned);
     return { list: [...pinned, ...cards.filter((c) => !yours.has(c))], mine: pinned.length, mineVideos: pinnedVideos };
   }, [matching, stories, search, channel, rank, names]);
-  const listedVideos = useMemo(() => list.reduce((n, c) => n + 1 + c.related.length, 0), [list]);
+  // The videos the search matches in the listed cards: what the "All" tab counts too.
+  const listedVideos = useMemo(() => list.reduce((n, c) => n + c.hits, 0), [list]);
 
   // A new channel, search or set of pins starts again from the first page.
   const listKey = `${channel}\n${query.trim()}\n${[...rank.keys()].join()}`;
@@ -289,13 +297,27 @@ export default function VideoBoard({
   const t = useStrings();
   const videosPath = localePath(VIDEOS_PATH, locale);
   const failed = feed?.channels.filter((c) => !c.ok) ?? [];
+  // While only the seed is here: with no search, the whole feed's counts that came with it; with one,
+  // none yet (the seed's few would only grow).
+  const seedCounts = partial ? feed?.counts : undefined;
+  const countOf = (id: string): number | undefined =>
+    !partial ? (counts.get(id) ?? 0) : search || !seedCounts ? undefined : (seedCounts[id] ?? 0);
   const tabs = feed
     ? [
-        { id: "", label: t.allChannels, href: videosPath, count: matching.length },
+        {
+          id: "",
+          label: t.allChannels,
+          href: videosPath,
+          count: !partial
+            ? matching.length
+            : search || !seedCounts
+              ? undefined
+              : Object.values(seedCounts).reduce((a, b) => a + b, 0),
+        },
         // Pinned channels first in the rail too, in the reader's order.
         ...[...feed.channels]
           .sort((a, b) => (rank.get(a.id) ?? MAX_PINS) - (rank.get(b.id) ?? MAX_PINS))
-          .map((c) => ({ id: c.id, label: names.get(c.id)!, href: videosPath, count: counts.get(c.id) ?? 0 })),
+          .map((c) => ({ id: c.id, label: names.get(c.id)!, href: videosPath, count: countOf(c.id) })),
       ]
     : [];
 
@@ -354,9 +376,12 @@ export default function VideoBoard({
                     <h2 className={`mb-3 flex items-center gap-2 px-1 font-display text-xl ${p ? "pt-10" : ""}`}>
                       {p === 0 && <StarIcon filled className="h-[18px] w-[18px] text-gold" />}
                       {p === 0 ? t.fromYourChannels : t.everythingElse}
-                      <span className="font-sans text-sm tabular-nums text-muted">
-                        {formatCount(p === 0 ? mineVideos : listedVideos - mineVideos, locale)}
-                      </span>
+                      {/* (Not on the seed: its counts are only its own first few.) */}
+                      {!partial && (
+                        <span className="font-sans text-sm tabular-nums text-muted">
+                          {formatCount(p === 0 ? mineVideos : listedVideos - mineVideos, locale)}
+                        </span>
+                      )}
                     </h2>
                   )}
                   <ul className={VIDEO_LIST}>
@@ -394,9 +419,9 @@ export default function VideoBoard({
         <p className="px-1 pt-8 text-center text-xs leading-relaxed text-muted">
           {t.videosNote(formatCount(feed.channels.length - failed.length, locale))}
           {failed.length > 0 && (
-            <span title={failed.map((c) => `${c.name}: ${c.error}`).join("\n")}>
+            <span title={failed.map((c) => `${names.get(c.id) ?? c.name}: ${c.error}`).join("\n")}>
               {" "}
-              {t.unreachable(failed.map((c) => c.name).join(", "))}
+              {t.unreachable(failed.map((c) => names.get(c.id) ?? c.name).join(", "))}
             </span>
           )}
         </p>

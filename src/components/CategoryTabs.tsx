@@ -12,7 +12,8 @@ export interface CategoryTab {
   title?: string;
   /** The tab's own address, so crawlers and middle-clicks can follow it; a plain click stays in place. */
   href: string;
-  count: number;
+  /** Left out while it isn't known yet (the tab shows no number, and isn't disabled). */
+  count?: number;
 }
 
 
@@ -138,13 +139,15 @@ export function CategoryTabs({
                   {t.label}
                 </span>
               </span>
-              <span
-                className={`rounded-full px-1.5 py-px text-[10.5px] font-semibold tabular-nums transition-colors ${
-                  active ? "bg-accent-soft text-accent" : "text-muted/80"
-                }`}
-              >
-                {compactCount(t.count, locale)}
-              </span>
+              {t.count !== undefined && (
+                <span
+                  className={`rounded-full px-1.5 py-px text-[10.5px] font-semibold tabular-nums transition-colors ${
+                    active ? "bg-accent-soft text-accent" : "text-muted/80"
+                  }`}
+                >
+                  {compactCount(t.count, locale)}
+                </span>
+              )}
             </a>
           );
         })}
