@@ -36,8 +36,14 @@ const RETRY_FAILED_MS = 60 * 60_000;
 /** Addresses are kept this long (the feed only lists the last day). */
 const KEEP_MS = 3 * 24 * 3600_000;
 
-/** An article's address, or a failed lookup (no `url`), and when. */
-type Link = { url?: string; at: number };
+/**
+ * An article's address, or a failed lookup (no `url`), and when it was first looked up (what it is
+ * forgotten by). `tried`: when a failed lookup was last tried. `final`: Google answered, with a page
+ * that isn't one of the site's articles; not looked up again.
+ */
+type Link = { url?: string; at: number; tried?: number; final?: true };
+/** When Google last asked us to slow down, kept on disk: each scheduled fetch is a new process. */
+const PAUSE_STORE = "google-news-pause";
 
 // Shared by every source in one process (and kept across hot reloads in dev).
 const g = globalThis as unknown as {
@@ -48,7 +54,11 @@ const g = globalThis as unknown as {
 };
 type Slots = { running: number; waiting: (() => void)[] };
 const links = (g.__googleLinks ??= readStore<Record<string, Link>>(STORE, {}));
-const budget = (g.__googleBudget ??= { since: 0, used: 0, pausedUntil: 0 });
+const budget = (g.__googleBudget ??= {
+  since: 0,
+  used: 0,
+  pausedUntil: readStore<{ pausedUntil: number }>(PAUSE_STORE, { pausedUntil: 0 }).pausedUntil,
+});
 const slots = (g.__googleSlots ??= { running: 0, waiting: [] });
 const feedSlots = (g.__googleFeedSlots ??= { running: 0, waiting: [] });
 
@@ -78,13 +88,17 @@ async function inSlot<T>(fn: () => Promise<T>, limit = CONCURRENCY, pool: Slots 
  * counts (not the homepage or a section page).
  */
 async function lookUp(id: string, host: string): Promise<void> {
+  const at = links[id]?.at ?? Date.now();
   try {
     const url = await inSlot(() => resolveArticle(id));
-    links[id] = siteHost(url) === host && looksLikeArticle(url) ? { url, at: Date.now() } : { at: Date.now() };
+    links[id] = siteHost(url) === host && looksLikeArticle(url) ? { url, at } : { at, final: true };
   } catch (err) {
-    links[id] = { at: Date.now() };
-    // Google is limiting us: stop looking up until the window is over.
-    if (err instanceof FetchError && err.status === 429) budget.pausedUntil = Date.now() + BUDGET_WINDOW_MS;
+    links[id] = { at, tried: Date.now() };
+    // Google is limiting us: stop looking up until the window is over (in the next run too).
+    if (err instanceof FetchError && err.status === 429) {
+      budget.pausedUntil = Date.now() + BUDGET_WINDOW_MS;
+      writeStoreSoon(PAUSE_STORE, () => ({ pausedUntil: budget.pausedUntil }));
+    }
   }
 }
 
@@ -122,7 +136,10 @@ export async function googleNewsFallback(source: NewsSource): Promise<{ items: R
 
   const now = Date.now();
   const due = entries
-    .filter(({ id }) => !links[id] || (!links[id].url && now - links[id].at > RETRY_FAILED_MS))
+    .filter(({ id }) => {
+      const link = links[id];
+      return !link || (!link.url && !link.final && now - (link.tried ?? link.at) > RETRY_FAILED_MS);
+    })
     .slice(0, LOOKUPS_PER_SOURCE)
     .filter(() => takeLookup(now));
   await Promise.all(due.map(({ id }) => lookUp(id, host)));

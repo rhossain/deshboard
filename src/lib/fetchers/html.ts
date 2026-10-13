@@ -12,6 +12,9 @@ const HEADINGS = "h1,h2,h3,h4,h5,h6";
 /** Timestamps / labels that some sites put inside the link next to the headline. */
 const NOISE = 'time, script, style, [class*="time" i], [class*="date" i], [class*="ago" i], [class*="tag" i]';
 
+/** Path segments of pages that list articles: tags, topics, writers. */
+const LISTING = /^(topics?|tags?|authors?|writers?|reporters?)$/i;
+
 const fits = (s: string) => s.length >= MIN_TITLE && s.length <= MAX_TITLE;
 
 function hostKey(host: string) {
@@ -57,6 +60,7 @@ export function extractHeadlines(html: string, pageUrl: string, articlePattern: 
     const u = new URL(link);
     if (hostKey(u.host) !== pageHost) return;
     if (!pattern.test(u.pathname)) return;
+    if (u.pathname.split("/").some((seg) => LISTING.test(seg))) return;
 
     let title = "";
     let score = 0;

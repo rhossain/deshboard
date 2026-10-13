@@ -16,6 +16,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import path from "node:path";
 import { getLogo, prepareLogo } from "../src/lib/logos";
 import { byDay, keptDates, mergeDay } from "../src/lib/archive";
+import { addressKey } from "../src/lib/fetchers/utils";
 import { toSeed } from "../src/lib/feed";
 import { CATEGORY_PAGES } from "../src/lib/site";
 import { cachedResult, getNews } from "../src/lib/news";
@@ -125,19 +126,35 @@ async function writeDays(): Promise<number> {
   const keep = keptDates();
   mkdirSync(DAYS_ARCHIVE, { recursive: true });
   const archived = (date: string) => path.join(DAYS_ARCHIVE, `${date}.json`);
-  const read = (date: string): NewsItem[] =>
-    existsSync(archived(date)) ? (JSON.parse(readFileSync(archived(date), "utf8")) as NewsDay).items : [];
+  const read = (date: string): NewsItem[] => {
+    try {
+      return existsSync(archived(date)) ? (JSON.parse(readFileSync(archived(date), "utf8")) as NewsDay).items : [];
+    } catch (err) {
+      // A damaged file is started over rather than stopping every run from here on.
+      console.warn(`  ! ${date}.json could not be read, starting it over:`, err instanceof Error ? err.message : err);
+      return [];
+    }
+  };
+  const write = (day: NewsDay) => {
+    writeFileSync(`${archived(day.date)}.tmp`, JSON.stringify(day));
+    renameSync(`${archived(day.date)}.tmp`, archived(day.date));
+  };
 
   const missing = keep.filter((date) => !existsSync(archived(date)));
   for (const day of await Promise.all(missing.map(downloadDay))) {
-    if (day) writeFileSync(archived(day.date), JSON.stringify(day));
+    if (day) write(day);
   }
 
   const cached = ACTIVE_SOURCES.flatMap((s) => cachedResult(s.id)?.items ?? []);
-  for (const [date, items] of byDay(cached)) {
+  const days = byDay(cached);
+  // Each address on one day only: the one its time now falls on (an article moves when its time is
+  // corrected). By address alone: an outlet's same headline on two days can be two articles (a daily column).
+  const dayOf = new Map<string, string>();
+  for (const [date, items] of days) for (const it of items) dayOf.set(addressKey(it.link), date);
+  for (const [date, items] of days) {
     if (!keep.includes(date)) continue;
-    const day: NewsDay = { date, items: mergeDay(read(date), items) };
-    writeFileSync(archived(date), JSON.stringify(day));
+    const kept = read(date).filter((it) => (dayOf.get(addressKey(it.link)) ?? date) === date);
+    write({ date, items: mergeDay(kept, items) });
   }
 
   for (const file of readdirSync(DAYS_ARCHIVE)) {

@@ -69,7 +69,7 @@ const SYNONYMS: Record<Exclude<Category, "other">, string[]> = {
   education: [
     "education", "educations", "education-news", "campus", "my-campus", "campus-online", "শিক্ষা", "ক্যাম্পাস",
   ],
-  health: ["health", "health-news", "health-medical", "doctor-available", "স্বাস্থ্য"],
+  health: ["health", "health-news", "health-medical", "health-and-medical", "doctor-available", "স্বাস্থ্য"],
   lifestyle: [
     "lifestyle", "life-living", "fashion", "travel", "travelandtourism", "journey", "food", "tp-suranjona",
     "religion", "islam", "islam-life", "জীবনযাপন", "লাইফস্টাইল", "ভ্রমণ", "ধর্ম", "ইসলাম", "দৈনন্দিন ইসলাম",

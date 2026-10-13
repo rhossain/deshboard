@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { Category } from "./categories";
 import { dedupeByLink } from "./fetchers/utils";
@@ -35,13 +35,29 @@ export function toSeed(feed: NewsFeed, category?: Category, fullCards?: number):
   };
 }
 
-/** The whole feed from `npm run fetch`, or undefined when nothing has been fetched yet. */
-export function readFeed(): NewsFeed | undefined {
+const parsed = new Map<string, { mtimeMs: number; data: unknown }>();
+
+/**
+ * A file under public/data, parsed once per version of it: a build reads news.json for every page (a
+ * few MB each time). Callers must not change what they get.
+ */
+function readData<T>(name: string): T | undefined {
+  const file = path.join(process.cwd(), "public", "data", name);
   try {
-    return JSON.parse(readFileSync(path.join(process.cwd(), "public", "data", "news.json"), "utf8")) as NewsFeed;
+    const { mtimeMs } = statSync(file);
+    const hit = parsed.get(file);
+    if (hit?.mtimeMs === mtimeMs) return hit.data as T;
+    const data = JSON.parse(readFileSync(file, "utf8")) as T;
+    parsed.set(file, { mtimeMs, data });
+    return data;
   } catch {
     return undefined;
   }
+}
+
+/** The whole feed from `npm run fetch`, or undefined when nothing has been fetched yet. */
+export function readFeed(): NewsFeed | undefined {
+  return readData<NewsFeed>("news.json");
 }
 
 /**
@@ -82,9 +98,5 @@ export function readVideoSeed(): VideoFeed | undefined {
 
 /** The whole videos feed from `npm run fetch`, or undefined when nothing has been fetched yet. */
 export function readVideos(): VideoFeed | undefined {
-  try {
-    return JSON.parse(readFileSync(path.join(process.cwd(), "public", "data", "videos.json"), "utf8")) as VideoFeed;
-  } catch {
-    return undefined;
-  }
+  return readData<VideoFeed>("videos.json");
 }

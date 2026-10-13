@@ -42,7 +42,9 @@ jobs:
       # First-seen times, source health, 30 days of headlines (.data/days) and logos carry over from run
       # to run. Original logos now live in .data/logos (public/logos is made from them); public/logos stays
       # listed because changing the list starts the cache over, and its old files seed .data/logos once.
-      - uses: actions/cache@v4
+      # Restored here and saved right after the fetch, not at the end of the job: a failed build or upload
+      # would otherwise throw away what this run learned (first-seen times, Google News addresses).
+      - uses: actions/cache/restore@v4
         with:
           path: |
             .data
@@ -53,6 +55,13 @@ jobs:
       - run: npm run fetch
         env:
           SITE_URL: ${{ vars.SITE_URL }}
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            .data
+            public/logos
+          key: news-data-${{ github.run_id }}
       - run: npm run build
         env:
           SITE_URL: ${{ vars.SITE_URL }}

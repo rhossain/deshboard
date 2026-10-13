@@ -41,6 +41,9 @@ export function asArray<T>(v: T | T[] | undefined | null): T[] {
 export function parseDate(input: unknown): string | undefined {
   let s = textOf(input).trim();
   if (!s) return undefined;
+  // A date with no time ("2026-10-13": Channel 24's sitemap) would read as 6 a.m. Dhaka, out of order
+  // with every timed headline. Left out, the headline is timed by when it was first seen instead.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return undefined;
 
   s = s
     .replace(/GMT\s*\+\s*6(?::?00)?\b/i, "+06:00")
@@ -53,6 +56,10 @@ export function parseDate(input: unknown): string | undefined {
   // "YYYY-MM-DD HH:mm:ss +06:00" → ISO
   const spaced = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) ?([+-]\d{2}:?\d{2})$/.exec(s);
   if (spaced) s = `${spaced[1]}T${spaced[2]}${spaced[3]}`;
+
+  // Any other time with no zone ("Sun, 04 Oct 2026 22:31:55", "… 10:31 PM") is Dhaka time too, not the
+  // zone of the machine that runs the fetch.
+  if (/\s\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]\.?m\.?)?$/i.test(s)) s += " +0600";
 
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return undefined;
@@ -88,10 +95,40 @@ export function resolveUrl(href: string, base: string): string | undefined {
   }
 }
 
+/** Query parameters that only say where a reader came from. */
+const TRACKING = /^(utm_\w+|fbclid|gclid|ocid)$/i;
+
+/**
+ * One address for an article that sites (and Google News for them) give in several forms: its AMP page
+ * (`/amp/bangladesh/…`, `…/amp`), behind `/index.php/`, or with tracking parameters. Other query
+ * parameters stay: some sites name the article in them (`?id=…`).
+ */
+export function canonicalLink(link: string): string {
+  try {
+    const u = new URL(link);
+    u.hostname = u.hostname.toLowerCase();
+    u.pathname = u.pathname
+      .replace(/^\/index\.php(?=\/)/, "")
+      .replace(/^\/amp(?=\/.)/, "")
+      .replace(/(.)\/amp\/?$/, "$1");
+    for (const key of [...u.searchParams.keys()]) if (TRACKING.test(key)) u.searchParams.delete(key);
+    u.hash = "";
+    return u.toString();
+  } catch {
+    return link;
+  }
+}
+
+/** What two addresses of the same article have in common: no scheme, `www.` or trailing slash. */
+export const addressKey = (link: string) => link.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+
+/** A headline's words, for telling one outlet's same headline at two addresses: case and spacing ignored. */
+export const titleKey = (title: string) => title.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
+
 export function dedupeByLink<T extends { link: string }>(items: T[]): T[] {
   const seen = new Set<string>();
   return items.filter((it) => {
-    const key = it.link.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+    const key = addressKey(it.link);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

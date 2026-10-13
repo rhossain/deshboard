@@ -62,26 +62,69 @@ export function parseGoogleNewsFeed(xml: string, host: string): GoogleNewsEntry[
     let title = cleanTitle(it.title);
     // (Sometimes twice: "… - কালের কণ্ঠ - কালের কণ্ঠ".)
     while (publisher && title.endsWith(` - ${publisher}`)) title = title.slice(0, -publisher.length - 3).trim();
-    if (!id || !title || (publisher && title.includes(publisher))) continue;
-    if (title.split(/\s+/).length < MIN_WORDS) continue;
+    // A page named after the publisher ("আন্তর্জাতিক । দৈনিক ইনকিলাব"); a headline may mention it in passing.
+    if (!id || !title || (publisher && (title.startsWith(publisher) || title.endsWith(publisher)))) continue;
     entries.push({ id, title, publishedAt: parseDate(it.pubDate) });
   }
+  stripSiteSuffixes(entries);
   const repeats = new Map<string, number>();
   for (const { title } of entries) repeats.set(title, (repeats.get(title) ?? 0) + 1);
   const seen = new Set<string>();
   return entries.filter(({ title }) => {
+    if (title.split(/\s+/).length < MIN_WORDS) return false;
     if (repeats.get(title)! >= TEMPLATE_REPEATS || seen.has(title)) return false;
     seen.add(title);
     return true;
   });
 }
 
+/** A title's last part after " | ", " - " or " – ". */
+const LAST_PART = /\s+[|\-–—]\s+([^|\-–—]+)$/;
+
+/**
+ * Sites add their name to their page titles in ways Google's own " - Publisher" doesn't cover
+ * (" | আন্তর্জাতিক | বাংলাদেশ সংবাদ সংস্থা (বাসস)", " - জাগোনিউজ২৪.কম"). A last part that ends this
+ * many of the feed's titles is such an addition, not part of a headline. Removed in place, a part at a time.
+ */
+const SUFFIX_REPEATS = 3;
+
+function stripSiteSuffixes(entries: { title: string }[]) {
+  for (let round = 0; round < 3; round++) {
+    const counts = new Map<string, number>();
+    for (const { title } of entries) {
+      const part = LAST_PART.exec(title)?.[1];
+      if (part) counts.set(part, (counts.get(part) ?? 0) + 1);
+    }
+    let stripped = false;
+    for (const e of entries) {
+      const m = LAST_PART.exec(e.title);
+      if (m && counts.get(m[1])! >= SUFFIX_REPEATS) {
+        e.title = e.title.slice(0, m.index).trim();
+        stripped = true;
+      }
+    }
+    if (!stripped) return;
+  }
+}
+
+/** Path segments of pages that list articles rather than being one: topics, tags, writers, galleries. */
+const LISTING = /^(topics?|tags?|authors?|writers?|reporters?|search|opinion-poll|[a-z-]*gallery)$/i;
+/** Listings too, unless an article follows (barta24's /details/archive/342703, UNB's /category/World/…/197729). */
+const SECTIONED = /^(archives?|categor(y|ies))$/i;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
  * An article's address, not the site's homepage or a section's (`/national`): something past the
- * first path segment, or a number in it.
+ * first path segment, or a number in it; and not a listing (`/topic/770`, `/archive/2026-10-13`).
  */
 export function looksLikeArticle(url: string): boolean {
   const segments = new URL(url).pathname.split("/").filter(Boolean);
+  if (segments.some((seg) => LISTING.test(seg) || DATE.test(seg))) return false;
+  const at = segments.findIndex((seg) => SECTIONED.test(seg));
+  if (at >= 0) {
+    const after = segments.slice(at + 1);
+    if (!after.length || (after.length === 1 && !/^\d+$/.test(after[0]))) return false;
+  }
   return segments.length > 1 || /\d/.test(segments[0] ?? "");
 }
 

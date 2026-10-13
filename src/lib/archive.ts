@@ -1,4 +1,5 @@
 import { dhakaDay } from "@/components/time";
+import { addressKey, titleKey } from "./fetchers/utils";
 import { itemTime, newestFirst } from "./stories";
 import type { NewsItem } from "./types";
 
@@ -28,14 +29,24 @@ export function byDay(items: NewsItem[]): Map<string, NewsItem[]> {
   return days;
 }
 
+/** Same article: same address (see addressKey), or the same outlet's same headline. */
+function articleKeys(it: NewsItem): [string, string] {
+  return [addressKey(it.link), `${it.sourceId}\n${titleKey(it.title)}`];
+}
+
 /**
  * A day's headlines: what was kept of it before, with the fresh ones added. The cache only reaches back 72
  * hours, so the oldest day it has is partial; merging keeps the part that has already left it. The fresh
- * copy of a link wins (a corrected title, a found time). Newest first.
+ * copy of an article wins (a corrected title, a found time). Newest first.
  */
 export function mergeDay(kept: NewsItem[], fresh: NewsItem[]): NewsItem[] {
-  const byLink = new Map<string, NewsItem>();
-  for (const it of kept) byLink.set(it.link, it);
-  for (const it of fresh) byLink.set(it.link, it);
-  return [...byLink.values()].sort((a, b) => newestFirst(itemTime(a), itemTime(b)));
+  const seen = new Set<string>();
+  const out: NewsItem[] = [];
+  for (const it of [...fresh, ...kept]) {
+    const keys = articleKeys(it);
+    if (keys.some((k) => seen.has(k))) continue;
+    for (const k of keys) seen.add(k);
+    out.push(it);
+  }
+  return out.sort((a, b) => newestFirst(itemTime(a), itemTime(b)));
 }
