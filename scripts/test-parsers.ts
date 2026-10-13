@@ -804,7 +804,7 @@ test("Videos about the same news group across channels; different events don't",
   );
 });
 
-test("Headlines build up across runs: the last 72 hours kept, the newest 300 on the board", () => {
+test("Headlines build up across runs: the last 72 hours kept, the newest 300 of 48 hours on the board", () => {
   const now = Date.parse("2026-10-07T12:00:00Z");
   const at = (hoursAgo: number) => new Date(now - hoursAgo * 3600_000).toISOString();
   const it = (link: string, hoursAgo?: number, title = link, seen = false): NewsItem => ({
@@ -841,8 +841,11 @@ test("Headlines build up across runs: the last 72 hours kept, the newest 300 on 
     durationMs: 0,
     items: many,
   };
-  assert.deepEqual(forBoard(result).items, many.slice(0, 300));
-  assert.equal(forBoard({ ...result, items: many.slice(0, 5) }).items.length, 5);
+  assert.deepEqual(forBoard(result, now).items, many.slice(0, 300));
+  assert.equal(forBoard({ ...result, items: many.slice(0, 5) }, now).items.length, 5);
+  // Older than 48 hours: kept for the day files, not on the board. Undated: on the outlet's page now.
+  const aged = { ...result, items: [it("new", 1), it("two-days", 47), it("three-days", 60), it("undated")] };
+  assert.deepEqual(forBoard(aged, now).items.map((x) => x.title), ["new", "two-days", "undated"]);
 });
 
 test("Google News: one site's last day, in its language's edition", () => {

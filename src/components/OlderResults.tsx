@@ -59,7 +59,7 @@ interface Found {
 }
 
 /**
- * The search, carried on past the board's 72 hours into the day files of the last 30 days (docs/search.md):
+ * The search, carried on past the board's 48 hours into the day files of the last 30 days (docs/search.md):
  * newest first, a round of days at a time, so a search that finds plenty early downloads little. It starts
  * from today, since the board holds only each outlet's newest 300 (less than a day for the busiest), and
  * leaves out what the board already shows (`boardKeys`: its links, and each outlet's titles, see

@@ -59,9 +59,9 @@ export function itemTime(it: NewsItem): string | undefined {
   return it.publishedAt ?? it.seenAt;
 }
 
-/** Steps of NewsSeed.ages: a minute each, over the 72 hours the board keeps; the last holds anything older. */
+/** Steps of NewsSeed.ages: a minute each, over the 48 hours the board keeps; the last holds anything older. */
 const AGE_STEP_MS = 60_000;
-const AGE_STEPS = (72 * 3600_000) / AGE_STEP_MS;
+const AGE_STEPS = (48 * 3600_000) / AGE_STEP_MS;
 
 /** How many headlines are how old at `generatedAt`, in AGE_STEP_MS steps. Undated headlines aren't counted. */
 export function ageSteps(items: NewsItem[], generatedAt: string): number[] {

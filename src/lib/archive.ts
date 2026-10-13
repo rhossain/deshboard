@@ -5,7 +5,7 @@ import type { NewsItem } from "./types";
 
 /**
  * Days of headlines kept as day files (`/data/days/<date>.json`, see NewsDay): the search looks back
- * through them once the board's own 72 hours run out (docs/search.md), and shared links find old
+ * through them once the board's own 48 hours run out (docs/search.md), and shared links find old
  * headlines in them.
  */
 export const KEEP_DAYS = 30;
