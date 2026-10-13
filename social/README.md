@@ -39,6 +39,21 @@ Alternatives drawn from the final logo. Covers are 1640×624; profile photos are
 | `profile-v2-4-b-monogram.png` | Lowercase "b" with the red flag disc in its bowl |
 | `profile-v2-5-dark.png` | The mark on charcoal (for dark themes) |
 
+## Instagram feed posts (1080×1350)
+
+Portrait versions of the six launch posts, scheduled on @bartaboard.bd at 8:00 pm (Bangladesh time), one a day from 14 to 19 October 2026, alongside the Facebook posts.
+
+| File | Post | Link in caption |
+|---|---|---|
+| `ig-post-1-how-it-works.png` | How it works: the three steps | bartaboard.com |
+| `ig-post-2-every-corner.png` | Every corner: map with division pins | bartaboard.com |
+| `ig-post-3-tv-videos.png` | TV news videos (dark) | bartaboard.com/videos |
+| `ig-post-4-in-bangla.png` | In Bangla | bartaboard.com/bn |
+| `ig-post-5-sources.png` | Our sources: 50+ outlets | bartaboard.com/sources |
+| `ig-post-6-search-save.png` | Search and save | bartaboard.com |
+
+Rebuild with `node source/ig_posts.mjs` from the build folder (needs Playwright, Sora and Noto Sans Bengali from @fontsource, `map-full.txt` and the kit SVGs).
+
 ## Page copy
 
 - **Name:** Bartaboard
