@@ -149,6 +149,15 @@ hosted service (Cloudflare, Supabase, Google sign-in, Resend email) and what is 
   opened on Videos leaves the headlines until the reader leaves it.
 - **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`5` Newsstand, Top stories, Latest, Videos, Saved, `r` refresh, `?` help.
 - **Share image** — `src/app/opengraph-image.tsx`, rendered at build time with the site's fonts.
+- **Share links** — the share sheet gives `/s/<yymmdd>-<key>` (`/s/261014-k3x9pq2m`): the Dhaka day the headline is
+  filed under and a hash of its address, the same links the static site makes. `/s/[...url]` finds the headline among
+  the cached ones, then in that day's file (and the days either side), and renders it on the server with its section,
+  time, the same story from other outlets and a button to the article; its tags give Facebook, WhatsApp, X and
+  Telegram previews the headline, outlet and the article's picture. The picture comes from the feed (media:content,
+  enclosure, sitemap image:loc) or is read once from the article's page by the background refresh
+  (`src/lib/pictures.ts`), else from the page when the link is opened; without one the outlet's masthead takes its
+  place. Videos are `/s/youtu.be/<id>`. Older `/s/<article address>` links keep working; links to sites that aren't
+  on the board go to the board.
 - **Source health** — `/health` lists every source from the server cache (never triggers a fetch): failing ones first
   with how long they have failed, then working ones with the section names whose headlines land in "Other" (add those
   to `src/lib/categories.ts`).
