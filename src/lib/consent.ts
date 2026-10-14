@@ -5,8 +5,8 @@
  * once they are switched on.
  *
  * The question only appears once a cookie-setting service is switched on: Google Analytics (the `GA_ID`
- * repository variable, NEXT_PUBLIC_GA_ID in the build), or the `CONSENT` repository variable set to `on`
- * (NEXT_PUBLIC_CONSENT); deploy.yml passes both. `?consent=preview` shows it on one device, as if switched
+ * repository variable, NEXT_PUBLIC_GA_ID in the build), the Meta Pixel (NEXT_PUBLIC_META_PIXEL_ID, see
+ * MetaPixel), or the `CONSENT` repository variable set to `on` (NEXT_PUBLIC_CONSENT); deploy.yml passes them. `?consent=preview` shows it on one device, as if switched
  * on and asked.
  *
  * A service that sets cookies runs only when `allowed("analytics")` or `allowed("ads")` says so, and
@@ -15,7 +15,9 @@
 
 /** Google Analytics 4's measurement ID (G-…), set only for the live site's builds. */
 export const GA_ID = process.env.NEXT_PUBLIC_GA_ID || null;
-export const CONSENT_ON = process.env.NEXT_PUBLIC_CONSENT === "on" || !!GA_ID;
+/** The Meta Pixel's id (the "Bartaboard website" dataset in Events Manager), set only for the live site's builds. */
+export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID || null;
+export const CONSENT_ON = process.env.NEXT_PUBLIC_CONSENT === "on" || !!GA_ID || !!META_PIXEL_ID;
 
 export type Purpose = "analytics" | "ads";
 export type Choice = Record<Purpose, boolean>;

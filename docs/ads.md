@@ -1,5 +1,8 @@
 # Ads: plan and what readers are told
 
+*Ads shown **on** Bartaboard. Bartaboard's own ads on Facebook and Instagram, and the Meta Pixel that measures them,
+are in [promotion.md](promotion.md).*
+
 A plan, not a build. Bartaboard shows no ads today and launches without them; ads come once traffic is steady
 (see [When to start](#when-to-start)). Ads and paid plans (see [subscriptions.md](subscriptions.md)) are how it will
 pay for itself.
