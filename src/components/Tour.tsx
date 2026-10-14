@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { needsAnswer } from "@/lib/consent";
+import { returnPromptTakesTurn } from "./ReturnPrompt";
 import { useConsentState } from "./ConsentBanner";
 import { useLocale, useStrings } from "./locale";
 import { formatCount } from "./time";
@@ -281,7 +282,7 @@ export function TourInvite({ onStart }: { onStart: () => void }) {
   const asking = needsAnswer(useConsentState());
 
   useEffect(() => {
-    if (tourSeen()) return;
+    if (tourSeen() || returnPromptTakesTurn()) return;
     const timer = setTimeout(() => setShow(true), 4000);
     return () => clearTimeout(timer);
   }, []);

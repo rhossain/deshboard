@@ -268,6 +268,19 @@ const en = {
   },
 
   // The site tour (see Tour.tsx)
+  returnPrompt: {
+    label: "Keep up with Bartaboard",
+    installTitle: "Put Bartaboard on your home screen",
+    installBody: "Every outlet's headlines, one tap away, like an app.",
+    install: "Add",
+    how: "How?",
+    iosSteps: (share: string) => `In Safari, tap ${share} Share, then “Add to Home Screen”.`,
+    followTitle: "Follow Bartaboard on Facebook",
+    followBody: "The day's biggest stories, in your feed.",
+    follow: "Follow",
+    followLink: "Or follow us on Facebook",
+    later: "Not now",
+  },
   tour: {
     label: "Site tour",
     footer: "Site tour",
@@ -582,6 +595,19 @@ const bn: Strings = {
     terms: "শর্তাবলি",
   },
 
+  returnPrompt: {
+    label: "বার্তাবোর্ডের সঙ্গে থাকুন",
+    installTitle: "হোম স্ক্রিনে রাখুন বার্তাবোর্ড",
+    installBody: "সব সংবাদমাধ্যমের শিরোনাম, অ্যাপের মতো এক ট্যাপে।",
+    install: "যোগ করুন",
+    how: "কীভাবে?",
+    iosSteps: (share) => `সাফারিতে ${share} শেয়ার চাপুন, তারপর “Add to Home Screen”।`,
+    followTitle: "ফেসবুকে বার্তাবোর্ড ফলো করুন",
+    followBody: "দিনের বড় খবরগুলো, আপনার ফিডে।",
+    follow: "ফলো করুন",
+    followLink: "অথবা ফেসবুকে ফলো করুন",
+    later: "এখন না",
+  },
   tour: {
     label: "সাইট পরিচিতি",
     footer: "সাইট পরিচিতি",

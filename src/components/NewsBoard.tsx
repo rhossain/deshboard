@@ -54,6 +54,7 @@ import { Logos, SourceCard } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { ConsentChoicesLink } from "./ConsentBanner";
 import { markTourSeen, Tour, TourInvite } from "./Tour";
+import { ReturnPrompt } from "./ReturnPrompt";
 import { setTheme, useTheme } from "./theme";
 import { cachedVideos, loadVideoBoard, prefetchVideos } from "./videos";
 import { VideoSkeleton } from "./VideoSkeleton";
@@ -1638,6 +1639,7 @@ export function NewsBoard({
 
             <Tour open={tourOpen} onClose={() => setTourOpen(false)} />
             {!tourOpen && <TourInvite onStart={startTour} />}
+            {!tourOpen && <ReturnPrompt />}
 
             <Sheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title={t.shortcuts.title}>
               <dl className="grid grid-cols-[auto_1fr] items-center gap-x-5 gap-y-3 text-sm">
