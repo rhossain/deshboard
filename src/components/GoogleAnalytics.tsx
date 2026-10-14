@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { allowed, GA_ID } from "@/lib/consent";
+import { LANDING_URL, stillOnLanding } from "@/lib/landing";
 import { useConsentState } from "./ConsentBanner";
 
 declare global {
@@ -28,7 +29,8 @@ function start(id: string) {
     ad_personalization: "denied",
   });
   window.gtag("js", new Date());
-  window.gtag("config", id);
+  // The address as the reader arrived, with an ad's campaign tags: the board has rewritten it by now.
+  window.gtag("config", id, LANDING_URL && stillOnLanding() ? { page_location: LANDING_URL } : {});
   const script = document.createElement("script");
   script.async = true;
   script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`;

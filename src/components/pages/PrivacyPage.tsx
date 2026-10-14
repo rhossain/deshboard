@@ -7,12 +7,12 @@ const PATH = "/privacy";
 const WORDS = {
   en: {
     title: "Privacy policy",
-    description: "What Bartaboard and its analytics collect about you (very little), and how to delete your data.",
+    description: "What Bartaboard, its analytics and the Meta Pixel for our Facebook ads collect about you, and how to delete your data.",
     updated: "14 October 2026",
   },
   bn: {
     title: "গোপনীয়তা নীতি",
-    description: "বার্তাবোর্ড ও এর অ্যানালিটিক্স আপনার সম্পর্কে কী তথ্য নেয় (খুব সামান্য), আর কীভাবে মুছবেন।",
+    description: "বার্তাবোর্ড, এর অ্যানালিটিক্স আর ফেসবুক বিজ্ঞাপনের মেটা পিক্সেল আপনার সম্পর্কে কী তথ্য নেয়, আর কীভাবে মুছবেন।",
     updated: "১৪ অক্টোবর ২০২৬",
   },
 };
@@ -54,9 +54,10 @@ function English() {
       <ul>
         <li>Bartaboard itself keeps no personal data about readers without an account.</li>
         <li>
-          There are no ads. We count visits with Cloudflare Web Analytics, which sets no cookies, and Google Analytics,
-          which does; in the EU, the UK and Switzerland, Google Analytics runs only if you accept it. See{" "}
-          <a href="#analytics">Analytics</a> below.
+          There are no ads on Bartaboard. We count visits with Cloudflare Web Analytics, which sets no cookies, and
+          Google Analytics, which does, and we measure our own ads on Facebook with the Meta Pixel; in the EU, the UK and
+          Switzerland, these run only if you accept them. See <a href="#analytics">Analytics</a> and{" "}
+          <a href="#ads">Our ads on Facebook</a> below.
         </li>
         <li>
           Your theme, saved stories, pinned sources, card settings and the time of your last visit are kept only in your
@@ -121,11 +122,27 @@ function English() {
         .
       </p>
 
-      <h2 id="ads">Ads</h2>
+      <h2 id="ads">Our ads on Facebook</h2>
       <p>
-        Bartaboard doesn&apos;t show ads yet, but plans to. Before the first ad appears, this policy will be updated to
-        name who shows them, what they collect (such as cookies or your IP address) and the choices you have, and the
-        date at the top will change. We won&apos;t give advertisers your email address, saved stories or alerts.
+        We advertise Bartaboard on Facebook and Instagram. To know which of those ads bring readers, and to show our
+        next ones to people who have visited, we use the{" "}
+        <a href="https://www.facebook.com/privacy/policy/" rel="noopener">
+          Meta Pixel
+        </a>
+        . It sets cookies (named _fbp, and _fbc when you arrive from one of our ads) and tells Meta, the company behind
+        Facebook, which page you opened, when you come back on another day, and the site you came from, along with your
+        browser, device and IP address. Meta can link this to your Facebook or Instagram account and may also use it to
+        choose the ads you see elsewhere, under its own privacy policy. We see only totals in Meta&apos;s reports. We
+        don&apos;t send Meta the headlines you read, your searches, or anything from your account.
+      </p>
+      <p>
+        In the EU and EEA, the UK and Switzerland, the Pixel runs only after you accept ads, and you can change your answer
+        at any time from Cookie choices at the foot of the page; turning it off deletes its cookies. Elsewhere it runs
+        when you visit; to opt out, block cookies for this site or change your{" "}
+        <a href="https://accountscenter.facebook.com/ad_preferences" rel="noopener">
+          ad preferences on Facebook
+        </a>
+        . Bartaboard itself shows no ads, and we won&apos;t give advertisers your email address, saved stories or alerts.
       </p>
 
       <h2>Signing in with Google</h2>
@@ -170,9 +187,10 @@ function Bangla() {
       <ul>
         <li>অ্যাকাউন্ট ছাড়া যাঁরা পড়েন, তাঁদের কোনো ব্যক্তিগত তথ্য বার্তাবোর্ড নিজে রাখে না।</li>
         <li>
-          কোনো বিজ্ঞাপন নেই। ভিজিট গুনতে আমরা ক্লাউডফ্লেয়ার ওয়েব অ্যানালিটিক্স ব্যবহার করি, যা কোনো কুকি রাখে না, আর গুগল
-          অ্যানালিটিক্স, যা কুকি রাখে; ইউরোপীয় ইউনিয়ন, যুক্তরাজ্য ও সুইজারল্যান্ডে গুগল অ্যানালিটিক্স চলে শুধু আপনি রাজি হলে।
-          নিচের <a href="#analytics">অ্যানালিটিক্স</a> অংশ দেখুন।
+          বার্তাবোর্ডে কোনো বিজ্ঞাপন নেই। ভিজিট গুনতে আমরা ক্লাউডফ্লেয়ার ওয়েব অ্যানালিটিক্স ব্যবহার করি, যা কোনো কুকি রাখে না,
+          আর গুগল অ্যানালিটিক্স, যা কুকি রাখে; ফেসবুকে আমাদের নিজেদের বিজ্ঞাপন মাপতে ব্যবহার করি মেটা পিক্সেল। ইউরোপীয়
+          ইউনিয়ন, যুক্তরাজ্য ও সুইজারল্যান্ডে এগুলো চলে শুধু আপনি রাজি হলে। নিচের <a href="#analytics">অ্যানালিটিক্স</a> ও{" "}
+          <a href="#ads">ফেসবুকে আমাদের বিজ্ঞাপন</a> অংশ দেখুন।
         </li>
         <li>
           আপনার থিম, সংরক্ষিত খবর, পিন করা উৎস, কার্ডের সেটিংস আর শেষবার আসার সময় শুধু আপনার নিজের ব্রাউজারের স্টোরেজে
@@ -233,11 +251,28 @@ function Bangla() {
         ব্যবহার করুন।
       </p>
 
-      <h2 id="ads">বিজ্ঞাপন</h2>
+      <h2 id="ads">ফেসবুকে আমাদের বিজ্ঞাপন</h2>
       <p>
-        বার্তাবোর্ডে এখনো বিজ্ঞাপন নেই, তবে দেখানোর পরিকল্পনা আছে। প্রথম বিজ্ঞাপন আসার আগে এই নীতি হালনাগাদ করে জানানো হবে
-        কারা বিজ্ঞাপন দেখাবে, তারা কী তথ্য নেয় (যেমন কুকি বা আপনার আইপি ঠিকানা) আর আপনার কী কী বেছে নেওয়ার সুযোগ থাকবে;
-        ওপরের তারিখও বদলাবে। আপনার ইমেইল ঠিকানা, সংরক্ষিত খবর বা অ্যালার্ট আমরা বিজ্ঞাপনদাতাদের দেব না।
+        আমরা ফেসবুক ও ইনস্টাগ্রামে বার্তাবোর্ডের বিজ্ঞাপন দিই। কোন বিজ্ঞাপন পাঠক আনছে তা জানতে, আর আগে আসা পাঠকদের পরের
+        বিজ্ঞাপন দেখাতে আমরা{" "}
+        <a href="https://www.facebook.com/privacy/policy/" rel="noopener">
+          মেটা পিক্সেল
+        </a>{" "}
+        ব্যবহার করি। এটি কুকি রাখে (_fbp নামে, আর আমাদের বিজ্ঞাপন থেকে এলে _fbc), আর ফেসবুকের মালিক প্রতিষ্ঠান মেটাকে জানায়
+        আপনি কোন পাতা খুলেছেন, অন্য দিন ফিরে এসেছেন কি না, কোন সাইট থেকে এসেছেন, সঙ্গে আপনার ব্রাউজার, ডিভাইস ও আইপি
+        ঠিকানা। মেটা এটি আপনার ফেসবুক বা ইনস্টাগ্রাম অ্যাকাউন্টের সঙ্গে মেলাতে পারে, আর নিজের গোপনীয়তা নীতি অনুযায়ী অন্য
+        জায়গায় আপনাকে দেখানো বিজ্ঞাপন বাছাইয়েও ব্যবহার করতে পারে। মেটার রিপোর্টে আমরা দেখি শুধু মোট হিসাব। আপনি কোন
+        শিরোনাম পড়েন, কী খোঁজেন বা আপনার অ্যাকাউন্টের কিছুই আমরা মেটাকে পাঠাই না।
+      </p>
+      <p>
+        ইউরোপীয় ইউনিয়ন ও ইইএ, যুক্তরাজ্য আর সুইজারল্যান্ডে পিক্সেল চলে শুধু আপনি বিজ্ঞাপনে রাজি হলে, আর পাতার নিচে কুকির
+        পছন্দ থেকে যেকোনো সময় মত বদলাতে পারেন; বন্ধ করলে এর কুকিও মুছে যায়। অন্য সব জায়গায় সাইটে এলেই এটি চলে; বন্ধ করতে
+        এই সাইটের কুকি আটকে দিন, অথবা{" "}
+        <a href="https://accountscenter.facebook.com/ad_preferences" rel="noopener">
+          ফেসবুকে বিজ্ঞাপনের পছন্দ
+        </a>{" "}
+        বদলান। বার্তাবোর্ড নিজে কোনো বিজ্ঞাপন দেখায় না, আর আপনার ইমেইল ঠিকানা, সংরক্ষিত খবর বা অ্যালার্ট আমরা
+        বিজ্ঞাপনদাতাদের দেব না।
       </p>
 
       <h2>গুগল দিয়ে সাইন ইন</h2>

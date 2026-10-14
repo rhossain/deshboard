@@ -53,7 +53,7 @@ const en = {
   consent: {
     label: "Cookie choices",
     footer: "Cookie choices",
-    message: "We'd like to use cookies to count visits and to show ads that pay for Bartaboard. You can say no and keep reading as before.",
+    message: "We'd like to use cookies to count visits and to see which of our Facebook ads bring readers. You can say no and keep reading as before.",
     privacy: "Privacy policy",
     accept: "Accept",
     reject: "Reject",
@@ -63,7 +63,8 @@ const en = {
     analytics: "Analytics",
     analyticsNote: "Counts visits and pages read, so we know what to improve. Bartaboard sees only totals.",
     ads: "Ads",
-    adsNote: "Lets ad networks such as Google use cookies to choose the ads you see, from your visits here and elsewhere.",
+    adsNote:
+      "Lets Facebook (Meta) see that you came here, so we know which of our ads work and can show our next ones to past readers. Meta may also use it to choose the ads you see elsewhere.",
   },
   loadingStatus: "Loading headlines…",
   updated: (ago: string) => `Updated ${ago}`,
@@ -379,7 +380,7 @@ const bn: Strings = {
   consent: {
     label: "কুকির পছন্দ",
     footer: "কুকির পছন্দ",
-    message: "ভিজিট গুনতে আর বার্তাবোর্ডের খরচ মেটানো বিজ্ঞাপন দেখাতে আমরা কুকি ব্যবহার করতে চাই। না বললেও আগের মতোই পড়তে পারবেন।",
+    message: "ভিজিট গুনতে আর ফেসবুকে আমাদের কোন বিজ্ঞাপন পাঠক আনছে তা দেখতে আমরা কুকি ব্যবহার করতে চাই। না বললেও আগের মতোই পড়তে পারবেন।",
     privacy: "গোপনীয়তা নীতি",
     accept: "রাজি",
     reject: "না",
@@ -389,7 +390,8 @@ const bn: Strings = {
     analytics: "অ্যানালিটিক্স",
     analyticsNote: "কতজন এলেন আর কোন পাতা পড়া হলো তা গোনে, যাতে বুঝি কী ভালো করতে হবে। বার্তাবোর্ড দেখে শুধু মোট হিসাব।",
     ads: "বিজ্ঞাপন",
-    adsNote: "গুগলের মতো বিজ্ঞাপন নেটওয়ার্ককে এখানে ও অন্য সাইটে আপনার ভিজিট থেকে কুকি দিয়ে বিজ্ঞাপন বাছাই করতে দেয়।",
+    adsNote:
+      "ফেসবুক (মেটা) জানতে পারে আপনি এখানে এসেছেন, যাতে বুঝি আমাদের কোন বিজ্ঞাপন কাজ করছে আর পরের বিজ্ঞাপন আগের পাঠকদের দেখাতে পারি। মেটা এটি অন্য জায়গায় আপনাকে বিজ্ঞাপন বাছাইয়েও ব্যবহার করতে পারে।",
   },
   loadingStatus: "শিরোনাম লোড হচ্ছে…",
   updated: (ago) => `হালনাগাদ ${ago}`,
