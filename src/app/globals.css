@@ -253,6 +253,10 @@ dialog.tour[open],
 .tour-invite {
   animation: fade-in 0.18s ease-out;
 }
+/* The cookie question waits while the tour runs: it would sit under the dimming, over the tour's own card. */
+body:has(dialog.tour[open]) .consent-card {
+  display: none;
+}
 /* A video story's full coverage (src/components/VideoCard.tsx), unfolding under its card's row. */
 .story-panel:not([hidden]) > section {
   animation: story-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
