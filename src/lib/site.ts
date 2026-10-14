@@ -5,6 +5,7 @@ import { type Locale, languageAlternates, LANG_TAG, localDigits, localePath, OG_
 import { possessive } from "./bn-names";
 import { faq } from "./intros";
 import { CHANNELS } from "./channels";
+import { SOCIAL_LINKS } from "./social";
 import { ACTIVE_SOURCES } from "./sources";
 import { itemTime, newestFirst } from "./stories";
 import type { SourceResult } from "./types";
@@ -487,6 +488,7 @@ export function siteJsonLd(updated?: string): string {
         name: SITE_NAME,
         url: `${SITE_URL}/`,
         logo: `${SITE_URL}/brand/bartaboard-icon-512.png`,
+        sameAs: SOCIAL_LINKS.map((l) => l.href),
       },
     ],
   });

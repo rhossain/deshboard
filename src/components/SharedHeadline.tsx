@@ -9,6 +9,7 @@ import { DATA_DIR, type PackedDay, unpackDay } from "@/lib/packed";
 import type { NewsFeed, NewsItem, NewsSource, Video } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { BartaboardLogo } from "./BartaboardLogo";
+import { SocialLinks } from "./InfoPage";
 import { loadFeed } from "./NewsBoard";
 import { SharedVideo } from "./SharedVideo";
 import { dhakaDay } from "./time";
@@ -147,6 +148,7 @@ export function SharedHeadline() {
         >
           See today&rsquo;s headlines on Bartaboard
         </Link>
+        <SocialLinks />
       </footer>
     </div>
   );

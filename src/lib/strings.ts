@@ -254,6 +254,8 @@ const en = {
   siteNav: "Site",
   aboutThisPage: "About this page",
   questions: "Questions",
+  follow: "Follow Bartaboard",
+  followOn: (network: string) => `Bartaboard on ${network}`,
   thanks: ["With thanks to 24 Live Newspaper (", "), whose idea of every Bangladeshi paper in one place inspired Bartaboard."],
   links: {
     sources: "All newspapers",
@@ -566,6 +568,8 @@ const bn: Strings = {
   siteNav: "সাইট",
   aboutThisPage: "এই পাতা সম্পর্কে",
   questions: "প্রশ্ন ও উত্তর",
+  follow: "বার্তাবোর্ডকে অনুসরণ করুন",
+  followOn: (network) => `${network}-এ বার্তাবোর্ড`,
   thanks: ["২৪ লাইভ নিউজপেপারকে (", ") ধন্যবাদ, সব বাংলাদেশি পত্রিকা এক জায়গায় রাখার যাদের ভাবনা থেকে বার্তাবোর্ডের শুরু।"],
   links: {
     sources: "সব পত্রিকা",

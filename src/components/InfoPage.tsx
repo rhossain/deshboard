@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { type Locale, localePath } from "@/lib/i18n";
+import { SOCIAL_LINKS, type SocialLink } from "@/lib/social";
 import { STRINGS } from "@/lib/strings";
 import { BartaboardLogo } from "./BartaboardLogo";
 import { ConsentChoicesLink } from "./ConsentBanner";
@@ -21,6 +22,48 @@ export const SITE_LINKS: { id: keyof (typeof STRINGS)["en"]["links"]; href: stri
 /** A site link's address on a page in `locale`. */
 export const siteLinkHref = (l: (typeof SITE_LINKS)[number], locale: Locale) =>
   l.bn ? localePath(l.href, locale) : l.href;
+
+function SocialIcon({ id }: { id: SocialLink["id"] }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+      {id === "facebook" ? (
+        <path
+          fill="currentColor"
+          d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.02 4.39 11.01 10.13 11.91v-8.43H7.08v-3.48h3.05V9.41c0-3.03 1.79-4.7 4.53-4.7 1.31 0 2.69.24 2.69.24v2.97h-1.51c-1.5 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.48h-2.8v8.43C19.61 23.08 24 18.09 24 12.07Z"
+        />
+      ) : (
+        <g fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+          <circle cx="12" cy="12" r="4.25" />
+          <circle cx="17.6" cy="6.4" r="0.6" fill="currentColor" stroke="none" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/** Bartaboard's social pages (src/lib/social.ts), as icons at the foot of every page. */
+export function SocialLinks({ locale = "en" }: { locale?: Locale }) {
+  const t = STRINGS[locale];
+  return (
+    <ul aria-label={t.follow} className="mt-4 flex justify-center gap-2">
+      {SOCIAL_LINKS.map((l) => (
+        <li key={l.id}>
+          <a
+            href={l.href}
+            target="_blank"
+            rel="me noopener"
+            aria-label={t.followOn(locale === "bn" ? l.nameBn : l.name)}
+            title={t.followOn(locale === "bn" ? l.nameBn : l.name)}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition hover:bg-surface-2 hover:text-foreground"
+          >
+            <SocialIcon id={l.id} />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /** Thanks to the site whose idea Bartaboard builds on, at the foot of every page. */
 export function InspiredBy({ locale = "en" }: { locale?: Locale }) {
@@ -124,6 +167,7 @@ export function InfoPage({
           )}
           <ConsentChoicesLink />
         </nav>
+        <SocialLinks locale={locale} />
         <InspiredBy locale={locale} />
       </footer>
     </div>
