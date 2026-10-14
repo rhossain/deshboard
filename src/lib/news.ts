@@ -1,3 +1,4 @@
+import { withPictures } from "./archive";
 import { categorize, unmappedSection } from "./categories";
 import { stampFirstSeen } from "./first-seen";
 import { googleNewsFallback } from "./google-news";
@@ -97,7 +98,7 @@ export function mergeNews(fresh: NewsItem[], kept: NewsItem[], now = Date.now())
   const recent = (it: NewsItem) => (itemTime(it) ?? "") >= cutoff && (itemTime(it) ?? "") <= ahead;
   const firstTime = new Map<string, string>();
   for (const it of kept) if (it.publishedAt) firstTime.set(addressKey(it.link), it.publishedAt);
-  const redated = fresh.map((it) => {
+  const redated = withPictures(fresh, kept).map((it) => {
     const first = it.publishedAt && firstTime.get(addressKey(it.link));
     return first && first < it.publishedAt! ? { ...it, publishedAt: first } : it;
   });

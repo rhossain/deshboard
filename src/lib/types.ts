@@ -38,6 +38,13 @@ export interface NewsItem {
   sourceName: string;
   lang: Lang;
   category: Category;
+  /**
+   * The article's picture, for its share page and link previews: from the feed (media:content,
+   * enclosure, sitemap image:loc) or read from its page once (pictures.ts). null: looked for, none
+   * found. Kept in the fetch's cache, the private day archive and the share index; the board's files
+   * leave it out.
+   */
+  image?: string | null;
 }
 
 export interface SourceResult {

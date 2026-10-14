@@ -13,9 +13,11 @@ export const DATA_DIR = "/data/v2";
 
 /**
  * A headline: its title, link and section, then its publish and first-seen times in seconds since
- * 1970 (0 for none; trailing ones left out). The outlet is the one it is listed under.
+ * 1970 (0 for none; trailing ones left out). The outlet is the one it is listed under. The fetch's own
+ * day archive (.data/days) also has its picture, or "" when it was looked for and none found (see
+ * NewsItem.image); the files the site serves leave it out (see withoutPictures).
  */
-export type PackedItem = [title: string, link: string, category: Category, publishedAt?: number, seenAt?: number];
+export type PackedItem = [title: string, link: string, category: Category, publishedAt?: number, seenAt?: number, image?: string];
 
 /** A source's headlines, with the outlet given once. */
 export interface PackedSource {
@@ -61,14 +63,19 @@ export type FeedDelta = Omit<NewsFeed, "results" | "generatedAt"> & {
 const toSeconds = (iso: string | undefined) => (iso ? Date.parse(iso) / 1000 : 0);
 const toIso = (seconds: number | undefined) => (seconds ? new Date(Math.round(seconds * 1000)).toISOString() : undefined);
 
-export function packItem(it: NewsItem): PackedItem {
+/** `withPicture`: for the fetch's own archive (packDay); the board's files have no pictures. */
+export function packItem(it: NewsItem, withPicture = false): PackedItem {
   const packed: PackedItem = [it.title, it.link, it.category, toSeconds(it.publishedAt), toSeconds(it.seenAt)];
+  if (withPicture && it.image !== undefined) {
+    packed.push(it.image ?? "");
+    return packed;
+  }
   while (packed.length > 3 && !packed[packed.length - 1]) packed.pop();
   return packed;
 }
 
 export function unpackItem(
-  [title, link, category, publishedAt, seenAt]: PackedItem,
+  [title, link, category, publishedAt, seenAt, image]: PackedItem,
   { sourceId, sourceName, lang }: Pick<PackedSource, "sourceId" | "sourceName" | "lang">,
 ): NewsItem {
   const item: NewsItem = { title, link, sourceId, sourceName, lang: lang ?? "bn", category };
@@ -76,11 +83,12 @@ export function unpackItem(
   const seen = toIso(seenAt);
   if (published) item.publishedAt = published;
   if (seen) item.seenAt = seen;
+  if (image !== undefined) item.image = image || null;
   return item;
 }
 
 function packResult({ items, ...status }: SourceResult): PackedResult {
-  return { ...status, ...(items[0] && { lang: items[0].lang }), items: items.map(packItem) };
+  return { ...status, ...(items[0] && { lang: items[0].lang }), items: items.map((it) => packItem(it)) };
 }
 
 function unpackResult({ items, lang, ...status }: PackedResult): SourceResult {
@@ -95,15 +103,34 @@ export function unpackFeed<T extends PackedFeed>(feed: T): Omit<T, "results"> & 
   return { ...feed, results: feed.results.map(unpackResult) };
 }
 
-/** A day's headlines by outlet, in their order (newest first, as NewsDay keeps them). */
+/** A day's headlines by outlet, in their order (newest first, as NewsDay keeps them), with their pictures. */
 export function packDay({ date, items }: NewsDay): PackedDay {
   const sources = new Map<string, PackedSource>();
   for (const it of items) {
     let source = sources.get(it.sourceId);
     if (!source) sources.set(it.sourceId, (source = { sourceId: it.sourceId, sourceName: it.sourceName, lang: it.lang, items: [] }));
-    source.items.push(packItem(it));
+    source.items.push(packItem(it, true));
   }
   return { date, sources: [...sources.values()] };
+}
+
+/**
+ * A packed day as the site serves it: without the pictures (the search reads these files; the share
+ * index has the pictures).
+ */
+export function withoutPictures({ date, sources }: PackedDay): PackedDay {
+  return {
+    date,
+    sources: sources.map((s) => ({
+      ...s,
+      items: s.items.map((it) => {
+        if (it.length < 6) return it;
+        const packed = it.slice(0, 5) as PackedItem;
+        while (packed.length > 3 && !packed[packed.length - 1]) packed.pop();
+        return packed;
+      }),
+    })),
+  };
 }
 
 /**
@@ -125,7 +152,7 @@ const sameItem = (a: PackedItem, b: PackedItem) => a.length === b.length && a.ev
 
 /** How `next` differs from `prev` (see FeedDelta): what a board that has `prev` needs to have `next`. */
 export function makeDelta(prev: NewsFeed, next: NewsFeed): FeedDelta {
-  const before = new Map(prev.results.map((r) => [r.sourceId, r.items.map(packItem)]));
+  const before = new Map(prev.results.map((r) => [r.sourceId, r.items.map((it) => packItem(it))]));
   const results = next.results.map((result) => {
     const { items, ...status } = packResult(result);
     const old = before.get(result.sourceId) ?? [];

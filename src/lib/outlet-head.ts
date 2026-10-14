@@ -46,10 +46,18 @@ function metaTags(head: string): Map<string, string> {
   return tags;
 }
 
-/** The title, picture and publish time in an article page's head (`html` may stop anywhere after it). */
+/** Whether the page so far names its picture: in the head, or (see parseHead) after it. */
+const hasPictureTag = (html: string) => /<meta\b[^>]*["'](?:og:image|twitter:image)["']/i.test(html);
+
+/**
+ * The title, picture and publish time in an article page's head (`html` may stop anywhere after it).
+ * Tags after the head count only where the head has none: Next.js sites stream their metadata into
+ * the body (Naya Diganta's og:image is about 50,000 characters in), and link previews read it there.
+ */
 export function parseHead(html: string, pageUrl: string): OutletHead {
-  const head = html.split(/<\/head>/i)[0];
+  const [head, ...rest] = html.split(/<\/head>/i);
   const tags = metaTags(head);
+  for (const [name, content] of metaTags(rest.join("</head>"))) if (!tags.has(name)) tags.set(name, content);
 
   const rawImage = tags.get("og:image") ?? tags.get("og:image:url") ?? tags.get("og:image:secure_url") ?? tags.get("twitter:image") ?? tags.get("twitter:image:src");
   let image: string | undefined;
@@ -105,7 +113,8 @@ export async function outletHead(link: string, timeoutMs: number, why?: (reason:
       const { done, value } = await reader.read();
       if (done) break;
       html += value;
-      if (/<\/head>/i.test(html)) break;
+      // The head is enough, unless the picture is still to come (see parseHead).
+      if (/<\/head>/i.test(html) && hasPictureTag(html)) break;
     }
     reader.cancel().catch(() => {});
     return parseHead(html, res.url || link);

@@ -23,7 +23,7 @@ import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filte
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
 import { forBoard, mergeNews } from "../src/lib/news";
-import { applyDelta, makeDelta, packDay, packFeed, unpackDay, unpackFeed } from "../src/lib/packed";
+import { applyDelta, makeDelta, packDay, packFeed, unpackDay, unpackFeed, withoutPictures } from "../src/lib/packed";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
 import {
   articleUrl,
@@ -105,6 +105,71 @@ test("Google News sitemap", () => {
   assert.equal(items.length, 2);
   assert.equal(items[0].link, "https://www.jugantor.com/country-news/1163659"); // newest first
   assert.equal(items[1].title, "'বাংলাদেশ পর্যটন পুরস্কার ২০২৬' পেলেন সাংবাদিক নাঈম আবির");
+});
+
+test("pictures: Media RSS, enclosures, an <img> in the description, sitemap image:loc", () => {
+  const rss = `<?xml version="1.0"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+    <item><title>Dhaka Post style</title><link>https://www.dhakapost.com/a/1</link>
+      <media:content medium="image" width="1200" url="https://assets.dhakapost.com/og/a.jpg?cid=1"/></item>
+    <item><title>Khola Kagoj style</title><link>https://kholakagojbd.com/news/2</link>
+      <enclosure url="https://kholakagojbd.com/2026/10/14/kk_2.jpg" length="0" type="image/jpeg"/></item>
+    <item><title>Audio is not a picture</title><link>https://x.test/3</link>
+      <enclosure url="https://x.test/3.mp3" type="audio/mpeg"/></item>
+    <item><title>Risingbd style</title><link>https://www.risingbd.com/news/4</link>
+      <description><![CDATA[<p><img alt="" src="/media/imgAll/4.jpg?w=1&amp;h=2"/></p> Text]]></description></item>
+    <item><title>Thumbnail in a group</title><link>https://x.test/5</link>
+      <media:group><media:thumbnail url="https://x.test/5-thumb.jpg"/></media:group></item>
+    <item><title>No picture at all</title><link>https://x.test/6</link><description>Just words</description></item>
+  </channel></rss>`;
+  const items = parseFeed(rss, "https://www.risingbd.com/rss/rss.xml");
+  assert.deepEqual(
+    items.map((it) => it.image),
+    [
+      "https://assets.dhakapost.com/og/a.jpg?cid=1",
+      "https://kholakagojbd.com/2026/10/14/kk_2.jpg",
+      undefined,
+      "https://www.risingbd.com/media/imgAll/4.jpg?w=1&h=2",
+      "https://x.test/5-thumb.jpg",
+      undefined,
+    ],
+  );
+  assert.equal("image" in items[5], false);
+
+  const sitemap = `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+    <url><loc>https://www.ittefaq.com.bd/815055/a</loc>
+      <news:news><news:publication_date>2026-10-14T10:00:00+06:00</news:publication_date><news:title>Ittefaq headline</news:title></news:news>
+      <image:image><image:loc>https://cdn.ittefaqbd.com/contents/cache/images/1200x0x1/a.jpg?jadewits_media_id=1</image:loc></image:image></url>
+    <url><loc>https://www.ittefaq.com.bd/815056/b</loc>
+      <news:news><news:publication_date>2026-10-14T09:00:00+06:00</news:publication_date><news:title>No picture here</news:title></news:news></url>
+  </urlset>`;
+  const sm = parseNewsSitemap(sitemap, "https://www.ittefaq.com.bd/news-sitemap.xml");
+  assert.equal(sm[0].image, "https://cdn.ittefaqbd.com/contents/cache/images/1200x0x1/a.jpg?jadewits_media_id=1");
+  assert.equal(sm[1].image, undefined);
+});
+
+test("pictures: kept between runs and in the day archive, left out of the board's files", () => {
+  const base = { sourceId: "s", sourceName: "S", lang: "en" as const, category: "national" as const };
+  const kept: NewsItem[] = [
+    { ...base, title: "Found once", link: "https://s.test/a/1", publishedAt: "2026-10-14T04:00:00.000Z", image: "https://s.test/1.jpg" },
+    { ...base, title: "Looked for, none", link: "https://s.test/a/2", publishedAt: "2026-10-14T03:00:00.000Z", image: null },
+  ];
+  // The feed names no pictures: each headline keeps what was found before (and isn't looked for again).
+  const fresh: NewsItem[] = kept.map(({ image: _i, ...it }) => it); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const merged = mergeNews(fresh, kept, Date.parse("2026-10-14T06:00:00Z"));
+  assert.equal(merged.find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
+  assert.equal(merged.find((it) => it.link.endsWith("/2"))?.image, null);
+  assert.equal(mergeDay(kept, fresh).find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
+
+  const day = packDay({ date: "2026-10-14", items: merged });
+  const back = unpackDay(day).items;
+  assert.equal(back.find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
+  assert.equal(back.find((it) => it.link.endsWith("/2"))?.image, null);
+  const served = withoutPictures(day);
+  assert.ok(served.sources[0].items.every((it) => it.length <= 5));
+  assert.equal(unpackDay(served).items[0].image, undefined);
+  const feed = packFeed({ generatedAt: "", logos: {}, logoShapes: {}, results: [{ ...base, method: "rss", ok: true, count: 2, durationMs: 0, fetchedAt: "", items: merged }] } as NewsFeed);
+  assert.ok(feed.results[0].items.every((it) => it.length <= 5));
 });
 
 test("Plain sitemap without titles is reported", () => {
@@ -554,6 +619,7 @@ test("share index: a short link finds its headline, its story and its outlet's l
   });
   const a = item("ঢাকায় সংসদ নির্বাচনের তফসিল ঘোষণা করল নির্বাচন কমিশন", "https://www.prothomalo.com/politics/a1", "prothomalo", "Prothom Alo", "2026-10-14T04:00:00Z");
   const b = item("সংসদ নির্বাচনের তফসিল ঘোষণা করল নির্বাচন কমিশন ঢাকায়", "https://www.jugantor.com/politics/1168001", "jugantor", "Jugantor", "2026-10-14T04:30:00Z");
+  b.image = "https://cdn.jugantor.com/og/1168001.jpg";
   const undated = item("হোমপেজের শিরোনাম", "https://www.samakal.com/x/123", "samakal", "Samakal");
   const files = buildShareIndex(
     new Map([["2026-10-14", [a, b]]]),
@@ -572,6 +638,11 @@ test("share index: a short link finds its headline, its story and its outlet's l
   assert.equal(found?.item.publishedAt, "2026-10-14T04:00:00.000Z");
   assert.deepEqual(found?.related.map((r) => r.sourceId), ["jugantor"]);
   assert.equal(found?.logos.logos.prothomalo, "/logos/prothomalo.png");
+  // A picture only where the fetch found one; the share function looks for the rest.
+  assert.equal(found?.image, undefined);
+  const withImage = await findShared(shareKey(b.link), datesToSearch("2026-10-14"), load);
+  assert.equal(withImage?.image, "https://cdn.jugantor.com/og/1168001.jpg");
+  assert.equal(withImage?.related[0].sourceId, "prothomalo");
   // Filed a day off (its time was corrected): still found.
   assert.equal((await findShared(id.key, datesToSearch("2026-10-15"), load))?.item.link, a.link);
   // Undated homepage headlines are kept with the board's.
@@ -597,6 +668,15 @@ test("outlet pages: title, picture and date from the head; a title from the addr
   assert.equal(head.image, "https://www.outlet.test/img/a.jpg?w=1200&h=630");
   assert.equal(head.published, "2026-10-12T12:11:32.000Z");
   assert.equal(parseHead("<head><meta property='og:image' content='javascript:alert(1)'></head>", "https://x.test/").image, undefined);
+  // Next.js streams its metadata into the body: used when the head has none.
+  const streamed = parseHead(
+    `<head><title>Naya Diganta</title><meta name="next-size-adjust" content=""/></head><body><div>…</div>
+     <title>Story | Naya Diganta</title><meta property="og:title" content="Story"/>
+     <meta property="og:image" content="https://file.test/og.webp"/><meta property="og:image:width" content="700"/></body>`,
+    "https://dailynayadiganta.com/post/x/1",
+  );
+  assert.equal(streamed.image, "https://file.test/og.webp");
+  assert.equal(streamed.title, "Story");
 
   assert.equal(slugTitle(new URL("https://www.thedailystar.net/news/news/german-tourists-stolen-laptop-recovered-natore-4296596")), "German tourists stolen laptop recovered natore");
   assert.equal(slugTitle(new URL("https://bangla.bdnews24.com/bangladesh/f2sv381a14")), null);

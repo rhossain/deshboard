@@ -21,7 +21,17 @@ import { getLogo, prepareLogo } from "../src/lib/logos";
 import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { addressKey } from "../src/lib/fetchers/utils";
 import { toSeed } from "../src/lib/feed";
-import { DATA_DIR, makeDelta, packDay, packFeed, type PackedDay, type PackedFeed, unpackDay, unpackFeed } from "../src/lib/packed";
+import {
+  DATA_DIR,
+  makeDelta,
+  packDay,
+  packFeed,
+  type PackedDay,
+  type PackedFeed,
+  unpackDay,
+  unpackFeed,
+  withoutPictures,
+} from "../src/lib/packed";
 import { CATEGORY_PAGES } from "../src/lib/site";
 import { cachedResult, getNews } from "../src/lib/news";
 import { getVideos } from "../src/lib/videos";
@@ -29,6 +39,7 @@ import { ACTIVE_SOURCES, SOURCES } from "../src/lib/sources";
 import { buildShareIndex } from "../src/lib/share-index";
 import { SHARE_DIR } from "../src/lib/share-lookup";
 import { flushStores } from "../src/lib/store";
+import { findPictures } from "../src/lib/pictures";
 import type { LogoShape, NewsDay, NewsFeed, NewsItem, SourceResult, VideoFeed } from "../src/lib/types";
 
 const PUBLIC = path.join(process.cwd(), "public");
@@ -187,7 +198,7 @@ async function writeDays(): Promise<number> {
     // Days the archive still has from before the files were packed are packed on the way.
     try {
       const day = JSON.parse(readFileSync(path.join(DAYS_ARCHIVE, file), "utf8")) as PackedDay | NewsDay;
-      writeFileSync(path.join(dir, file), JSON.stringify("items" in day ? packDay(day) : day));
+      writeFileSync(path.join(dir, file), JSON.stringify(withoutPictures("items" in day ? packDay(day) : day)));
     } catch (err) {
       console.warn(`  ! ${file} could not be read, left out:`, err instanceof Error ? err.message : err);
     }
@@ -263,6 +274,8 @@ async function main() {
   const started = Date.now();
   const [news, originals, videos] = await Promise.all([getNews({ force: true }), updateLogos(), getVideos()]);
   const { logos, logoShapes } = await publishLogos(originals);
+  // Before the day files and the share index are written: they keep the pictures.
+  const pictures = await findPictures(ACTIVE_SOURCES.flatMap((s) => cachedResult(s.id) ?? []));
 
   const bySource = new Map<string, SourceResult>();
   for (const status of news.statuses) bySource.set(status.sourceId, { ...status, items: [] });
@@ -283,7 +296,8 @@ async function main() {
   const ok = news.statuses.filter((s) => s.ok).length;
   console.log(
     `${ok}/${news.statuses.length} sources OK, ${news.items.length} headlines, ` +
-      `${days} days of archive, ${shared} headlines in the share index, ${Object.keys(logos).length} logos, ` +
+      `${days} days of archive, ${shared} headlines in the share index ` +
+      `(${pictures.found}/${pictures.looked} pictures read from article pages), ${Object.keys(logos).length} logos, ` +
       `${videos.channels.filter((c) => c.ok).length}/${videos.channels.length} channels with ${videos.videos.length} videos (${((Date.now() - started) / 1000).toFixed(1)} s)`,
   );
   for (const s of news.statuses.filter((s) => s.via)) {
@@ -293,6 +307,9 @@ async function main() {
     console.log(`  ✗ ${s.sourceName}: ${s.error}${s.fallbackError ? ` (Google News: ${s.fallbackError})` : ""}`);
   }
   for (const c of videos.channels.filter((c) => !c.ok)) console.log(`  ✗ ${c.name} (YouTube): ${c.error}`);
+  for (const [outlet, reasons] of pictures.failed) {
+    console.log(`  ⌀ ${outlet} pictures: ${[...reasons].map(([why, n]) => `${n}× ${why}`).join(", ")}`);
+  }
   process.exit(ok > 0 ? 0 : 1);
 }
 

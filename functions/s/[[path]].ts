@@ -125,7 +125,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   let lasting = !!resolved && !!env.SHARES;
   if (!resolved) {
     const found = await findShared(key, dirs, load);
-    if (found) resolved = { data: found };
+    // The picture the fetch found (from the feed, or the article's page) is the one to show.
+    if (found) resolved = { data: found, image: found.image };
     else if (article) resolved = await fromOutlet(article, load);
     lasting = !!found || (!!env.SHARES && !resolved?.partial);
   }
@@ -137,6 +138,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   const data = resolved.data;
   const askedForImage = url.searchParams.has("image");
   let imageNote = resolved.image ? "known" : resolved.image === null ? "none-remembered" : "";
+  if (data.kind === "headline" && needsImage(resolved) && changed === false) {
+    // Remembered before the fetch had found its picture: the index may have it now.
+    const indexed = await findShared(key, dirs, load);
+    if (indexed?.image) {
+      resolved = { ...resolved, image: indexed.image, imageMissedAt: undefined };
+      changed = true;
+      imageNote = "indexed";
+    }
+  }
   if (data.kind === "headline" && needsImage(resolved)) {
     imageNote = "pending";
     if (askedForImage || crawler) {

@@ -109,6 +109,7 @@ src/lib/share.ts           share links (/s/<yymmdd>-<key>, and the older /s/<art
 src/lib/share-lookup.ts    the share index's format and lookup, shared by the function and the browser
 src/lib/share-index.ts     builds the share index (30 days of headlines by short-link key, with their stories)
 src/lib/outlet-head.ts     an article page's own title, picture and date, for link previews
+src/lib/pictures.ts        reads new headlines' pictures from their pages during the fetch, when the feed has none
 src/lib/first-seen.ts      first-seen times for headlines without a publish date
 src/lib/stories.ts         groups headlines from different outlets about the same event ("Top stories")
 src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 detection
@@ -183,7 +184,11 @@ hosted service (Cloudflare, Supabase, Google sign-in, Resend email) and what is 
   video's thumbnail), with "Bartaboard" as the site, and into the page, which then shows it without loading any
   headline files. It looks in, in order: links resolved before (the optional `SHARES` KV namespace, else the edge
   cache), the share index (`public/data/v2/share`, 30 days, written by `npm run fetch`), the outlet's page (old
-  long links), and the address itself. Links to sites that aren't on the board go to the board. Older
+  long links), and the address itself. The picture comes from the share index when the fetch found one (the feed's
+  media:content, enclosure or sitemap image:loc, else read once from the article's page by `src/lib/pictures.ts`:
+  many outlets refuse anything from Cloudflare's servers, but answer the fetch); otherwise the function reads the
+  article's page, crawlers waiting up to 4 s and the page asking for it (`/s/…?image`) once it is showing. The
+  `x-share-image` response header says how it went. Links to sites that aren't on the board go to the board. Older
   `/s/<article address>` links keep working. On hosts without the function (`public/.htaccess`, `next dev`) the
   page looks the headline up in the share index itself; previews there show the Bartaboard card.
 - **Source health** — `/health` lists every source as of the last fetch: failing ones first

@@ -29,7 +29,8 @@ export type PackedRelated = string;
 
 /**
  * A headline in the index: title, link, source id, section, publish and first-seen times in seconds
- * since 1970 (0 for none), and the same story from other outlets.
+ * since 1970 (0 for none), the same story from other outlets, and the article's picture when the
+ * fetch found one (NewsItem.image).
  */
 export type PackedShare = [
   title: string,
@@ -39,6 +40,7 @@ export type PackedShare = [
   publishedAt: number,
   seenAt: number,
   related?: PackedRelated[],
+  image?: string,
 ];
 
 /** `share/<date | board>/<shard>.json`: the headlines whose key starts with the shard, by key. */
@@ -108,7 +110,8 @@ export function packShare(item: NewsItem, related: PackedRelated[]): PackedShare
     seconds(item.publishedAt),
     seconds(item.seenAt),
   ];
-  if (related.length) packed.push(related);
+  if (related.length || item.image) packed.push(related);
+  if (item.image) packed.push(item.image);
   return packed;
 }
 
@@ -175,7 +178,10 @@ export async function findShared(
     const packed = loaded.get(shardPath(r.dir, r.key))?.[r.key];
     return packed ? [unpackShare(packed)] : [];
   });
-  return { kind: "headline", item, related, logos: logosFor(item.sourceId, await meta) };
+  const shared: ShareData & { kind: "headline" } = { kind: "headline", item, related, logos: logosFor(item.sourceId, await meta) };
+  // Only a picture the fetch found: without one, the share function looks on the outlet's page.
+  if (found.packed[7]) shared.image = found.packed[7];
+  return shared;
 }
 
 /** A video in the share index (the Videos view's last day); null if it has left it. */
