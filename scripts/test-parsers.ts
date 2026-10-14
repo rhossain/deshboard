@@ -605,6 +605,8 @@ test("share: short links carry the day and a key that ignores scheme, www and sl
     assert.equal(sharedId(bad.split("/")), null, bad);
   }
   assert.deepEqual(datesToSearch("2026-10-01"), ["2026-10-01", "board", "2026-09-30", "2026-10-02"]);
+  // A mistyped day is looked for as it is, not thrown on.
+  assert.deepEqual(datesToSearch("2026-13-99"), ["2026-13-99", "board", "2026-13-99", "2026-13-99"]);
 });
 
 test("share index: a short link finds its headline, its story and its outlet's logo; a video its channel", async () => {

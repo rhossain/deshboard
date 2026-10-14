@@ -135,7 +135,11 @@ export function logosFor(
 export type ShareLoader = <T>(path: string) => Promise<T | null>;
 
 const DAY_MS = 86_400_000;
-const shiftDay = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+/** The day `days` from `date`; `date` itself when it isn't a real day ("2026-13-45" from a mistyped link). */
+function shiftDay(date: string, days: number): string {
+  const time = Date.parse(`${date}T00:00:00Z`);
+  return Number.isNaN(time) ? date : new Date(time + days * DAY_MS).toISOString().slice(0, 10);
+}
 
 /**
  * Where to look for a headline filed under `date`: that day, then the board's undated ones, then the
