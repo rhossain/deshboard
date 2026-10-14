@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { cache, type ReactNode } from "react";
 import { ItemTime } from "@/components/ItemTime";
 import { BartaboardLogo } from "@/components/BartaboardLogo";
+import { SocialLinks } from "@/components/InfoPage";
 import { SharedVideo } from "@/components/SharedVideo";
 import { SourceLogo } from "@/components/SourceCard";
 import { ArrowUpRightIcon } from "@/components/ui";
@@ -200,6 +201,7 @@ function SharePageShell({ children }: { children: ReactNode }) {
         >
           See today&rsquo;s headlines on Bartaboard
         </Link>
+        <SocialLinks />
       </footer>
     </div>
   );

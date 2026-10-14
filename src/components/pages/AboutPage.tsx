@@ -15,6 +15,7 @@ import {
   SOURCES_PATH,
   VIDEOS_PATH,
 } from "@/lib/site";
+import { SOCIAL_LINKS } from "@/lib/social";
 import { ACTIVE_SOURCES } from "@/lib/sources";
 
 export async function aboutMetadata(locale: Locale, parent: ResolvingMetadata): Promise<Metadata> {
@@ -114,6 +115,20 @@ function English() {
         <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with its address. Bartaboard is independent and not
         affiliated with any of the outlets it lists.
       </p>
+
+      <h2>Follow Bartaboard</h2>
+      <p>
+        Bartaboard is also on{" "}
+        {SOCIAL_LINKS.map((l, i) => (
+          <span key={l.id}>
+            {i > 0 && (i === SOCIAL_LINKS.length - 1 ? " and " : ", ")}
+            <a href={l.href} rel="me noopener">
+              {l.name}
+            </a>
+          </span>
+        ))}
+        .
+      </p>
     </>
   );
 }
@@ -189,6 +204,20 @@ function Bangla() {
         কোনো বাংলাদেশি সংবাদ সাইট বা টিভি চ্যানেল বাদ পড়েছে, কিংবা আপনি কোনোটি প্রকাশ করেন আর কিছু বদলাতে চান? তার ঠিকানাসহ
         লিখুন <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>-এ। বার্তাবোর্ড স্বাধীন, তালিকার কোনো মাধ্যমের সঙ্গে
         এর কোনো সম্পর্ক নেই।
+      </p>
+
+      <h2>বার্তাবোর্ডকে অনুসরণ করুন</h2>
+      <p>
+        বার্তাবোর্ডকে পাবেন{" "}
+        {SOCIAL_LINKS.map((l, i) => (
+          <span key={l.id}>
+            {i > 0 && (i === SOCIAL_LINKS.length - 1 ? " ও " : ", ")}
+            <a href={l.href} rel="me noopener">
+              {l.nameBn}
+            </a>
+          </span>
+        ))}
+        -এ।
       </p>
     </>
   );

@@ -259,7 +259,9 @@ account) and, after a month, in Search Console's own query report, which is the 
 
 14. **Zero inbound links and no brand presence.** No Facebook page (Facebook is where Bangladesh reads
     news), no profile on GitHub/LinkedIn pointing here, not linked from rshossain.me.
-    ⬜ **Open** (plan 22).
+    🟡 **Started** 14 October: Facebook and Instagram pages (`bartaboard.bd`), linked from every page's footer and
+    the About page, and named in the Organization's `sameAs` (`src/lib/social.ts`). Links in, from other sites,
+    still to do (plan 22).
 
 ### Not worth doing
 

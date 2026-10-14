@@ -36,7 +36,7 @@ import { LocaleProvider, useStrings } from "./locale";
 import { byNewest, LatestList } from "./LatestList";
 import { Avatar, useAccount } from "./account";
 import { BartaboardLogo } from "./BartaboardLogo";
-import { InspiredBy, SITE_LINKS, siteLinkHref } from "./InfoPage";
+import { InspiredBy, SITE_LINKS, siteLinkHref, SocialLinks } from "./InfoPage";
 import { PageNotes } from "./PageNotes";
 import { setNewsDensity, useNewsDensity } from "./news-density";
 import { SearchProvider } from "./Highlight";
@@ -1422,6 +1422,7 @@ export function NewsBoard({
                   {t.shortcuts.title} <kbd className="ml-1 rounded border border-line px-1 font-sans">?</kbd>
                 </button>
               </footer>
+              <SocialLinks locale={locale} />
               <InspiredBy locale={locale} />
             </main>
 
