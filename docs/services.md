@@ -25,6 +25,14 @@ and styloviz project; leave them alone.
 - **Pages project `bartaboard`**, production branch `main`, custom domains `bartaboard.com` and `www.bartaboard.com`.
   Nothing builds on Cloudflare: the deploy workflow uploads `out/` with Wrangler. `public/_headers` and
   `public/_redirects` set headers and rewrites there.
+  - **Pages Function** `functions/s/[[path]].ts`, uploaded with the site by the same `wrangler pages deploy` (it
+    compiles `functions/` from the repository root). It runs only for `/s/*` (shared links); everything else is
+    served as static files. Free plan: 100,000 requests a day.
+  - **KV namespace `bartaboard-shares`, bound as `SHARES`** (optional; Workers & Pages → KV, then the Pages project →
+    Settings → Bindings → KV namespace, variable name `SHARES`, for Production). With it, every shared link is
+    remembered for good on its first open (a preview crawler opens it within seconds of sharing), so it keeps its
+    preview after it leaves the 30-day share index. Without it, the function remembers links in the edge cache for
+    a day. Free plan: 100,000 reads and 1,000 writes a day; one write per newly shared headline.
 - **Web Analytics** (Analytics & Logs → Web Analytics): site `bartaboard.com`, no cookies. The beacon is in the
   page itself (`ANALYTICS_TOKEN` in `src/lib/site.ts`, loaded only when `SITE_URL` is `https://bartaboard.com`);
   Manage site is set to **Enable with JS Snippet installation**: "Disable" refuses the beacon's reports (CORS errors in

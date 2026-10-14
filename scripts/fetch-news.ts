@@ -7,6 +7,7 @@
  *   delta.json  how they differ from the last run's, for a board that has those (see FeedDelta)
  *   head/<all|category>.json the newest of them for each page, read first (see NewsSeed)
  *   days/<date>.json every headline of the last 30 days, by day (see NewsDay, archive.ts)
+ *   share/<date>/<shard>.json, share/meta.json the share index: those headlines by short-link key (share-lookup.ts)
  *   public/data/videos.json the Videos view: TV channels' latest YouTube videos (see VideoFeed)
  *   public/logos/<id>.<ext> logos, resized for the cards (see prepareLogo)
  * and updates `.data/` (first-seen times, source health, which `next build` reads for /health, and
@@ -25,8 +26,10 @@ import { CATEGORY_PAGES } from "../src/lib/site";
 import { cachedResult, getNews } from "../src/lib/news";
 import { getVideos } from "../src/lib/videos";
 import { ACTIVE_SOURCES, SOURCES } from "../src/lib/sources";
+import { buildShareIndex } from "../src/lib/share-index";
+import { SHARE_DIR } from "../src/lib/share-lookup";
 import { flushStores } from "../src/lib/store";
-import type { LogoShape, NewsDay, NewsFeed, NewsItem, SourceResult } from "../src/lib/types";
+import type { LogoShape, NewsDay, NewsFeed, NewsItem, SourceResult, VideoFeed } from "../src/lib/types";
 
 const PUBLIC = path.join(process.cwd(), "public");
 /** The packed headline files (see packed.ts). */
@@ -193,6 +196,32 @@ async function writeDays(): Promise<number> {
 }
 
 /**
+ * The share index (see share-lookup.ts): the kept days' headlines and the board's, by short-link key, so a
+ * shared link finds its headline in one small file. Written fresh each run, like the day files.
+ */
+function writeShareIndex(feed: NewsFeed, videos: VideoFeed) {
+  const days = new Map<string, NewsItem[]>();
+  for (const file of readdirSync(DAYS_ARCHIVE)) {
+    try {
+      const day = unpackDay(JSON.parse(readFileSync(path.join(DAYS_ARCHIVE, file), "utf8")) as PackedDay | NewsDay);
+      days.set(day.date, day.items);
+    } catch {
+      // Already reported by writeDays.
+    }
+  }
+  const board = feed.results.flatMap((r) => r.items);
+  const { files, meta } = buildShareIndex(days, board, feed, videos);
+  const dir = path.join(PUBLIC, SHARE_DIR);
+  rmSync(dir, { recursive: true, force: true });
+  for (const [name, file] of files) {
+    mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+    writeFileSync(path.join(dir, `${name}.json`), JSON.stringify(file));
+  }
+  writeFileSync(path.join(dir, "meta.json"), JSON.stringify(meta));
+  return [...files.values()].reduce((n, f) => n + Object.keys(f).length, 0);
+}
+
+/**
  * For the board and each section page, every source's newest headlines (a full card each): all the
  * board loads until the reader wants more than the cards show, a small part of news.json.
  */
@@ -248,12 +277,13 @@ async function main() {
   writeFileSync(path.join(PUBLIC, "data", "videos.json"), JSON.stringify(videos));
   writeHeads(feed);
   const days = await writeDays();
+  const shared = writeShareIndex(feed, videos);
   flushStores();
 
   const ok = news.statuses.filter((s) => s.ok).length;
   console.log(
     `${ok}/${news.statuses.length} sources OK, ${news.items.length} headlines, ` +
-      `${days} days of archive, ${Object.keys(logos).length} logos, ` +
+      `${days} days of archive, ${shared} headlines in the share index, ${Object.keys(logos).length} logos, ` +
       `${videos.channels.filter((c) => c.ok).length}/${videos.channels.length} channels with ${videos.videos.length} videos (${((Date.now() - started) / 1000).toFixed(1)} s)`,
   );
   for (const s of news.statuses.filter((s) => s.via)) {

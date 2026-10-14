@@ -9,7 +9,7 @@
     "lint": "eslint",
     "check": "tsx scripts/check-sources.ts",
     "test": "tsx scripts/test-parsers.ts",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p functions",
     "fetch": "tsx scripts/fetch-news.ts",
     "package": "bash scripts/package.sh"
   },
@@ -23,6 +23,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20260920.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

@@ -1,3 +1,3 @@
-# Cloudflare Pages: shared headlines (/s/<article address>) all get the one page that reads the
-# headline from the address, with a 200 (see src/app/not-found.tsx and public/.htaccess).
-/s/*  /404  200
+# Cloudflare Pages redirects and rewrites. None for now: shared links (/s/…) are answered by the
+# Pages Function in functions/s/[[path]].ts, which writes the shared headline into the share page
+# (src/app/not-found.tsx) for link previews. public/.htaccess still rewrites them on Apache hosts.

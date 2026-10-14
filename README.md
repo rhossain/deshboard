@@ -105,7 +105,10 @@ src/lib/problems.ts        reader-facing explanations for unavailable / failed s
 src/lib/logos.ts           logo discovery from homepages
 src/lib/news.ts            fetch orchestration, cache (10 min, 1 min for failures), concurrency 8
 src/lib/store.ts           JSON files in .data/ so first-seen times and health carry over between runs
-src/lib/share.ts           share links (/s/<article address>) and the check that they point to an outlet
+src/lib/share.ts           share links (/s/<yymmdd>-<key>, and the older /s/<article address>), the share sheet's targets
+src/lib/share-lookup.ts    the share index's format and lookup, shared by the function and the browser
+src/lib/share-index.ts     builds the share index (30 days of headlines by short-link key, with their stories)
+src/lib/outlet-head.ts     an article page's own title, picture and date, for link previews
 src/lib/first-seen.ts      first-seen times for headlines without a publish date
 src/lib/stories.ts         groups headlines from different outlets about the same event ("Top stories")
 src/lib/fetchers/http.ts   fetch with timeout, UA, charset decoding, soft-404 detection
@@ -117,7 +120,8 @@ src/lib/google-news.ts     the fallback for sites that refuse us: address cache 
 src/components/NewsBoard.tsx  UI: top stories, Newsstand (cards by outlet), latest timeline, filters, search, "new" marks
 src/components/VideoBoard.tsx Videos view (its own chunk, loaded with videos.json only when Videos is opened)
 src/components/SharedHeadline.tsx  the page for shared headlines (and unknown addresses)
-scripts/fetch-news.ts      collects public/data (headlines, videos, day files) and logos before a build
+functions/s/[[path]].ts    Cloudflare Pages Function for /s/*: the shared headline's preview tags, server redirects
+scripts/fetch-news.ts      collects public/data (headlines, videos, day files, share index) and logos before a build
 public/.htaccess           Apache / LiteSpeed rules: share links, 404 page, headers
 ```
 
@@ -171,9 +175,17 @@ hosted service (Cloudflare, Supabase, Google sign-in, Resend email) and what is 
   "N new headlines" button instead of moving the page (applied at once if nothing is new or the tab is hidden).
 - **Keyboard shortcuts** — `/` search, `j`/`k` move between headlines, `s` save, `1`–`5` Newsstand, Top stories, Latest, Videos, Saved, `r` refresh, `?` help.
 - **Share image** — `src/app/opengraph-image.tsx`, rendered at build time with the site's fonts.
-- **Share links** — `/s/<article address>` shows the headline with a button to the article, looked up in the browser
-  (`src/components/SharedHeadline.tsx`); once it has left the board the link goes straight to the article. Links
-  to sites that aren't on the board go to the board. Previews on social sites show the Bartaboard card.
+- **Share links** — the share sheet gives `/s/<yymmdd>-<key>` (`/s/261014-k3x9pq2m`): the Dhaka day the headline is
+  filed under and a hash of its address. The page shows the headline, its section and time, the same story from
+  other outlets and a button to the article; videos are `/s/youtu.be/<id>`. On bartaboard.com a Cloudflare Pages
+  Function answers `/s/*` (`functions/s/[[path]].ts`): it finds the headline and writes it into the page's tags, so
+  Facebook, WhatsApp, X and Telegram previews show the headline, outlet, date and the article's own picture (the
+  video's thumbnail), with "Bartaboard" as the site, and into the page, which then shows it without loading any
+  headline files. It looks in, in order: links resolved before (the optional `SHARES` KV namespace, else the edge
+  cache), the share index (`public/data/v2/share`, 30 days, written by `npm run fetch`), the outlet's page (old
+  long links), and the address itself. Links to sites that aren't on the board go to the board. Older
+  `/s/<article address>` links keep working. On hosts without the function (`public/.htaccess`, `next dev`) the
+  page looks the headline up in the share index itself; previews there show the Bartaboard card.
 - **Source health** — `/health` lists every source as of the last fetch: failing ones first
   with how long they have failed, then working ones with the section names whose headlines land in "Other" (add those
   to `src/lib/categories.ts`).

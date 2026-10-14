@@ -1,7 +1,8 @@
 import { SharedHeadline } from "@/components/SharedHeadline";
 
-// Exported as 404.html. The host serves it for shared headlines (/s/…, see public/.htaccess and
-// public/_redirects) and for unknown addresses; it tells them apart in the browser.
+// Exported as 404.html: the page for shared headlines (/s/…) and for unknown addresses, which it tells
+// apart in the browser. On bartaboard.com the Pages Function in functions/s/[[path]].ts serves it for
+// shared links with the headline written in; Apache hosts rewrite /s/… to it (public/.htaccess).
 export default function NotFound() {
   return <SharedHeadline />;
 }

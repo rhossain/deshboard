@@ -25,7 +25,21 @@ import { findLogoCandidates } from "../src/lib/logos";
 import { forBoard, mergeNews } from "../src/lib/news";
 import { applyDelta, makeDelta, packDay, packFeed, unpackDay, unpackFeed } from "../src/lib/packed";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
-import { articleUrl, linkKey, SHARE_TARGETS, sharedVideoId, sharePath, videoSharePath } from "../src/lib/share";
+import {
+  articleUrl,
+  linkKey,
+  SHARE_TARGETS,
+  sharedId,
+  sharedVideoId,
+  shareKey,
+  sharePath,
+  shareText,
+  shortSharePath,
+  videoSharePath,
+} from "../src/lib/share";
+import { buildShareIndex } from "../src/lib/share-index";
+import { datesToSearch, findShared, findSharedVideo, SHARE_DIR, type ShareLoader } from "../src/lib/share-lookup";
+import { parseHead, slugTitle } from "../src/lib/outlet-head";
 import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { compileSearch, installSearchTerms } from "../src/lib/search";
 import { SEARCH_TERMS } from "../src/lib/search-terms";
@@ -501,15 +515,92 @@ test("share: videos go out as /s/youtu.be/<id>, and only video IDs are read back
   }
 });
 
-test("share targets put the link and title in the URL", () => {
-  const url = "https://bartaboard.test/s/www.prothomalo.com/a?b=1&c";
+test("share targets put the link and its text in the URL", () => {
+  const url = "https://bartaboard.test/s/261014-k3x9pq2m";
+  const text = shareText("শিরোনাম & title", "Prothom Alo");
+  assert.equal(text, "“শিরোনাম & title” — Prothom Alo · Bartaboard");
   for (const t of SHARE_TARGETS) {
-    const href = t.href(url, "শিরোনাম & title");
+    const href = t.href(url, text);
     assert.ok(href.startsWith("https://"), t.id);
     assert.ok(href.includes(encodeURIComponent(url)), t.id);
   }
   const wa = SHARE_TARGETS.find((t) => t.id === "whatsapp")!;
-  assert.equal(new URL(wa.href(url, "Title")).searchParams.get("text"), `Title\n${url}`);
+  assert.equal(new URL(wa.href(url, text)).searchParams.get("text"), `${text}\n${url}`);
+});
+
+test("share: short links carry the day and a key that ignores scheme, www and slash", () => {
+  const key = shareKey("https://www.prothomalo.com/bangladesh/abc");
+  assert.match(key, /^[0-9a-z]{8}$/);
+  assert.equal(shareKey("http://prothomalo.com/bangladesh/abc/"), key);
+  assert.notEqual(shareKey("https://www.prothomalo.com/bangladesh/abd"), key);
+  const path = shortSharePath("https://www.prothomalo.com/bangladesh/abc", "2026-10-14");
+  assert.equal(path, `/s/261014-${key}`);
+  assert.deepEqual(sharedId(path.slice(3).split("/")), { date: "2026-10-14", key });
+  for (const bad of ["261014", "261014-abc", "261014-ABCDEFGH", "2610145-abcdefgh", "261014-abcdefgh/x", "www.prothomalo.com"]) {
+    assert.equal(sharedId(bad.split("/")), null, bad);
+  }
+  assert.deepEqual(datesToSearch("2026-10-01"), ["2026-10-01", "board", "2026-09-30", "2026-10-02"]);
+});
+
+test("share index: a short link finds its headline, its story and its outlet's logo; a video its channel", async () => {
+  const item = (title: string, link: string, sourceId: string, sourceName: string, publishedAt?: string): NewsItem => ({
+    title,
+    link,
+    sourceId,
+    sourceName,
+    lang: "bn",
+    category: "politics",
+    publishedAt,
+  });
+  const a = item("ঢাকায় সংসদ নির্বাচনের তফসিল ঘোষণা করল নির্বাচন কমিশন", "https://www.prothomalo.com/politics/a1", "prothomalo", "Prothom Alo", "2026-10-14T04:00:00Z");
+  const b = item("সংসদ নির্বাচনের তফসিল ঘোষণা করল নির্বাচন কমিশন ঢাকায়", "https://www.jugantor.com/politics/1168001", "jugantor", "Jugantor", "2026-10-14T04:30:00Z");
+  const undated = item("হোমপেজের শিরোনাম", "https://www.samakal.com/x/123", "samakal", "Samakal");
+  const files = buildShareIndex(
+    new Map([["2026-10-14", [a, b]]]),
+    [a, b, undated],
+    { logos: { prothomalo: "/logos/prothomalo.png" }, logoShapes: {} },
+    { generatedAt: "", channels: [{ id: "somoy", name: "Somoy TV", ok: true }], videos: [{ id: "2_G1z7wpfSE", channel: "somoy", title: "ভিডিও", publishedAt: "2026-10-14T05:00:00Z" }] },
+    Date.parse("2026-10-14T06:00:00Z"),
+  );
+  const store = new Map<string, unknown>([...files.files].map(([name, f]) => [`${SHARE_DIR}/${name}.json`, f]));
+  store.set(`${SHARE_DIR}/meta.json`, files.meta);
+  const load: ShareLoader = async (p) => (store.get(p) ?? null) as never;
+
+  const id = sharedId(shortSharePath(a.link, "2026-10-14").slice(3).split("/"))!;
+  const found = await findShared(id.key, datesToSearch(id.date), load);
+  assert.equal(found?.item.title, a.title);
+  assert.equal(found?.item.publishedAt, "2026-10-14T04:00:00.000Z");
+  assert.deepEqual(found?.related.map((r) => r.sourceId), ["jugantor"]);
+  assert.equal(found?.logos.logos.prothomalo, "/logos/prothomalo.png");
+  // Filed a day off (its time was corrected): still found.
+  assert.equal((await findShared(id.key, datesToSearch("2026-10-15"), load))?.item.link, a.link);
+  // Undated homepage headlines are kept with the board's.
+  assert.equal((await findShared(shareKey(undated.link), datesToSearch("2026-10-14"), load))?.item.title, undated.title);
+  assert.equal(await findShared("zzzzzzzz", datesToSearch("2026-10-14"), load), null);
+
+  const video = await findSharedVideo("2_G1z7wpfSE", load);
+  assert.equal(video?.channelName, "Somoy TV");
+  assert.equal(video?.video.channel, "somoy");
+});
+
+test("outlet pages: title, picture and date from the head; a title from the address otherwise", () => {
+  const head = parseHead(
+    `<html><head><title>Ignored | Outlet</title>
+     <meta property="og:title" content="Padma &amp; Jamuna: &#x09AC;&#2476; rivers rise"/>
+     <meta name='twitter:image' content='https://cdn.test/t.jpg'>
+     <meta content="/img/a.jpg?w=1200&amp;h=630" property="og:image">
+     <script type="application/ld+json">{"datePublished": "2026-10-12T18:11:32+06:00"}</script>
+     </head><body><meta property="og:image" content="/not-this.jpg"></body>`,
+    "https://www.outlet.test/news/a",
+  );
+  assert.equal(head.title, "Padma & Jamuna: বব rivers rise");
+  assert.equal(head.image, "https://www.outlet.test/img/a.jpg?w=1200&h=630");
+  assert.equal(head.published, "2026-10-12T12:11:32.000Z");
+  assert.equal(parseHead("<head><meta property='og:image' content='javascript:alert(1)'></head>", "https://x.test/").image, undefined);
+
+  assert.equal(slugTitle(new URL("https://www.thedailystar.net/news/news/german-tourists-stolen-laptop-recovered-natore-4296596")), "German tourists stolen laptop recovered natore");
+  assert.equal(slugTitle(new URL("https://bangla.bdnews24.com/bangladesh/f2sv381a14")), null);
+  assert.equal(slugTitle(new URL("https://www.jugantor.com/country-news/1168824")), null);
 });
 
 test("source problems explain the technical reason", () => {
