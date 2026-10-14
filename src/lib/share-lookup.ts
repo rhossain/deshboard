@@ -67,8 +67,11 @@ export type ShareData =
       related: NewsItem[];
       /** The outlet's logo, for SourceLogo. */
       logos: Pick<NewsFeed, "logos" | "logoShapes">;
-      /** The article's own picture (its og:image), when the outlet has one. */
-      image?: string;
+      /**
+       * The article's own picture (its og:image). null: the outlet has none, or wouldn't say. Left out
+       * when it hasn't been looked for yet: the page asks the share function for it (`?image`).
+       */
+      image?: string | null;
     }
   | { kind: "video"; video: Video; channelName: string }
   /** A short link to a headline that has left the index (older than 30 days) and was never opened before. */

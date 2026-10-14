@@ -40,6 +40,18 @@ function inlineShare(): ShareData | null {
   }
 }
 
+/** The shared headline's picture, from the share function (it reads the outlet's page); null if none. */
+async function askForImage(pathname: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${pathname}?image`, { headers: { accept: "application/json" } });
+    if (!res.ok) return null;
+    const { image } = (await res.json()) as { image?: unknown };
+    return typeof image === "string" && /^https?:\/\//.test(image) ? image : null;
+  } catch {
+    return null;
+  }
+}
+
 const loadJson: ShareLoader = async (path) => {
   try {
     const res = await fetch(path, { cache: "no-cache" });
@@ -97,8 +109,18 @@ export function SharedHeadline() {
       setData(d);
     };
     const inline = inlineShare();
-    if (inline) show(inline);
-    else lookUp(pathname.slice(3).replace(/\/$/, "").split("/")).then(show);
+    if (inline) {
+      show(inline);
+      // The function sent the page before the outlet answered: it says when the picture is in.
+      if (inline.kind === "headline" && inline.image === undefined) {
+        askForImage(pathname).then((image) => show({ ...inline, image }));
+      }
+    } else {
+      // No share function on this host: nothing reads the outlet's picture.
+      lookUp(pathname.slice(3).replace(/\/$/, "").split("/")).then((d) =>
+        show(d?.kind === "headline" ? { ...d, image: d.image ?? null } : d),
+      );
+    }
     return () => {
       cancelled = true;
     };
@@ -166,21 +188,33 @@ export function SharedHeadline() {
 }
 
 function Headline({ shared: { item, related, image }, now }: { shared: ShareData & { kind: "headline" }; now: number }) {
-  const [imageFailed, setImageFailed] = useState(false);
+  const [imageState, setImageState] = useState<"loading" | "shown" | "failed">("loading");
   const source = sourceById(item.sourceId);
+  // undefined: still being looked for; null: the outlet has none.
+  const showFrame = image === undefined || (!!image && imageState !== "failed");
   return (
     <>
       <article className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
-        {image && !imageFailed && (
-          // eslint-disable-next-line @next/next/no-img-element -- the outlet's own picture, on its server
-          <img
-            src={image}
-            alt=""
-            referrerPolicy="no-referrer"
-            fetchPriority="high"
-            onError={() => setImageFailed(true)}
-            className="aspect-[1.91/1] w-full bg-surface-2 object-cover"
-          />
+        {showFrame && (
+          <div className={`relative aspect-[1.91/1] w-full bg-surface-2 ${imageState === "shown" ? "" : "animate-pulse"}`}>
+            {image && (
+              // eslint-disable-next-line @next/next/no-img-element -- the outlet's own picture, on its server
+              <img
+                key={image}
+                src={image}
+                alt=""
+                referrerPolicy="no-referrer"
+                fetchPriority="high"
+                ref={(el) => {
+                  // Already in the browser's cache: loaded before React was listening.
+                  if (el?.complete && el.naturalWidth > 0) setImageState("shown");
+                }}
+                onLoad={() => setImageState("shown")}
+                onError={() => setImageState("failed")}
+                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${imageState === "shown" ? "opacity-100" : "opacity-0"}`}
+              />
+            )}
+          </div>
         )}
         <div className="p-5 sm:p-7">
           {source ? <SourceLogo source={source} /> : <p className="text-[15px] font-semibold">{item.sourceName}</p>}

@@ -70,8 +70,11 @@ export function parseHead(html: string, pageUrl: string): OutletHead {
   return { title: title || undefined, image, published };
 }
 
-/** The article's own title, picture and publish time; null if the outlet doesn't answer in time. */
-export async function outletHead(link: string, timeoutMs: number): Promise<OutletHead | null> {
+/**
+ * The article's own title, picture and publish time; null if the outlet doesn't answer in time. `why`
+ * hears what went wrong when it is null ("http-403", "timeout", "not-html"…), for the response headers.
+ */
+export async function outletHead(link: string, timeoutMs: number, why?: (reason: string) => void): Promise<OutletHead | null> {
   try {
     // `cf`: Cloudflare keeps the outlet's page for an hour, so a link shared widely is read once.
     const init: RequestInit & { cf?: Record<string, unknown> } = {
@@ -81,7 +84,14 @@ export async function outletHead(link: string, timeoutMs: number): Promise<Outle
       cf: { cacheTtl: 3600, cacheEverything: true },
     };
     const res = await fetch(link, init);
-    if (!res.ok || !res.body || !/html/i.test(res.headers.get("content-type") ?? "")) return null;
+    if (!res.ok || !res.body) {
+      why?.(`http-${res.status}`);
+      return null;
+    }
+    if (!/html/i.test(res.headers.get("content-type") ?? "")) {
+      why?.("not-html");
+      return null;
+    }
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
     let html = "";
     while (html.length < HEAD_MAX_CHARS) {
@@ -92,7 +102,8 @@ export async function outletHead(link: string, timeoutMs: number): Promise<Outle
     }
     reader.cancel().catch(() => {});
     return parseHead(html, res.url || link);
-  } catch {
+  } catch (e) {
+    why?.(e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError") ? "timeout" : "error");
     return null;
   }
 }

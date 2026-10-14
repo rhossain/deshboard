@@ -13,8 +13,9 @@
  *   2. the share index (share-lookup.ts): the last 30 days' headlines and the last day's videos
  *   3. the outlet: the article's own title, picture and date, read from its page (old long links only)
  *   4. the address: a title made from the link's slug, when the outlet won't answer
- * and its picture from the article's og:image (YouTube's thumbnail for a video). Crawlers wait for the
- * picture; readers don't, and it is fetched for next time once the page is sent.
+ * and its picture from the article's og:image (YouTube's thumbnail for a video). Crawlers wait a few
+ * seconds for the picture; a reader's page is sent at once and asks for it (`?image`, answered as JSON).
+ * Each response says how the picture went in `x-share-image` (found, pending, timeout, http-403…).
  */
 import { CATEGORIES } from "../../src/lib/categories";
 import { channelName as bnChannelName, sourceName as bnSourceName } from "../../src/lib/bn-names";
@@ -44,6 +45,8 @@ interface Env {
 interface Resolved {
   data: ShareData;
   image?: string | null;
+  /** When `image` was last looked for and not found (ms): it is looked for again an hour later. */
+  imageMissedAt?: number;
   /** Made from the address alone (layer 4): kept for a day only, so a later look can do better. */
   partial?: boolean;
 }
@@ -52,8 +55,17 @@ const DAY_MS = 86_400_000;
 const DHAKA_OFFSET_MS = 6 * 3600_000;
 /** Days a long link (with no day in it) is looked for in, besides the board's: the cache's 72 hours. */
 const RECENT_DAYS = 4;
-/** How long a crawler waits for the outlet's page (title, picture) before the preview goes out without it. */
-const OUTLET_TIMEOUT_MS = 3000;
+/** How long an old long link waits for the outlet's page (its title) before falling back to the address. */
+const OUTLET_TIMEOUT_MS = 4000;
+/**
+ * How long the outlet's page is waited for when looking for the picture. Some outlets take several
+ * seconds (Banglanews24 about 8); the reader's page is already showing by then.
+ */
+const IMAGE_TIMEOUT_MS = 10_000;
+/** How long a crawler waits for the picture before the preview goes out with the site's own. */
+const CRAWLER_WAIT_MS = 4000;
+/** A picture not found (the outlet was slow, or refused) is looked for again after this long. */
+const IMAGE_RETRY_MS = 3600_000;
 
 /** Link-preview and search crawlers: they read the tags only, so they get the picture before the page is sent. */
 const CRAWLER =
@@ -119,23 +131,58 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   }
   if (!resolved) return render(env, url, { data: { kind: "gone" } }, url.pathname);
 
-  // The article's picture: crawlers wait for it, readers get it next time.
+  // The article's picture, from the outlet's page. A reader's page is sent at once, without it, and
+  // asks (`?image`), which waits for the outlet; a crawler waits a few seconds. Either way the lookup
+  // runs to the end and is remembered.
   const data = resolved.data;
-  if (data.kind === "headline" && resolved.image === undefined) {
-    const lookup = outletHead(data.item.link, OUTLET_TIMEOUT_MS).then((head) => ({ ...resolved!, image: head?.image ?? null }));
-    if (crawler) {
-      resolved = await lookup;
-      changed = true;
-    } else {
+  const askedForImage = url.searchParams.has("image");
+  let imageNote = resolved.image ? "known" : resolved.image === null ? "none-remembered" : "";
+  if (data.kind === "headline" && needsImage(resolved)) {
+    imageNote = "pending";
+    if (askedForImage || crawler) {
+      let why = "none";
+      const base: Resolved = resolved;
+      const lookup = outletHead(data.item.link, IMAGE_TIMEOUT_MS, (reason) => (why = reason)).then((head): Resolved => {
+        const image = head?.image ?? null;
+        return image ? { ...base, image, imageMissedAt: undefined } : { ...base, image: null, imageMissedAt: Date.now() };
+      });
       waitUntil(lookup.then((r) => remember(env, url, memo, r)));
       changed = false;
+      const found = askedForImage ? await lookup : await Promise.race([lookup, sleep(CRAWLER_WAIT_MS)]);
+      if (found) {
+        resolved = found;
+        imageNote = found.image ? "found" : why;
+      }
     }
   }
   if (changed) waitUntil(remember(env, url, memo, resolved));
 
+  if (askedForImage) {
+    const image = resolved.data.kind === "headline" ? (resolved.image ?? null) : null;
+    return Response.json(
+      { image },
+      {
+        headers: {
+          "cache-control": image ? "public, max-age=86400" : "no-store",
+          "x-robots-tag": "noindex",
+          "x-share-image": imageNote,
+        },
+      },
+    );
+  }
   const canonical = data.kind === "headline" && lasting ? shortPath(data.item) : url.pathname;
-  return render(env, url, resolved, canonical);
+  const res = await render(env, url, resolved, canonical, imageNote === "pending");
+  if (imageNote) res.headers.set("x-share-image", imageNote);
+  return res;
 };
+
+const sleep = (ms: number) => new Promise<null>((resolve) => setTimeout(() => resolve(null), ms));
+
+/** Whether the outlet's page should be read for the picture: never yet, or not found over an hour ago. */
+function needsImage(resolved: Resolved): boolean {
+  if (resolved.image === undefined) return true;
+  return resolved.image === null && Date.now() - (resolved.imageMissedAt ?? 0) > IMAGE_RETRY_MS;
+}
 
 /** The short share path of a headline, as the share sheet makes it (see shortSharePath). */
 function shortPath(item: NewsItem): string {
@@ -195,7 +242,9 @@ async function fromOutlet(article: { url: URL; source: NewsSource }, load: Share
   if (head?.published) item.publishedAt = head.published;
   return {
     data: { kind: "headline", item, related: [], logos: logosFor(article.source.id, meta) },
-    image: head ? (head.image ?? null) : null,
+    // The page was read: its picture, or none. Not read in time: looked for again, for longer.
+    image: head ? (head.image ?? null) : undefined,
+    imageMissedAt: head && !head.image ? Date.now() : undefined,
     partial: !head?.title,
   };
 }
@@ -314,13 +363,15 @@ function describe({ data, image }: Resolved): Description {
 }
 
 /** The share page (the static 404 page, see src/app/not-found.tsx) with this link's tags and data. */
-async function render(env: Env, site: URL, resolved: Resolved, canonicalPath: string): Promise<Response> {
+async function render(env: Env, site: URL, resolved: Resolved, canonicalPath: string, imagePending = false): Promise<Response> {
   const template = await env.ASSETS.fetch(new URL("/404", site));
   const d = describe(resolved);
   const canonical = new URL(canonicalPath, site).href;
   // The site's own picture when the outlet has none.
   const image = d.image ?? new URL("/opengraph-image", site).href;
-  const pageData: ShareData = resolved.data.kind === "headline" && resolved.image ? { ...resolved.data, image: resolved.image } : resolved.data;
+  // The page shows the picture, or asks for it (`?image`) when it is still being looked for.
+  const pageData: ShareData =
+    resolved.data.kind === "headline" && !imagePending ? { ...resolved.data, image: resolved.image ?? null } : resolved.data;
 
   const meta = (attr: "property" | "name", key: string, value?: string) =>
     value ? `<meta ${attr}="${key}" content="${escapeHtml(value)}"/>` : "";
