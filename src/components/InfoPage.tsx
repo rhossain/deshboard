@@ -23,9 +23,9 @@ export const SITE_LINKS: { id: keyof (typeof STRINGS)["en"]["links"]; href: stri
 export const siteLinkHref = (l: (typeof SITE_LINKS)[number], locale: Locale) =>
   l.bn ? localePath(l.href, locale) : l.href;
 
-function SocialIcon({ id }: { id: SocialLink["id"] }) {
+export function SocialIcon({ id, className = "h-5 w-5" }: { id: SocialLink["id"]; className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
       {id === "facebook" ? (
         <path
           fill="currentColor"
