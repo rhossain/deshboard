@@ -190,12 +190,27 @@ export function SharedHeadline() {
 function Headline({ shared: { item, related, image }, now }: { shared: ShareData & { kind: "headline" }; now: number }) {
   const [imageState, setImageState] = useState<"loading" | "shown" | "failed">("loading");
   const source = sourceById(item.sourceId);
-  // undefined: still being looked for; null: the outlet has none.
-  const showFrame = image === undefined || (!!image && imageState !== "failed");
+  // undefined: still being looked for; null: none to be had (some outlets refuse every server).
+  const noPicture = image === null || imageState === "failed";
   return (
     <>
       <article className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
-        {showFrame && (
+        {noPicture ? (
+          // The outlet's masthead in the picture's place, so the card reads the same with or without one.
+          <div
+            className="flex aspect-[1.91/1] w-full flex-col items-center justify-center gap-3 bg-[radial-gradient(120%_100%_at_50%_0%,var(--accent-soft),var(--surface-2))]"
+            aria-hidden
+          >
+            <div className="origin-center scale-150">
+              {source ? <SourceLogo source={source} link={false} /> : <span className="text-[15px] font-semibold">{item.sourceName}</span>}
+            </div>
+            {item.category !== "other" && (
+              <span className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+                {CATEGORY_LABEL.get(item.category)}
+              </span>
+            )}
+          </div>
+        ) : (
           <div className={`relative aspect-[1.91/1] w-full bg-surface-2 ${imageState === "shown" ? "" : "animate-pulse"}`}>
             {image && (
               // eslint-disable-next-line @next/next/no-img-element -- the outlet's own picture, on its server
