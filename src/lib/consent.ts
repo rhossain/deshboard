@@ -1,22 +1,26 @@
 /**
- * Consent for analytics and ad cookies (the privacy policy's promise): readers outside Bangladesh are
- * asked before any such service runs, and can change their answer from "Cookie choices" in the footer.
- * Readers in Bangladesh aren't asked; there the services run once they are switched on.
+ * Consent for analytics and ad cookies (the privacy policy's promise): readers where the law asks for it
+ * first (the EU and EEA, the UK and Switzerland) are asked before any such service runs, and can change
+ * their answer from "Cookie choices" in the footer. Readers elsewhere aren't asked; there the services run
+ * once they are switched on.
  *
- * Nothing on the site sets such cookies yet, so the question only appears once one is switched on: the
- * `CONSENT` repository variable set to `on` (deploy.yml passes it to the build as NEXT_PUBLIC_CONSENT).
- * Until then `?consent=preview` shows it on one device, as if switched on and outside Bangladesh.
+ * The question only appears once a cookie-setting service is switched on: Google Analytics (the `GA_ID`
+ * repository variable, NEXT_PUBLIC_GA_ID in the build), or the `CONSENT` repository variable set to `on`
+ * (NEXT_PUBLIC_CONSENT); deploy.yml passes both. `?consent=preview` shows it on one device, as if switched
+ * on and asked.
  *
  * A service that sets cookies runs only when `allowed("analytics")` or `allowed("ads")` says so, and
  * starts when `subscribe` reports the answer.
  */
 
-export const CONSENT_ON = process.env.NEXT_PUBLIC_CONSENT === "on";
+/** Google Analytics 4's measurement ID (G-…), set only for the live site's builds. */
+export const GA_ID = process.env.NEXT_PUBLIC_GA_ID || null;
+export const CONSENT_ON = process.env.NEXT_PUBLIC_CONSENT === "on" || !!GA_ID;
 
 export type Purpose = "analytics" | "ads";
 export type Choice = Record<Purpose, boolean>;
 
-/** Where the question applies: "asked" outside Bangladesh, "not-asked" in it, null while finding out. */
+/** Where the question applies: "asked" where consent comes first, "not-asked" elsewhere, null while finding out. */
 export type Region = "asked" | "not-asked";
 
 const CHOICE_KEY = "bartaboard:consent";
@@ -81,9 +85,23 @@ function get(): State {
 }
 
 /**
- * Bangladesh or not, from Cloudflare's own answer for this connection (the site's `/cdn-cgi/trace`: only
- * the country is read, and kept for the session). Where that can't be had (another host, offline), the
- * device's time zone; when in doubt, the reader is asked.
+ * Countries whose law wants consent before analytics or ad cookies: the EU, the rest of the EEA (Iceland,
+ * Liechtenstein, Norway), the UK and Switzerland. Google's EU user consent policy covers the same ones.
+ */
+const ASKED_COUNTRIES = new Set(
+  (
+    "AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE " +
+    "IS LI NO GB CH"
+  ).split(" "),
+);
+
+/** Time zones of those countries beyond Europe/…: islands that keep their own. */
+const ASKED_ZONES = new Set(["Atlantic/Azores", "Atlantic/Canary", "Atlantic/Faroe", "Atlantic/Madeira", "Atlantic/Reykjavik"]);
+
+/**
+ * Asked or not, from Cloudflare's own answer for this connection (the site's `/cdn-cgi/trace`: only the
+ * country is read, and kept for the session). Where that can't be had (another host, offline), the
+ * device's time zone, erring towards asking: any Europe/… zone is asked, as is a missing one.
  */
 async function findRegion() {
   let country: string | undefined;
@@ -93,8 +111,13 @@ async function findRegion() {
   } catch {
     // Not behind Cloudflare: the time zone below.
   }
-  const dhaka = Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Dhaka";
-  const region: Region = (country ? country === "BD" : dhaka) ? "not-asked" : "asked";
+  let asked: boolean;
+  if (country) asked = ASKED_COUNTRIES.has(country);
+  else {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+    asked = !zone || zone.startsWith("Europe/") || ASKED_ZONES.has(zone);
+  }
+  const region: Region = asked ? "asked" : "not-asked";
   write(REGION_KEY, region, session);
   set({ region });
 }
@@ -114,7 +137,7 @@ export function allowed(purpose: Purpose): boolean {
   return s.region === "not-asked" || !!s.choice?.[purpose];
 }
 
-/** The banner shows: switched on, outside Bangladesh, and not answered yet. */
+/** The banner shows: switched on, where readers are asked, and not answered yet. */
 export const needsAnswer = (s: State) => s.on && s.region === "asked" && !s.choice;
 
 /** The footer's "Cookie choices" shows wherever readers are asked. */

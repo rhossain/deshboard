@@ -8,12 +8,12 @@ const WORDS = {
   en: {
     title: "Privacy policy",
     description: "What Bartaboard and its analytics collect about you (very little), and how to delete your data.",
-    updated: "13 October 2026",
+    updated: "14 October 2026",
   },
   bn: {
     title: "গোপনীয়তা নীতি",
     description: "বার্তাবোর্ড ও এর অ্যানালিটিক্স আপনার সম্পর্কে কী তথ্য নেয় (খুব সামান্য), আর কীভাবে মুছবেন।",
-    updated: "১৩ অক্টোবর ২০২৬",
+    updated: "১৪ অক্টোবর ২০২৬",
   },
 };
 
@@ -54,8 +54,9 @@ function English() {
       <ul>
         <li>Bartaboard itself keeps no personal data about readers without an account.</li>
         <li>
-          There are no ads and no tracking cookies. We count visits with Cloudflare Web Analytics, which sets no cookies:
-          see <a href="#analytics">Analytics</a> below.
+          There are no ads. We count visits with Cloudflare Web Analytics, which sets no cookies, and Google Analytics,
+          which does; in the EU, the UK and Switzerland, Google Analytics runs only if you accept it. See{" "}
+          <a href="#analytics">Analytics</a> below.
         </li>
         <li>
           Your theme, saved stories, pinned sources, card settings and the time of your last visit are kept only in your
@@ -98,6 +99,26 @@ function English() {
         open, your browser tells Cloudflare the page&apos;s address, the site you came from, your browser and device
         type, and how long the page took to load; Cloudflare works out the country from your connection. We see only
         totals, such as page views and visits, and Bartaboard keeps nothing about you.
+      </p>
+      <p>
+        We also use{" "}
+        <a href="https://policies.google.com/privacy" rel="noopener">
+          Google Analytics
+        </a>
+        , which shows us how many people are reading right now and which pages they open. It sets cookies (named _ga)
+        that tell one visit from the next. Your browser sends Google the page&apos;s address, the site you came from,
+        your browser, device and screen size, and your IP address, from which Google works out your rough location;
+        Google Analytics doesn&apos;t keep IP addresses. We see only totals, and we&apos;ve turned off its use for
+        advertising.
+      </p>
+      <p>
+        In the EU and EEA, the UK and Switzerland, Google Analytics runs only after you accept analytics, and you can
+        change your answer at any time from Cookie choices at the foot of the page. Elsewhere it runs when you visit; to
+        opt out, block cookies for this site or use{" "}
+        <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener">
+          Google&apos;s opt-out add-on
+        </a>
+        .
       </p>
 
       <h2 id="ads">Ads</h2>
@@ -149,8 +170,9 @@ function Bangla() {
       <ul>
         <li>অ্যাকাউন্ট ছাড়া যাঁরা পড়েন, তাঁদের কোনো ব্যক্তিগত তথ্য বার্তাবোর্ড নিজে রাখে না।</li>
         <li>
-          কোনো বিজ্ঞাপন বা ট্র্যাকিং কুকি নেই। ভিজিট গুনতে আমরা ক্লাউডফ্লেয়ার ওয়েব অ্যানালিটিক্স ব্যবহার করি, যা কোনো কুকি
-          রাখে না: নিচের <a href="#analytics">অ্যানালিটিক্স</a> অংশ দেখুন।
+          কোনো বিজ্ঞাপন নেই। ভিজিট গুনতে আমরা ক্লাউডফ্লেয়ার ওয়েব অ্যানালিটিক্স ব্যবহার করি, যা কোনো কুকি রাখে না, আর গুগল
+          অ্যানালিটিক্স, যা কুকি রাখে; ইউরোপীয় ইউনিয়ন, যুক্তরাজ্য ও সুইজারল্যান্ডে গুগল অ্যানালিটিক্স চলে শুধু আপনি রাজি হলে।
+          নিচের <a href="#analytics">অ্যানালিটিক্স</a> অংশ দেখুন।
         </li>
         <li>
           আপনার থিম, সংরক্ষিত খবর, পিন করা উৎস, কার্ডের সেটিংস আর শেষবার আসার সময় শুধু আপনার নিজের ব্রাউজারের স্টোরেজে
@@ -190,6 +212,25 @@ function Bangla() {
         যে পাতা খোলেন, তার ঠিকানা, কোন সাইট থেকে এসেছেন, আপনার ব্রাউজার ও ডিভাইসের ধরন আর পাতাটি খুলতে কত সময় লাগল,
         তা আপনার ব্রাউজার ক্লাউডফ্লেয়ারকে জানায়; দেশটি ক্লাউডফ্লেয়ার আপনার সংযোগ থেকে বোঝে। আমরা দেখি শুধু মোট হিসাব,
         যেমন কতবার পাতা খোলা হলো বা কতজন এলেন, আর আপনার সম্পর্কে বার্তাবোর্ড কিছুই রাখে না।
+      </p>
+      <p>
+        আমরা{" "}
+        <a href="https://policies.google.com/privacy" rel="noopener">
+          গুগল অ্যানালিটিক্স
+        </a>{" "}
+        ও ব্যবহার করি, যা দেখায় এই মুহূর্তে কতজন পড়ছেন আর কোন পাতা খুলছেন। এটি কুকি (_ga নামে) রাখে, যা দিয়ে একবারের ভিজিট
+        থেকে পরেরটি আলাদা করা যায়। আপনার ব্রাউজার গুগলকে জানায় পাতার ঠিকানা, কোন সাইট থেকে এসেছেন, আপনার ব্রাউজার, ডিভাইস ও
+        স্ক্রিনের মাপ, আর আপনার আইপি ঠিকানা, যা থেকে গুগল আপনার মোটামুটি অবস্থান বোঝে; গুগল অ্যানালিটিক্স আইপি ঠিকানা রাখে
+        না। আমরা দেখি শুধু মোট হিসাব, আর বিজ্ঞাপনের কাজে এর ব্যবহার আমরা বন্ধ রেখেছি।
+      </p>
+      <p>
+        ইউরোপীয় ইউনিয়ন ও ইইএ, যুক্তরাজ্য আর সুইজারল্যান্ডে গুগল অ্যানালিটিক্স চলে শুধু আপনি অ্যানালিটিক্সে রাজি হলে, আর
+        পাতার নিচে কুকির পছন্দ থেকে যেকোনো সময় মত বদলাতে পারেন। অন্য সব জায়গায় সাইটে এলেই এটি চলে; বন্ধ করতে এই সাইটের
+        কুকি আটকে দিন, অথবা{" "}
+        <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener">
+          গুগলের অপ্ট-আউট অ্যাড-অন
+        </a>{" "}
+        ব্যবহার করুন।
       </p>
 
       <h2 id="ads">বিজ্ঞাপন</h2>

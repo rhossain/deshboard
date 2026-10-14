@@ -33,7 +33,7 @@ export function useConsentState() {
 }
 
 /**
- * Asks readers outside Bangladesh about analytics and ad cookies (see src/lib/consent.ts): a card at the
+ * Asks readers in the EU, UK and Switzerland about analytics and ad cookies (see src/lib/consent.ts): a card at the
  * foot of the screen until they answer, and the choices sheet, from the card or the footer.
  */
 export function ConsentBanner() {
@@ -44,7 +44,7 @@ export function ConsentBanner() {
   return (
     <LocaleProvider locale={locale}>
       {needsAnswer(state) && !state.open && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 md:bottom-8">
+        <div className="consent-card pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 md:bottom-8">
           <section
             aria-label={t.label}
             className="tour-invite pointer-events-auto w-full max-w-xl rounded-2xl border border-line bg-surface p-4 shadow-card"
@@ -137,7 +137,7 @@ function Choices({ initial, locale }: { initial: Choice | null; locale: Locale }
   );
 }
 
-/** "Cookie choices" in a footer, where readers are asked (outside Bangladesh, once switched on). */
+/** "Cookie choices" in a footer, where readers are asked (EU, UK and Switzerland, once switched on). */
 export function ConsentChoicesLink({ className = "hover:text-foreground" }: { className?: string }) {
   const state = useConsentState();
   const locale = usePageLocale();
