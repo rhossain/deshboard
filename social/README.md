@@ -73,3 +73,46 @@ Rebuild with `node source/ig_posts.mjs` from the build folder (needs Playwright,
 > Bangladesh News. On Your Board. 📌
 > দেশের সব খবর, এক বোর্ডে
 > 50+ newspapers · 30+ TV channels · Bangla & English
+
+## Facebook & Instagram ads (October 2026)
+
+In `ads/`. Bangla, built from real screens of the live site's **sports** section (no political headlines on screen,
+so Meta doesn't treat them as political ads). Outlets appear by name only, never as the subject of an ad.
+
+| File | Size | Use for |
+|---|---|---|
+| `bartaboard-reel-1-all-papers.mp4` | 1080×1920, 15 s | Reels & Stories, Bangladesh |
+| `bartaboard-reel-2-probashi.mp4` | 1080×1920, 15 s | Reels & Stories, probashi (Gulf, Malaysia, Europe, US) |
+| `bartaboard-reel-3-top-stories.mp4` | 1080×1920, 15 s | Reels & Stories, both |
+| `bartaboard-feed-1-all-papers.png` | 1080×1350 | Feed, Bangladesh (pairs with reel 1) |
+| `bartaboard-feed-2-probashi.png` | 1080×1350 | Feed, probashi (pairs with reel 2) |
+| `bartaboard-feed-3-top-stories.png` | 1080×1350 | Feed, both (pairs with reel 3) |
+| `bartaboard-feed-4-fifty-outlets.png` | 1080×1350 | Feed, both |
+| `*-cover.png` | 1080×1920 | Thumbnails for the reels |
+
+The videos are silent: add a track from Meta's music library in Ads Manager (Reels do better with sound). In each
+ad, turn off Advantage+ creative "text improvements" and "visual touch-ups", which can rewrite or crop the Bangla.
+Pair each reel with its feed image in one ad (placement asset customisation): reel for Reels and Stories, image for Feed.
+
+**Ad text** (Website URL: `https://bartaboard.com/bn/`; URL parameters as in `docs/promotion.md`; button: Learn more):
+
+1. **All papers**
+   - Primary text: সকালে খবর পড়তে দশটা পত্রিকার সাইট একটা একটা করে খোলেন? 📰 বার্তাবোর্ডে ৫০টির বেশি সংবাদমাধ্যমের সর্বশেষ শিরোনাম এক পেজে, প্রতি ১৫ মিনিটে হালনাগাদ। ফ্রি, অ্যাপ নামাতে হবে না।
+   - Headline: সব পত্রিকা, এক পেজে
+   - Description: ফ্রি · অ্যাপ লাগবে না
+2. **Probashi**
+   - Primary text: প্রবাসে বসে দেশের খবর খুঁজতে এক সাইট থেকে আরেক সাইটে? 🌍 বার্তাবোর্ডে দেশের ৫০টির বেশি সংবাদমাধ্যমের খবর এক জায়গায়, বাংলা ও ইংরেজিতে, প্রতি ১৫ মিনিটে নতুন। একদম ফ্রি।
+   - Headline: প্রবাসে বসেও দেশের সব খবর
+   - Description: বাংলা ও English · ফ্রি
+3. **Top stories**
+   - Primary text: একই খবর কোন পত্রিকা কীভাবে লিখল, এক নজরে দেখুন। বার্তাবোর্ডের "শীর্ষ খবর" একই ঘটনার সব শিরোনাম পাশাপাশি সাজায়: যত বেশি মাধ্যমে খবর, তত ওপরে।
+   - Headline: কে কী লিখল, এক নজরে
+   - Description: ৫০টির বেশি সংবাদমাধ্যম · ফ্রি
+4. **Fifty outlets** (image only)
+   - Primary text: ৫০টির বেশি সংবাদমাধ্যম। একটি পেজ। ফ্রি। দেশের সব খবর এক জায়গায় পড়ুন।
+   - Headline: দেশের সব খবর, এক জায়গায়
+   - Description: bartaboard.com
+
+Rebuild: `node source/ads_capture_screens.mjs` and `node source/ads_record_screens.mjs` record the phone screens from
+the live site (analytics blocked), then `node source/ads_video.mjs` (Playwright frames → ffmpeg H.264) and
+`node source/ads_images.mjs`, from the build folder as for the posts above.
