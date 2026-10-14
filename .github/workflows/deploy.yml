@@ -73,6 +73,9 @@ jobs:
           # the EU, UK and Switzerland, as CONSENT `on` does on its own (src/lib/consent.ts).
           NEXT_PUBLIC_GA_ID: ${{ vars.GA_ID }}
           NEXT_PUBLIC_CONSENT: ${{ vars.CONSENT }}
+          # The Meta Pixel ("Bartaboard website" dataset), for measuring our own Facebook ads (src/components/MetaPixel.tsx).
+          # Public anyway (it is in every page); a META_PIXEL_ID repository variable overrides it, `off` turns it off.
+          NEXT_PUBLIC_META_PIXEL_ID: ${{ vars.META_PIXEL_ID != 'off' && (vars.META_PIXEL_ID || '1098005036277817') || '' }}
           NEXT_PUBLIC_BKASH_NUMBER: ${{ vars.BKASH_NUMBER }}
       # Uploads straight from here: Pages' own Git builds would run out at 500 a month. The first run
       # creates the project.
