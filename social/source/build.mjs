@@ -55,7 +55,7 @@ function placed(list, size, seed) {
   }).join("");
 }
 
-function cards({ W, H, size, keep, seed = 7, density = 1, theme, layout }) {
+function cards({ W, H, size, keep, seed = 7, density = 1, layout }) {
   if (layout) return placed(layout, size, seed);
   const r = rng(seed);
   const cw = size, ch = size * 0.66;
@@ -71,7 +71,7 @@ function cards({ W, H, size, keep, seed = 7, density = 1, theme, layout }) {
       const rot = (r() - 0.5) * 9;
       const [label, color] = CHIPS[i % CHIPS.length];
       const back = ["#006a4e", "#f42a41", null, null][Math.floor(r() * 4)];
-      const lines = [0.86, 0.94, 0.7].map((w, k) => `<i style="width:${Math.round((w - r() * 0.15) * 100)}%"></i>`).join("");
+      const lines = [0.86, 0.94, 0.7].map((w) => `<i style="width:${Math.round((w - r() * 0.15) * 100)}%"></i>`).join("");
       html += `<div class="card" style="left:${jx}px;top:${jy}px;width:${cw}px;height:${ch}px;transform:rotate(${rot.toFixed(2)}deg)">
         ${back ? `<div class="back" style="background:${back}"></div>` : ""}
         <div class="face">${jx < 0 ? `<i style="width:40%;opacity:0"></i>` : `<b style="background:${color}">${label}</b>`}${lines}</div>
