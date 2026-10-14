@@ -3,6 +3,7 @@
  * it gives link previews. The shared-link function (functions/s/[[path]].ts) reads them for a shared
  * headline's picture, and for an old link the share index no longer has.
  */
+import { USER_AGENT } from "./fetchers/http";
 
 export interface OutletHead {
   title?: string;
@@ -14,7 +15,8 @@ export interface OutletHead {
 
 /** How much of the page is read looking for </head>: Prothom Alo's runs to about 350,000 characters. */
 const HEAD_MAX_CHARS = 400_000;
-/** Who is asking: outlets see an honest name and where to read about it. */
+
+/** Who is asking first: outlets see an honest name and where to read about it. */
 export const BOT_USER_AGENT = "Mozilla/5.0 (compatible; BartaboardBot/1.0; +https://bartaboard.com/about/)";
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
@@ -70,20 +72,25 @@ export function parseHead(html: string, pageUrl: string): OutletHead {
   return { title: title || undefined, image, published };
 }
 
+/** Statuses an outlet's bot protection answers with: worth asking again, as a browser. */
+const REFUSED = new Set([401, 403, 429, 503]);
+
 /**
  * The article's own title, picture and publish time; null if the outlet doesn't answer in time. `why`
  * hears what went wrong when it is null ("http-403", "timeout", "not-html"…), for the response headers.
+ *
+ * Asked first as BartaboardBot. Many outlets' bot protection refuses that from Cloudflare's servers
+ * (a 403 at once, while Facebook's crawler gets through), so a refusal is asked again the way the
+ * news fetcher asks for their feeds and pages (fetchers/http.ts), as a browser.
  */
 export async function outletHead(link: string, timeoutMs: number, why?: (reason: string) => void): Promise<OutletHead | null> {
+  const signal = AbortSignal.timeout(timeoutMs);
   try {
-    // `cf`: Cloudflare keeps the outlet's page for an hour, so a link shared widely is read once.
-    const init: RequestInit & { cf?: Record<string, unknown> } = {
-      headers: { "user-agent": BOT_USER_AGENT, accept: "text/html,application/xhtml+xml" },
-      redirect: "follow",
-      signal: AbortSignal.timeout(timeoutMs),
-      cf: { cacheTtl: 3600, cacheEverything: true },
-    };
-    const res = await fetch(link, init);
+    let res = await fetchPage(link, BOT_USER_AGENT, signal);
+    if (REFUSED.has(res.status)) {
+      res.body?.cancel().catch(() => {});
+      res = await fetchPage(link, USER_AGENT, signal);
+    }
     if (!res.ok || !res.body) {
       why?.(`http-${res.status}`);
       return null;
@@ -106,6 +113,22 @@ export async function outletHead(link: string, timeoutMs: number, why?: (reason:
     why?.(e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError") ? "timeout" : "error");
     return null;
   }
+}
+
+function fetchPage(link: string, userAgent: string, signal: AbortSignal): Promise<Response> {
+  // `cf`: Cloudflare keeps the outlet's page for an hour, so a link shared widely is read once. Only a
+  // page: a refusal kept would refuse the next ask too.
+  const init: RequestInit & { cf?: Record<string, unknown> } = {
+    headers: {
+      "user-agent": userAgent,
+      accept: "text/html,application/xhtml+xml",
+      "accept-language": "bn-BD,bn;q=0.9,en;q=0.8",
+    },
+    redirect: "follow",
+    signal,
+    cf: { cacheEverything: true, cacheTtlByStatus: { "200-299": 3600, "300-599": 0 } },
+  };
+  return fetch(link, init);
 }
 
 /**
