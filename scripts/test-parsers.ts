@@ -18,14 +18,24 @@ import {
   siteHost,
 } from "../src/lib/fetchers/google-news";
 import { compactCount, fullTime, timeAgo } from "../src/components/time";
-import { articleUrl } from "../src/lib/article";
 import { canonicalLink, cleanTitle, dedupeByLink, parseDate, resolveUrl, shiftDhakaAsUtc } from "../src/lib/fetchers/utils";
 import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filters";
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
 import { forBoard, mergeNews, newsQueryFrom } from "../src/lib/news";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
-import { SHARE_TARGETS, sharedVideoId, sharePath, videoSharePath } from "../src/lib/share";
+import {
+  articleUrl,
+  SHARE_TARGETS,
+  sharedId,
+  sharedVideoId,
+  shareKey,
+  sharePath,
+  shareText,
+  shortSharePath,
+  videoSharePath,
+} from "../src/lib/share";
+import { parseHead, slugTitle } from "../src/lib/outlet-head";
 import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { compileSearch, installSearchTerms } from "../src/lib/search";
 import { SEARCH_TERMS } from "../src/lib/search-terms";
@@ -495,15 +505,118 @@ test("share: videos go out as /s/youtu.be/<id>, and only video IDs are read back
   }
 });
 
-test("share targets put the link and title in the URL", () => {
-  const url = "https://bartaboard.test/s/www.prothomalo.com/a?b=1&c";
+test("share targets put the link and its text in the URL", () => {
+  const url = "https://bartaboard.test/s/261014-k3x9pq2m";
+  const text = shareText("শিরোনাম & title", "Prothom Alo");
+  assert.equal(text, "“শিরোনাম & title” — Prothom Alo · Bartaboard");
   for (const t of SHARE_TARGETS) {
-    const href = t.href(url, "শিরোনাম & title");
+    const href = t.href(url, text);
     assert.ok(href.startsWith("https://"), t.id);
     assert.ok(href.includes(encodeURIComponent(url)), t.id);
   }
   const wa = SHARE_TARGETS.find((t) => t.id === "whatsapp")!;
-  assert.equal(new URL(wa.href(url, "Title")).searchParams.get("text"), `Title\n${url}`);
+  assert.equal(new URL(wa.href(url, text)).searchParams.get("text"), `${text}\n${url}`);
+});
+
+test("share: short links carry the day and a key that ignores scheme, www and slash", () => {
+  const key = shareKey("https://www.prothomalo.com/bangladesh/abc");
+  assert.match(key, /^[0-9a-z]{8}$/);
+  assert.equal(shareKey("http://prothomalo.com/bangladesh/abc/"), key);
+  assert.notEqual(shareKey("https://www.prothomalo.com/bangladesh/abd"), key);
+  const path = shortSharePath("https://www.prothomalo.com/bangladesh/abc", "2026-10-14");
+  assert.equal(path, `/s/261014-${key}`);
+  assert.deepEqual(sharedId(path.slice(3).split("/")), { date: "2026-10-14", key });
+  for (const bad of ["261014", "261014-abc", "261014-ABCDEFGH", "2610145-abcdefgh", "261014-abcdefgh/x", "www.prothomalo.com"]) {
+    assert.equal(sharedId(bad.split("/")), null, bad);
+  }
+});
+
+test("outlet pages: title, picture and date from the head; a title from the address otherwise", () => {
+  const head = parseHead(
+    `<html><head><title>Ignored | Outlet</title>
+     <meta property="og:title" content="Padma &amp; Jamuna: &#x09AC;&#2476; rivers rise"/>
+     <meta name='twitter:image' content='https://cdn.test/t.jpg'>
+     <meta content="/img/a.jpg?w=1200&amp;h=630" property="og:image">
+     <script type="application/ld+json">{"datePublished": "2026-10-12T18:11:32+06:00"}</script>
+     </head><body><meta property="og:image" content="/not-this.jpg"></body>`,
+    "https://www.outlet.test/news/a",
+  );
+  assert.equal(head.title, "Padma & Jamuna: বব rivers rise");
+  assert.equal(head.image, "https://www.outlet.test/img/a.jpg?w=1200&h=630");
+  assert.equal(head.published, "2026-10-12T12:11:32.000Z");
+  assert.equal(parseHead("<head><meta property='og:image' content='javascript:alert(1)'></head>", "https://x.test/").image, undefined);
+  // Next.js streams its metadata into the body: used when the head has none.
+  const streamed = parseHead(
+    `<head><title>Naya Diganta</title><meta name="next-size-adjust" content=""/></head><body><div>…</div>
+     <title>Story | Naya Diganta</title><meta property="og:title" content="Story"/>
+     <meta property="og:image" content="https://file.test/og.webp"/><meta property="og:image:width" content="700"/></body>`,
+    "https://dailynayadiganta.com/post/x/1",
+  );
+  assert.equal(streamed.image, "https://file.test/og.webp");
+  assert.equal(streamed.title, "Story");
+
+  assert.equal(slugTitle(new URL("https://www.thedailystar.net/news/news/german-tourists-stolen-laptop-recovered-natore-4296596")), "German tourists stolen laptop recovered natore");
+  assert.equal(slugTitle(new URL("https://bangla.bdnews24.com/bangladesh/f2sv381a14")), null);
+  assert.equal(slugTitle(new URL("https://www.jugantor.com/country-news/1168824")), null);
+});
+
+test("pictures: Media RSS, enclosures, an <img> in the description, sitemap image:loc", () => {
+  const rss = `<?xml version="1.0"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+    <item><title>Dhaka Post style</title><link>https://www.dhakapost.com/a/1</link>
+      <media:content medium="image" width="1200" url="https://assets.dhakapost.com/og/a.jpg?cid=1"/></item>
+    <item><title>Khola Kagoj style</title><link>https://kholakagojbd.com/news/2</link>
+      <enclosure url="https://kholakagojbd.com/2026/10/14/kk_2.jpg" length="0" type="image/jpeg"/></item>
+    <item><title>Audio is not a picture</title><link>https://x.test/3</link>
+      <enclosure url="https://x.test/3.mp3" type="audio/mpeg"/></item>
+    <item><title>Risingbd style</title><link>https://www.risingbd.com/news/4</link>
+      <description><![CDATA[<p><img alt="" src="/media/imgAll/4.jpg?w=1&amp;h=2"/></p> Text]]></description></item>
+    <item><title>Thumbnail in a group</title><link>https://x.test/5</link>
+      <media:group><media:thumbnail url="https://x.test/5-thumb.jpg"/></media:group></item>
+    <item><title>No picture at all</title><link>https://x.test/6</link><description>Just words</description></item>
+  </channel></rss>`;
+  const items = parseFeed(rss, "https://www.risingbd.com/rss/rss.xml");
+  assert.deepEqual(
+    items.map((it) => it.image),
+    [
+      "https://assets.dhakapost.com/og/a.jpg?cid=1",
+      "https://kholakagojbd.com/2026/10/14/kk_2.jpg",
+      undefined,
+      "https://www.risingbd.com/media/imgAll/4.jpg?w=1&h=2",
+      "https://x.test/5-thumb.jpg",
+      undefined,
+    ],
+  );
+  assert.equal("image" in items[5], false);
+
+  const sitemap = `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+    <url><loc>https://www.ittefaq.com.bd/815055/a</loc>
+      <news:news><news:publication_date>2026-10-14T10:00:00+06:00</news:publication_date><news:title>Ittefaq headline</news:title></news:news>
+      <image:image><image:loc>https://cdn.ittefaqbd.com/contents/cache/images/1200x0x1/a.jpg?jadewits_media_id=1</image:loc></image:image></url>
+    <url><loc>https://www.ittefaq.com.bd/815056/b</loc>
+      <news:news><news:publication_date>2026-10-14T09:00:00+06:00</news:publication_date><news:title>No picture here</news:title></news:news></url>
+  </urlset>`;
+  const sm = parseNewsSitemap(sitemap, "https://www.ittefaq.com.bd/news-sitemap.xml");
+  assert.equal(sm[0].image, "https://cdn.ittefaqbd.com/contents/cache/images/1200x0x1/a.jpg?jadewits_media_id=1");
+  assert.equal(sm[1].image, undefined);
+});
+
+test("pictures: kept between refreshes and in the day files, left out of the board's", () => {
+  const base = { sourceId: "s", sourceName: "S", lang: "en" as const, category: "national" as const };
+  const kept: NewsItem[] = [
+    { ...base, title: "Found once", link: "https://s.test/a/1", publishedAt: "2026-10-14T04:00:00.000Z", image: "https://s.test/1.jpg" },
+    { ...base, title: "Looked for, none", link: "https://s.test/a/2", publishedAt: "2026-10-14T03:00:00.000Z", image: null },
+  ];
+  // The feed names no pictures: each headline keeps what was found before (and isn't looked for again).
+  const fresh: NewsItem[] = kept.map(({ image: _i, ...it }) => it); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const now = Date.parse("2026-10-14T06:00:00Z");
+  const merged = mergeNews(fresh, kept, now);
+  assert.equal(merged.find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
+  assert.equal(merged.find((it) => it.link.endsWith("/2"))?.image, null);
+  assert.equal(mergeDay(kept, fresh).find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
+  const board = forBoard({ ...base, method: "rss", ok: true, count: 2, durationMs: 0, fetchedAt: "", items: merged } as SourceResult, now);
+  assert.equal(board.items.length, 2);
+  assert.ok(board.items.every((it) => !("image" in it)));
 });
 
 test("news query from the request URL", () => {

@@ -1,3 +1,4 @@
+import { withPictures } from "./archive";
 import { categorize, unmappedSection } from "./categories";
 import { stampFirstSeen } from "./first-seen";
 import { googleNewsFallback } from "./google-news";
@@ -8,6 +9,7 @@ import { parseFeed, type RawItem } from "./fetchers/rss";
 import { parseNewsSitemap } from "./fetchers/sitemap";
 import { canonicalLink, dedupeByLink, dhakaDate, addressKey, shiftDhakaAsUtc, titleKey } from "./fetchers/utils";
 import { saveDays } from "./days";
+import { findPictures } from "./pictures";
 import { ACTIVE_SOURCES, getSource } from "./sources";
 import { readStore, writeStoreSoon } from "./store";
 import { itemTime, newestFirst } from "./stories";
@@ -99,7 +101,7 @@ export function mergeNews(fresh: NewsItem[], kept: NewsItem[], now = Date.now())
   const recent = (it: NewsItem) => (itemTime(it) ?? "") >= cutoff && (itemTime(it) ?? "") <= ahead;
   const firstTime = new Map<string, string>();
   for (const it of kept) if (it.publishedAt) firstTime.set(addressKey(it.link), it.publishedAt);
-  const redated = fresh.map((it) => {
+  const redated = withPictures(fresh, kept).map((it) => {
     const first = it.publishedAt && firstTime.get(addressKey(it.link));
     return first && first < it.publishedAt! ? { ...it, publishedAt: first } : it;
   });
@@ -122,8 +124,12 @@ export function mergeNews(fresh: NewsItem[], kept: NewsItem[], now = Date.now())
  */
 export function forBoard<T extends SourceResult>(result: T, now = Date.now()): T {
   const cutoff = new Date(now - BOARD_MAX_AGE_MS).toISOString();
-  const items = result.items.filter((it) => (itemTime(it) ?? cutoff) >= cutoff).slice(0, PER_SOURCE);
-  return items.length === result.items.length ? result : { ...result, items };
+  const items = result.items
+    .filter((it) => (itemTime(it) ?? cutoff) >= cutoff)
+    .slice(0, PER_SOURCE)
+    // The pictures are for share pages (see NewsItem.image); the board's never shows them.
+    .map(({ image: _image, ...it }) => it); // eslint-disable-line @typescript-eslint/no-unused-vars
+  return { ...result, items };
 }
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -312,6 +318,12 @@ export function startBackgroundRefresh(): void {
   if (g.__newsRefresher) return;
   const run = () =>
     getNews()
+      // New headlines' pictures, for share pages, before the day files keep them (see pictures.ts).
+      .then(async () => {
+        const { looked } = await findPictures(ACTIVE_SOURCES.flatMap((s) => cache.get(s.id)?.result ?? []));
+        // Changed in place: kept, so a restart doesn't look for them again.
+        if (looked) writeStoreSoon(CACHE_STORE, () => Object.fromEntries(cache));
+      })
       // Every cached headline (not just the board's share) into the day files the search reads further back.
       .then(() => saveDays(ACTIVE_SOURCES.flatMap((s) => cachedResult(s.id)?.items ?? [])))
       .catch((err) => console.warn("[news] background refresh failed:", err));

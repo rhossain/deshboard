@@ -54,10 +54,15 @@ export function SharedVideo({ video, channelName, now }: { video: Video; channel
         <div className="p-5 sm:p-7">
           <p className="flex flex-wrap gap-x-2 text-xs text-muted">
             <span className="font-semibold text-accent">{channelName}</span>
-            <span>·</span>
-            <time dateTime={video.publishedAt} title={fullTime(video.publishedAt)}>
-              {timeAgo(video.publishedAt, now)}
-            </time>
+            {/* A video that has left the Videos view comes from YouTube's oEmbed, which has no date. */}
+            {video.publishedAt && (
+              <>
+                <span>·</span>
+                <time dateTime={video.publishedAt} title={fullTime(video.publishedAt)}>
+                  {timeAgo(video.publishedAt, now)}
+                </time>
+              </>
+            )}
             {video.views ? <span>· {compactCount(video.views)} {video.views === 1 ? "view" : "views"}</span> : null}
           </p>
           <h1 lang="bn" className="mt-3 text-[24px] font-semibold leading-[1.45] tracking-tight sm:text-[28px]">

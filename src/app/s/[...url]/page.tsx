@@ -5,14 +5,15 @@ import { cache, type ReactNode } from "react";
 import { ItemTime } from "@/components/ItemTime";
 import { BartaboardLogo } from "@/components/BartaboardLogo";
 import { SocialLinks } from "@/components/InfoPage";
+import { SharePicture } from "@/components/SharePicture";
 import { SharedVideo } from "@/components/SharedVideo";
 import { SourceLogo } from "@/components/SourceCard";
 import { ArrowUpRightIcon } from "@/components/ui";
 import { thumb, watchUrl } from "@/components/youtube";
-import { articleUrl, getSharedArticle } from "@/lib/article";
+import { getSharedArticle } from "@/lib/article";
 import { CATEGORIES } from "@/lib/categories";
 import { getServedLogo } from "@/lib/logos";
-import { sharedVideoId, sharePath, videoSharePath } from "@/lib/share";
+import { articleUrl, sharedVideoId, videoSharePath } from "@/lib/share";
 import { getVideos } from "@/lib/videos";
 
 const CATEGORY_LABEL = new Map(CATEGORIES.map((c) => [c.id, c.label]));
@@ -74,7 +75,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description: summary,
-      url: sharePath(article.link),
+      // The link as it was shared: short (/s/261014-k3x9pq2m) or the article's address.
+      url: `/s/${url.join("/")}`,
       siteName: `Bartaboard · ${source.name}`,
       type: "article",
       ...(image && { images: [{ url: image }] }),
@@ -104,7 +106,8 @@ export default async function SharePage({ params }: Props) {
   }
   const article = await getSharedArticle(url.join("/"));
   if (!article) {
-    // Still one of our outlets, but its headline is gone and the site can't be read: just go there.
+    // Still one of our outlets, but its headline is gone and the site can't be read: just go there. A short
+    // link whose headline has left the day files (30 days) goes to the board.
     const found = articleUrl(url);
     if (found) redirect(found.url.href);
     redirect("/");
@@ -117,15 +120,12 @@ export default async function SharePage({ params }: Props) {
   return (
     <SharePageShell>
       <article className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
-        {image && (
-          // eslint-disable-next-line @next/next/no-img-element -- the outlet's own image, hotlinked as-is
-          <img
-            src={image}
-            alt=""
-            referrerPolicy="no-referrer"
-            className="aspect-[1.91/1] w-full bg-surface-2 object-cover"
-          />
-        )}
+        <SharePicture
+          image={image}
+          source={source}
+          shape={logo === undefined ? undefined : (logo?.shape ?? null)}
+          section={item && item.category !== "other" ? CATEGORY_LABEL.get(item.category) : undefined}
+        />
         <div className="p-5 sm:p-7">
           <SourceLogo source={source} shape={logo === undefined ? undefined : (logo?.shape ?? null)} />
           {item && (

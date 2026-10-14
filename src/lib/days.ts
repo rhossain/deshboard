@@ -23,6 +23,26 @@ export function readDay(date: string): string | null {
   }
 }
 
+/**
+ * A kept day's file as the site serves it (the search reads it): without the headlines' pictures, which
+ * only the share page needs (see NewsItem.image). Null when there is none.
+ */
+export function servedDay(date: string): string | null {
+  const text = readDay(date);
+  if (!text) return null;
+  try {
+    const day = JSON.parse(text) as NewsDay;
+    return JSON.stringify({ ...day, items: day.items.map(({ image: _image, ...it }) => it) } satisfies NewsDay); // eslint-disable-line @typescript-eslint/no-unused-vars
+  } catch {
+    return text;
+  }
+}
+
+/** A kept day's headlines, with their pictures; empty when there is no such day. */
+export function dayItems(date: string): NewsItem[] {
+  return parseDay(readDay(date), date);
+}
+
 /** A day file's headlines; a damaged file is started over rather than stopping every save from here on. */
 function parseDay(text: string | null, date: string): NewsItem[] {
   if (!text) return [];

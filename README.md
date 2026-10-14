@@ -99,6 +99,10 @@ src/lib/fetchers/sitemap.ts Google News sitemap parser
 src/lib/fetchers/html.ts   homepage headline extractor (cheerio)
 src/lib/fetchers/google-news.ts Google News site search feed, and turning its links into the articles' addresses
 src/lib/google-news.ts     the fallback for sites that refuse us: address cache and lookup budget
+src/lib/share.ts           share links (/s/<yymmdd>-<key>, and the older /s/<article address>), the share sheet's targets
+src/lib/article.ts         finds a shared headline (cache, then the day files), its picture and summary, for /s/…
+src/lib/outlet-head.ts     an article page's own title, picture and date, for link previews
+src/lib/pictures.ts        reads new headlines' pictures from their pages in the background refresh, when the feed has none
 src/components/NewsBoard.tsx  UI: top stories, Newsstand (cards by outlet), latest timeline, filters, search, "new" marks
 src/components/VideoBoard.tsx Videos view (its own chunk, loaded with /api/videos only when Videos is opened)
 ```

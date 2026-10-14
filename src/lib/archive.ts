@@ -35,6 +35,20 @@ function articleKeys(it: NewsItem): [string, string] {
 }
 
 /**
+ * `fresh`, each headline with the picture `kept` has for its address when its own feed gave none (or
+ * once read from its page, see pictures.ts): looked for once, not every run.
+ */
+export function withPictures(fresh: NewsItem[], kept: NewsItem[]): NewsItem[] {
+  const pictures = new Map<string, string | null>();
+  for (const it of kept) if (it.image !== undefined) pictures.set(addressKey(it.link), it.image);
+  return fresh.map((it) => {
+    if (it.image !== undefined) return it;
+    const image = pictures.get(addressKey(it.link));
+    return image === undefined ? it : { ...it, image };
+  });
+}
+
+/**
  * A day's headlines: what was kept of it before, with the fresh ones added. The cache only reaches back 72
  * hours, so the oldest day it has is partial; merging keeps the part that has already left it. The fresh
  * copy of an article wins (a corrected title, a found time). Newest first.
@@ -42,7 +56,7 @@ function articleKeys(it: NewsItem): [string, string] {
 export function mergeDay(kept: NewsItem[], fresh: NewsItem[]): NewsItem[] {
   const seen = new Set<string>();
   const out: NewsItem[] = [];
-  for (const it of [...fresh, ...kept]) {
+  for (const it of [...withPictures(fresh, kept), ...kept]) {
     const keys = articleKeys(it);
     if (keys.some((k) => seen.has(k))) continue;
     for (const k of keys) seen.add(k);

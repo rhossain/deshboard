@@ -1,5 +1,5 @@
 import { looksLikeXml } from "./http";
-import { isValid, type RawItem } from "./rss";
+import { isValid, pictureUrl, type RawItem, withPicture } from "./rss";
 import { asArray, cleanTitle, parseDate, resolveUrl, textOf } from "./utils";
 import { xmlParser } from "./xml";
 
@@ -9,7 +9,8 @@ type Node = Record<string, unknown>;
  * Parse a Google News sitemap:
  *   <url><loc>…</loc><news:news><news:title>…</news:title>
  *   <news:publication_date>…</news:publication_date></news:news></url>
- * Entries without a news:title are skipped (a plain sitemap has no headlines).
+ * Entries without a news:title are skipped (a plain sitemap has no headlines). A picture comes from
+ * <image:image><image:loc>, when the sitemap has them.
  */
 export function parseNewsSitemap(xml: string, baseUrl: string): RawItem[] {
   if (!looksLikeXml(xml)) throw new Error("Response is not XML (probably an HTML error page)");
@@ -27,6 +28,8 @@ export function parseNewsSitemap(xml: string, baseUrl: string): RawItem[] {
       link: resolveUrl(textOf(u.loc), baseUrl) ?? "",
       publishedAt: parseDate(news?.publication_date ?? u.lastmod),
       tags: textOf(news?.keywords).split(",").map((k) => k.trim()).filter(Boolean),
+      // Google's image sitemap extension: <image:image><image:loc>…</image:loc></image:image>.
+      ...withPicture(asArray(u.image as Node | Node[]).map((img) => pictureUrl(typeof img === "object" ? img.loc : img, baseUrl)).find(Boolean)),
     };
   });
 

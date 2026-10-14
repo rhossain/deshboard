@@ -2,7 +2,10 @@ import * as cheerio from "cheerio";
 import { cache } from "react";
 import { fetchText } from "./fetchers/http";
 import { cleanTitle } from "./fetchers/utils";
+import { dayItems } from "./days";
 import { cachedResult } from "./news";
+import { slugTitle } from "./outlet-head";
+import { articleUrl, linkKey, sharedId, shareKey } from "./share";
 import { ACTIVE_SOURCES, SOURCES } from "./sources";
 import { findStories } from "./stories";
 import type { NewsItem, NewsSource } from "./types";
@@ -21,6 +24,7 @@ export interface SharedArticle {
 }
 
 const META_TTL_MS = 6 * 3600_000;
+const META_RETRY_MS = 3600_000;
 const META_MAX = 500;
 const META_TIMEOUT_MS = 5000;
 
@@ -28,60 +32,40 @@ type Meta = { title?: string; description?: string; image?: string };
 const g = globalThis as unknown as { __articleMeta?: Map<string, { at: number; meta: Meta }> };
 const metaCache = (g.__articleMeta ??= new Map());
 
-const hostKey = (host: string) => host.replace(/^www\./, "").toLowerCase();
-/** Compare links regardless of scheme, `www.`, a trailing slash or percent-encoding. */
-const linkKey = (link: string) => {
-  try {
-    const u = new URL(link);
-    return hostKey(u.host) + u.pathname.replace(/\/$/, "");
-  } catch {
-    return link;
-  }
-};
-
-/** The source whose site (or a subdomain of it) serves `url`. */
-function sourceFor(url: URL): NewsSource | undefined {
-  const host = hostKey(url.host);
-  const matches = SOURCES.filter((s) => {
-    const home = new URL(s.homepage);
-    const site = hostKey(home.host);
-    const base = home.pathname.replace(/\/$/, "");
-    return (
-      (host === site || host.endsWith(`.${site}`)) && (url.pathname === base || url.pathname.startsWith(`${base}/`))
-    );
-  });
-  // The most specific homepage wins: bangla.thedailystar.net is "The Daily Star Bangla", and
-  // tbsnews.net/bangla/… is "TBS Bangla", not "The Business Standard".
-  return matches.sort((a, b) => b.homepage.length - a.homepage.length)[0];
-}
-
-/**
- * The article URL in a share path (`/s/<host>/<path>`), or null. Only links to the outlets on the
- * board are accepted, so a share link can't be used to send readers to an arbitrary site.
- */
-export function articleUrl(segments: string[]): { url: URL; source: NewsSource } | null {
-  if (!segments.length) return null;
-  try {
-    const url = new URL(`https://${segments.join("/")}`);
-    const source = sourceFor(url);
-    return source ? { url, source } : null;
-  } catch {
-    return null;
-  }
-}
+const cachedItems = () => ACTIVE_SOURCES.flatMap((s) => cachedResult(s.id)?.items ?? []);
 
 function findItem(link: string): NewsItem | undefined {
   const key = linkKey(link);
-  for (const s of ACTIVE_SOURCES) {
-    const hit = cachedResult(s.id)?.items.find((it) => linkKey(it.link) === key);
-    if (hit) return hit;
+  return cachedItems().find((it) => linkKey(it.link) === key);
+}
+
+const DAY_MS = 86_400_000;
+/** The day `days` from `date`; `date` itself when it isn't a real day ("2026-13-45" from a mistyped link). */
+function shiftDay(date: string, days: number): string {
+  const time = Date.parse(`${date}T00:00:00Z`);
+  return Number.isNaN(time) ? date : new Date(time + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * The headline a short link (`/s/261014-k3x9pq2m`, see shortSharePath) names: among the cached ones
+ * (the last 72 hours, with the homepage ones that have no time), then in its day's file and the days
+ * either side (a headline moves day when its outlet corrects its time).
+ */
+function findByKey(key: string, date: string): NewsItem | undefined {
+  const hit = (items: NewsItem[]) => items.find((it) => shareKey(it.link) === key);
+  const cached = hit(cachedItems());
+  if (cached) return cached;
+  for (const day of [date, shiftDay(date, -1), shiftDay(date, 1)]) {
+    const found = hit(dayItems(day));
+    if (found) return found;
   }
 }
 
 /** Title, summary and image from the article's Open Graph tags; cached, and empty on failure. */
 async function articleMeta(link: string): Promise<Meta> {
   const hit = metaCache.get(link);
-  if (hit && Date.now() - hit.at < META_TTL_MS) return hit.meta;
+  // A page that gave no picture (or didn't answer in time) is asked again sooner.
+  if (hit && Date.now() - hit.at < (hit.meta.image ? META_TTL_MS : META_RETRY_MS)) return hit.meta;
 
   let meta: Meta = {};
   try {
@@ -110,31 +94,47 @@ async function articleMeta(link: string): Promise<Meta> {
 
 /** The other outlets' headlines in the same story as `item`. */
 function relatedTo(item: NewsItem): NewsItem[] {
-  const items = ACTIVE_SOURCES.flatMap((s) => cachedResult(s.id)?.items ?? []);
-  const story = findStories(items).find((st) => st.items.some((it) => it.link === item.link));
+  const story = findStories(cachedItems()).find((st) => st.items.some((it) => it.link === item.link));
   return story?.items.filter((it) => it.link !== item.link) ?? [];
 }
 
 /**
- * The shared headline for a share path's segments, or null when the link isn't to an outlet on the
- * board or no title can be found. Memoized per request (metadata and page both ask).
+ * The shared headline for a share path's segments: a short link's (see shortSharePath), or an article
+ * address on one of the board's outlets. Null when there is none, or no title can be found. Memoized
+ * per request (metadata and page both ask).
  */
 export const getSharedArticle = cache(async (path: string): Promise<SharedArticle | null> => {
-  const found = articleUrl(path.split("/"));
-  if (!found) return null;
-  const item = findItem(found.url.href);
-  const link = item?.link ?? found.url.href;
+  const segments = path.split("/");
+  const id = sharedId(segments);
+  let item: NewsItem | undefined;
+  let url: URL;
+  let source: NewsSource;
+  if (id) {
+    item = findByKey(id.key, id.date);
+    const found = item && SOURCES.find((s) => s.id === item!.sourceId);
+    if (!item || !found) return null;
+    url = new URL(item.link);
+    source = found;
+  } else {
+    const found = articleUrl(segments);
+    if (!found) return null;
+    ({ url, source } = found);
+    item = findItem(url.href);
+    if (item) source = SOURCES.find((s) => s.id === item!.sourceId) ?? source;
+  }
+  const link = item?.link ?? url.href;
   const meta = await articleMeta(link);
-  // Prefer the headline as it appeared on the board; fall back to the article's own title.
-  const title = item?.title ?? meta.title;
+  // Prefer the headline as it appeared on the board; then the article's own title; then its address.
+  const title = item?.title ?? meta.title ?? slugTitle(url);
   if (!title) return null;
   return {
     link,
     title,
-    source: item ? (SOURCES.find((s) => s.id === item.sourceId) ?? found.source) : found.source,
+    source,
     item,
     description: meta.description,
-    image: meta.image,
+    // The picture the refresh found (see pictures.ts), else the one on the article's page now.
+    image: item?.image ?? meta.image,
     related: item ? relatedTo(item) : [],
   };
 });
