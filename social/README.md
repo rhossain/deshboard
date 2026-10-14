@@ -88,11 +88,13 @@ so Meta doesn't treat them as political ads). Outlets appear by name only, never
 | `bartaboard-feed-2-probashi.png` | 1080×1350 | Feed, probashi (pairs with reel 2) |
 | `bartaboard-feed-3-top-stories.png` | 1080×1350 | Feed, both (pairs with reel 3) |
 | `bartaboard-feed-4-fifty-outlets.png` | 1080×1350 | Feed, both |
+| `bartaboard-feed-video-1…3-*.mp4` | 1080×1350, 15 s | Feed version of each reel (the middle 4:5 of it) |
 | `*-cover.png` | 1080×1920 | Thumbnails for the reels |
 
 The videos are silent: add a track from Meta's music library in Ads Manager (Reels do better with sound). In each
 ad, turn off Advantage+ creative "text improvements" and "visual touch-ups", which can rewrite or crop the Bangla.
-Pair each reel with its feed image in one ad (placement asset customisation): reel for Reels and Stories, image for Feed.
+In a video ad, give Feeds its `feed-video` (Ads Manager's "Replace media for Feeds" takes only video); the feed
+images are for image ads.
 
 **Ad text** (Website URL: `https://bartaboard.com/bn/`; URL parameters as in `docs/promotion.md`; button: Learn more):
 
