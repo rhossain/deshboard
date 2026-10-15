@@ -55,6 +55,13 @@ export function sharedId(segments: string[]): { date: string; key: string } | nu
 }
 
 /**
+ * Which share-index shard a key lives in: a single character (the key's first base-36 digit). The static
+ * site shaves its share index by that, so a lookup only reads the shards that have a key starting with
+ * that digit. See src/lib/share-lookup.ts.
+ */
+export const shareShard = (key: string) => key[0];
+
+/**
  * What a shared link says alongside the link itself, in WhatsApp, Telegram, X and the system share
  * menu: the headline, where it is from, and where it was found.
  */

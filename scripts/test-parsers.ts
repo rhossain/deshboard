@@ -23,9 +23,11 @@ import { DEFAULT_FILTERS, filtersToSearch, parseFilters } from "../src/lib/filte
 import { stampFirstSeen } from "../src/lib/first-seen";
 import { findLogoCandidates } from "../src/lib/logos";
 import { forBoard, mergeNews, newsQueryFrom } from "../src/lib/news";
+import { applyDelta, makeDelta, packDay, packFeed, unpackDay, unpackFeed, withoutPictures } from "../src/lib/packed";
 import { fallbackNote, sourceProblem } from "../src/lib/problems";
 import {
   articleUrl,
+  linkKey,
   SHARE_TARGETS,
   sharedId,
   sharedVideoId,
@@ -35,12 +37,41 @@ import {
   shortSharePath,
   videoSharePath,
 } from "../src/lib/share";
+import { buildShareIndex } from "../src/lib/share-index";
+import { datesToSearch, findShared, findSharedVideo, SHARE_DIR, type ShareLoader } from "../src/lib/share-lookup";
 import { parseHead, slugTitle } from "../src/lib/outlet-head";
 import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { compileSearch, installSearchTerms } from "../src/lib/search";
 import { SEARCH_TERMS } from "../src/lib/search-terms";
-import { findStories, keywords } from "../src/lib/stories";
-import type { NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
+import { findStories, keywords, type Story } from "../src/lib/stories";
+import { OUTLETS } from "../src/lib/directory";
+import { OUTLET_PROFILES } from "../src/lib/outlet-profiles";
+import { outletDescription } from "../src/lib/site";
+import {
+  pickRoundup,
+  pickVideo,
+  roundupHeading,
+  roundupMessage,
+  roundupRecord,
+  videoMessage,
+  videoRecord,
+  videoStories,
+} from "../src/lib/page-video-posts";
+import {
+  dueSlot,
+  headlinesMessage,
+  headlinesRecord,
+  isSensitive,
+  pickHeadlines,
+  parseSlots,
+  pickStory,
+  postMessage,
+  postRecord,
+  type PostRecord,
+  SLOTS,
+  storySection,
+} from "../src/lib/page-posts";
+import type { NewsFeed, NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
 import { mergeVideos } from "../src/lib/videos";
 import { groupVideos, tagStories, videoKeywords } from "../src/lib/video-stories";
 
@@ -101,6 +132,71 @@ test("Google News sitemap", () => {
   assert.equal(items.length, 2);
   assert.equal(items[0].link, "https://www.jugantor.com/country-news/1163659"); // newest first
   assert.equal(items[1].title, "'বাংলাদেশ পর্যটন পুরস্কার ২০২৬' পেলেন সাংবাদিক নাঈম আবির");
+});
+
+test("pictures: Media RSS, enclosures, an <img> in the description, sitemap image:loc", () => {
+  const rss = `<?xml version="1.0"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+    <item><title>Dhaka Post style</title><link>https://www.dhakapost.com/a/1</link>
+      <media:content medium="image" width="1200" url="https://assets.dhakapost.com/og/a.jpg?cid=1"/></item>
+    <item><title>Khola Kagoj style</title><link>https://kholakagojbd.com/news/2</link>
+      <enclosure url="https://kholakagojbd.com/2026/10/14/kk_2.jpg" length="0" type="image/jpeg"/></item>
+    <item><title>Audio is not a picture</title><link>https://x.test/3</link>
+      <enclosure url="https://x.test/3.mp3" type="audio/mpeg"/></item>
+    <item><title>Risingbd style</title><link>https://www.risingbd.com/news/4</link>
+      <description><![CDATA[<p><img alt="" src="/media/imgAll/4.jpg?w=1&amp;h=2"/></p> Text]]></description></item>
+    <item><title>Thumbnail in a group</title><link>https://x.test/5</link>
+      <media:group><media:thumbnail url="https://x.test/5-thumb.jpg"/></media:group></item>
+    <item><title>No picture at all</title><link>https://x.test/6</link><description>Just words</description></item>
+  </channel></rss>`;
+  const items = parseFeed(rss, "https://www.risingbd.com/rss/rss.xml");
+  assert.deepEqual(
+    items.map((it) => it.image),
+    [
+      "https://assets.dhakapost.com/og/a.jpg?cid=1",
+      "https://kholakagojbd.com/2026/10/14/kk_2.jpg",
+      undefined,
+      "https://www.risingbd.com/media/imgAll/4.jpg?w=1&h=2",
+      "https://x.test/5-thumb.jpg",
+      undefined,
+    ],
+  );
+  assert.equal("image" in items[5], false);
+
+  const sitemap = `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+    <url><loc>https://www.ittefaq.com.bd/815055/a</loc>
+      <news:news><news:publication_date>2026-10-14T10:00:00+06:00</news:publication_date><news:title>Ittefaq headline</news:title></news:news>
+      <image:image><image:loc>https://cdn.ittefaqbd.com/contents/cache/images/1200x0x1/a.jpg?jadewits_media_id=1</image:loc></image:image></url>
+    <url><loc>https://www.ittefaq.com.bd/815056/b</loc>
+      <news:news><news:publication_date>2026-10-14T09:00:00+06:00</news:publication_date><news:title>No picture here</news:title></news:news></url>
+  </urlset>`;
+  const sm = parseNewsSitemap(sitemap, "https://www.ittefaq.com.bd/news-sitemap.xml");
+  assert.equal(sm[0].image, "https://cdn.ittefaqbd.com/contents/cache/images/1200x0x1/a.jpg?jadewits_media_id=1");
+  assert.equal(sm[1].image, undefined);
+});
+
+test("pictures: kept between runs and in the day archive, left out of the board's files", () => {
+  const base = { sourceId: "s", sourceName: "S", lang: "en" as const, category: "national" as const };
+  const kept: NewsItem[] = [
+    { ...base, title: "Found once", link: "https://s.test/a/1", publishedAt: "2026-10-14T04:00:00.000Z", image: "https://s.test/1.jpg" },
+    { ...base, title: "Looked for, none", link: "https://s.test/a/2", publishedAt: "2026-10-14T03:00:00.000Z", image: null },
+  ];
+  // The feed names no pictures: each headline keeps what was found before (and isn't looked for again).
+  const fresh: NewsItem[] = kept.map(({ image: _i, ...it }) => it); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const merged = mergeNews(fresh, kept, Date.parse("2026-10-14T06:00:00Z"));
+  assert.equal(merged.find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
+  assert.equal(merged.find((it) => it.link.endsWith("/2"))?.image, null);
+  assert.equal(mergeDay(kept, fresh).find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
+
+  const day = packDay({ date: "2026-10-14", items: merged });
+  const back = unpackDay(day).items;
+  assert.equal(back.find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
+  assert.equal(back.find((it) => it.link.endsWith("/2"))?.image, null);
+  const served = withoutPictures(day);
+  assert.ok(served.sources[0].items.every((it) => it.length <= 5));
+  assert.equal(unpackDay(served).items[0].image, undefined);
+  const feed = packFeed({ generatedAt: "", logos: {}, logoShapes: {}, results: [{ ...base, method: "rss", ok: true, count: 2, durationMs: 0, fetchedAt: "", items: merged }] } as NewsFeed);
+  assert.ok(feed.results[0].items.every((it) => it.length <= 5));
 });
 
 test("Plain sitemap without titles is reported", () => {
@@ -484,6 +580,12 @@ test("share: path round trip, most specific outlet wins", () => {
   assert.equal(articleUrl(segs("https://www.tbsnews.net/banglax/1"))?.source.id, "tbs");
 });
 
+test("share: a shared link finds its headline despite scheme, www, slash or encoding", () => {
+  const key = linkKey("https://www.dhakatribune.com/bangladesh/421356/woman%E2%80%99s-body/");
+  assert.equal(linkKey("http://dhakatribune.com/bangladesh/421356/woman’s-body"), key);
+  assert.equal(linkKey(articleUrl("www.dhakatribune.com/bangladesh/421356/woman’s-body".split("/"))!.url.href), key);
+});
+
 test("share: links to other sites are refused", () => {
   for (const path of [
     "evil.test/x",
@@ -529,6 +631,71 @@ test("share: short links carry the day and a key that ignores scheme, www and sl
   for (const bad of ["261014", "261014-abc", "261014-ABCDEFGH", "2610145-abcdefgh", "261014-abcdefgh/x", "www.prothomalo.com"]) {
     assert.equal(sharedId(bad.split("/")), null, bad);
   }
+  assert.deepEqual(datesToSearch("2026-10-01"), ["2026-10-01", "board", "2026-09-30", "2026-10-02"]);
+  // A mistyped day is looked for as it is, not thrown on.
+  assert.deepEqual(datesToSearch("2026-13-99"), ["2026-13-99", "board", "2026-13-99", "2026-13-99"]);
+});
+
+test("share index: a short link finds its headline, its story and its outlet's logo; a video its channel", async () => {
+  const item = (title: string, link: string, sourceId: string, sourceName: string, publishedAt?: string): NewsItem => ({
+    title,
+    link,
+    sourceId,
+    sourceName,
+    lang: "bn",
+    category: "politics",
+    publishedAt,
+  });
+  const a = item("ঢাকায় সংসদ নির্বাচনের তফসিল ঘোষণা করল নির্বাচন কমিশন", "https://www.prothomalo.com/politics/a1", "prothomalo", "Prothom Alo", "2026-10-14T04:00:00Z");
+  const b = item("সংসদ নির্বাচনের তফসিল ঘোষণা করল নির্বাচন কমিশন ঢাকায়", "https://www.jugantor.com/politics/1168001", "jugantor", "Jugantor", "2026-10-14T04:30:00Z");
+  b.image = "https://cdn.jugantor.com/og/1168001.jpg";
+  const undated = item("হোমপেজের শিরোনাম", "https://www.samakal.com/x/123", "samakal", "Samakal");
+  const files = buildShareIndex(
+    new Map([["2026-10-14", [a, b]]]),
+    [a, b, undated],
+    { logos: { prothomalo: "/logos/prothomalo.png" }, logoShapes: {} },
+    { generatedAt: "", channels: [{ id: "somoy", name: "Somoy TV", ok: true }], videos: [{ id: "2_G1z7wpfSE", channel: "somoy", title: "ভিডিও", publishedAt: "2026-10-14T05:00:00Z" }] },
+    Date.parse("2026-10-14T06:00:00Z"),
+  );
+  const store = new Map<string, unknown>([...files.files].map(([name, f]) => [`${SHARE_DIR}/${name}.json`, f]));
+  store.set(`${SHARE_DIR}/meta.json`, files.meta);
+  const load: ShareLoader = async (p) => (store.get(p) ?? null) as never;
+
+  const id = sharedId(shortSharePath(a.link, "2026-10-14").slice(3).split("/"))!;
+  const found = await findShared(id.key, datesToSearch(id.date), load);
+  assert.equal(found?.item.title, a.title);
+  assert.equal(found?.item.publishedAt, "2026-10-14T04:00:00.000Z");
+  assert.deepEqual(found?.related.map((r) => r.sourceId), ["jugantor"]);
+  assert.equal(found?.logos.logos.prothomalo, "/logos/prothomalo.png");
+  // A picture only where the fetch found one; the share function looks for the rest.
+  assert.equal(found?.image, undefined);
+  const withImage = await findShared(shareKey(b.link), datesToSearch("2026-10-14"), load);
+  assert.equal(withImage?.image, "https://cdn.jugantor.com/og/1168001.jpg");
+  assert.equal(withImage?.related[0].sourceId, "prothomalo");
+  // Filed a day off (its time was corrected): still found.
+  assert.equal((await findShared(id.key, datesToSearch("2026-10-15"), load))?.item.link, a.link);
+  // Undated homepage headlines are kept with the board's.
+  assert.equal((await findShared(shareKey(undated.link), datesToSearch("2026-10-14"), load))?.item.title, undated.title);
+  assert.equal(await findShared("zzzzzzzz", datesToSearch("2026-10-14"), load), null);
+
+  // A big story keeps six of the other outlets' headlines, and counts them all. (Filler, so its words are
+  // rare enough to link headlines.)
+  const many = Array.from({ length: 7 }, (_, i) =>
+    item("ঢাকায় সংসদ নির্বাচনের তফসিল ঘোষণা করল নির্বাচন কমিশন", `https://o${i}.test/a`, `o${i}`, `O${i}`, "2026-10-14T05:00:00Z"),
+  );
+  const filler = Array.from({ length: 400 }, (_, i) =>
+    item(`filler story number ${i} about topic ${i}`, `https://f.test/${i}`, `f${i % 9}`, "F", "2026-10-14T03:00:00Z"),
+  );
+  const big = buildShareIndex(new Map([["2026-10-14", [a, ...many, ...filler]]]), [], { logos: {}, logoShapes: {} }, { generatedAt: "", channels: [], videos: [] }, Date.parse("2026-10-14T06:00:00Z"));
+  const bigLoad: ShareLoader = async (p) => (big.files.get(p.slice(SHARE_DIR.length + 1, -5)) ?? null) as never;
+  const crowded = await findShared(shareKey(a.link), ["2026-10-14"], bigLoad);
+  assert.equal(crowded?.related.length, 6);
+  assert.equal(crowded?.others, 7);
+  assert.equal(found?.others, undefined, "no count when every one is listed");
+
+  const video = await findSharedVideo("2_G1z7wpfSE", load);
+  assert.equal(video?.channelName, "Somoy TV");
+  assert.equal(video?.video.channel, "somoy");
 });
 
 test("outlet pages: title, picture and date from the head; a title from the address otherwise", () => {
@@ -558,76 +725,6 @@ test("outlet pages: title, picture and date from the head; a title from the addr
   assert.equal(slugTitle(new URL("https://www.thedailystar.net/news/news/german-tourists-stolen-laptop-recovered-natore-4296596")), "German tourists stolen laptop recovered natore");
   assert.equal(slugTitle(new URL("https://bangla.bdnews24.com/bangladesh/f2sv381a14")), null);
   assert.equal(slugTitle(new URL("https://www.jugantor.com/country-news/1168824")), null);
-});
-
-test("pictures: Media RSS, enclosures, an <img> in the description, sitemap image:loc", () => {
-  const rss = `<?xml version="1.0"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
-    <item><title>Dhaka Post style</title><link>https://www.dhakapost.com/a/1</link>
-      <media:content medium="image" width="1200" url="https://assets.dhakapost.com/og/a.jpg?cid=1"/></item>
-    <item><title>Khola Kagoj style</title><link>https://kholakagojbd.com/news/2</link>
-      <enclosure url="https://kholakagojbd.com/2026/10/14/kk_2.jpg" length="0" type="image/jpeg"/></item>
-    <item><title>Audio is not a picture</title><link>https://x.test/3</link>
-      <enclosure url="https://x.test/3.mp3" type="audio/mpeg"/></item>
-    <item><title>Risingbd style</title><link>https://www.risingbd.com/news/4</link>
-      <description><![CDATA[<p><img alt="" src="/media/imgAll/4.jpg?w=1&amp;h=2"/></p> Text]]></description></item>
-    <item><title>Thumbnail in a group</title><link>https://x.test/5</link>
-      <media:group><media:thumbnail url="https://x.test/5-thumb.jpg"/></media:group></item>
-    <item><title>No picture at all</title><link>https://x.test/6</link><description>Just words</description></item>
-  </channel></rss>`;
-  const items = parseFeed(rss, "https://www.risingbd.com/rss/rss.xml");
-  assert.deepEqual(
-    items.map((it) => it.image),
-    [
-      "https://assets.dhakapost.com/og/a.jpg?cid=1",
-      "https://kholakagojbd.com/2026/10/14/kk_2.jpg",
-      undefined,
-      "https://www.risingbd.com/media/imgAll/4.jpg?w=1&h=2",
-      "https://x.test/5-thumb.jpg",
-      undefined,
-    ],
-  );
-  assert.equal("image" in items[5], false);
-
-  const sitemap = `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-    xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-    <url><loc>https://www.ittefaq.com.bd/815055/a</loc>
-      <news:news><news:publication_date>2026-10-14T10:00:00+06:00</news:publication_date><news:title>Ittefaq headline</news:title></news:news>
-      <image:image><image:loc>https://cdn.ittefaqbd.com/contents/cache/images/1200x0x1/a.jpg?jadewits_media_id=1</image:loc></image:image></url>
-    <url><loc>https://www.ittefaq.com.bd/815056/b</loc>
-      <news:news><news:publication_date>2026-10-14T09:00:00+06:00</news:publication_date><news:title>No picture here</news:title></news:news></url>
-  </urlset>`;
-  const sm = parseNewsSitemap(sitemap, "https://www.ittefaq.com.bd/news-sitemap.xml");
-  assert.equal(sm[0].image, "https://cdn.ittefaqbd.com/contents/cache/images/1200x0x1/a.jpg?jadewits_media_id=1");
-  assert.equal(sm[1].image, undefined);
-});
-
-test("pictures: kept between refreshes and in the day files, left out of the board's", () => {
-  const base = { sourceId: "s", sourceName: "S", lang: "en" as const, category: "national" as const };
-  const kept: NewsItem[] = [
-    { ...base, title: "Found once", link: "https://s.test/a/1", publishedAt: "2026-10-14T04:00:00.000Z", image: "https://s.test/1.jpg" },
-    { ...base, title: "Looked for, none", link: "https://s.test/a/2", publishedAt: "2026-10-14T03:00:00.000Z", image: null },
-  ];
-  // The feed names no pictures: each headline keeps what was found before (and isn't looked for again).
-  const fresh: NewsItem[] = kept.map(({ image: _i, ...it }) => it); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const now = Date.parse("2026-10-14T06:00:00Z");
-  const merged = mergeNews(fresh, kept, now);
-  assert.equal(merged.find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
-  assert.equal(merged.find((it) => it.link.endsWith("/2"))?.image, null);
-  assert.equal(mergeDay(kept, fresh).find((it) => it.link.endsWith("/1"))?.image, "https://s.test/1.jpg");
-  const board = forBoard({ ...base, method: "rss", ok: true, count: 2, durationMs: 0, fetchedAt: "", items: merged } as SourceResult, now);
-  assert.equal(board.items.length, 2);
-  assert.ok(board.items.every((it) => !("image" in it)));
-});
-
-test("news query from the request URL", () => {
-  assert.deepEqual(newsQueryFrom("http://x.test/api/news"), { lang: undefined, sourceIds: undefined, force: false });
-  assert.deepEqual(newsQueryFrom("http://x.test/api/news?lang=bn&source=a,%20b,,&refresh=1"), {
-    lang: "bn",
-    sourceIds: ["a", "b"],
-    force: true,
-  });
-  assert.equal(newsQueryFrom("http://x.test/?lang=fr").lang, undefined);
-  assert.equal(newsQueryFrom("http://x.test/?refresh=true").force, false);
 });
 
 test("source problems explain the technical reason", () => {
@@ -1046,6 +1143,241 @@ test("Fallback note: why a source's headlines come from Google News", () => {
   // A site read only through Google News: its notes say why.
   const jsOnly = fallbackNote({ ...base, via: "google-news", directError: "No feed/sitemap; homepage JS-rendered" });
   assert.match(jsOnly?.detail ?? "", /loads its headlines with JavaScript.*Google News instead/);
+});
+
+test("Packed files: the same headlines back, and a delta that turns one build into the next", () => {
+  const item = (source: string, n: number, extra: Partial<NewsItem> = {}): NewsItem => ({
+    title: `${source} ${n}`,
+    link: `https://${source}.com/${n}`,
+    publishedAt: new Date(Date.UTC(2026, 9, 13, 10, 0, n)).toISOString(),
+    sourceId: source,
+    sourceName: source.toUpperCase(),
+    lang: source === "a" ? "bn" : "en",
+    category: "national",
+    ...extra,
+  });
+  const result = (source: string, items: NewsItem[]): SourceResult => ({
+    sourceId: source,
+    sourceName: source.toUpperCase(),
+    method: "rss",
+    ok: true,
+    count: items.length,
+    durationMs: 1,
+    fetchedAt: "2026-10-13T10:00:00.000Z",
+    items,
+  });
+  // (As the files would have them: no keys set to undefined.)
+  const feed = (at: string, results: SourceResult[]): NewsFeed =>
+    JSON.parse(JSON.stringify({ generatedAt: at, results, logos: {}, logoShapes: {} }));
+  // Undated, first seen (with milliseconds), dated: all as they were.
+  const undated = item("a", 9, { publishedAt: undefined });
+  const seen = item("a", 8, { publishedAt: undefined, seenAt: "2026-10-13T09:59:58.123Z" });
+  const one = feed("2026-10-13T10:00:00.000Z", [result("a", [item("a", 3), seen, undated]), result("b", [item("b", 1)]), result("c", [])]);
+  assert.deepEqual(unpackFeed(JSON.parse(JSON.stringify(packFeed(one)))), one);
+
+  // The next build: new headlines on top, one gone, one retitled, one source new, one source gone.
+  const two = feed("2026-10-13T10:15:00.000Z", [
+    result("a", [item("a", 5), item("a", 4), item("a", 3), undated]),
+    result("b", [item("b", 1, { title: "b one, corrected" })]),
+    result("d", [item("d", 1)]),
+  ]);
+  const delta = JSON.parse(JSON.stringify(makeDelta(one, two)));
+  assert.deepEqual(delta.results[0].items.slice(2), [[0, 1], [2, 1]]);
+  const applied = applyDelta(one, delta);
+  assert.deepEqual(applied, two);
+  // Headlines the board had are the same objects, so their cards don't redraw.
+  assert.equal(applied?.results[0].items[2], one.results[0].items[0]);
+  // A board on another build, or whose headlines don't fit the runs, loads the whole feed instead.
+  assert.equal(applyDelta({ ...one, generatedAt: "2026-10-13T09:45:00.000Z" }, delta), null);
+  assert.equal(applyDelta({ ...one, results: [result("a", [])] }, delta), null);
+
+  // Day files by outlet, newest first again; ones written before packing still read.
+  const day = { date: "2026-10-13", items: [item("b", 7), item("a", 6), item("b", 5), item("a", 4)] };
+  assert.deepEqual(unpackDay(JSON.parse(JSON.stringify(packDay(day)))), day);
+  assert.equal(unpackDay(day), day);
+});
+
+test("page posts: slots are due once, in their window, scheduled ahead in review", () => {
+  const slots = parseSlots("08:00, 13:00 video");
+  const at = (hhmm: string) => Date.parse(`2026-10-15T${hhmm}:00+06:00`);
+  assert.equal(dueSlot(at("07:59"), [], slots, 0), null);
+  assert.deepEqual(dueSlot(at("08:10"), [], slots, 0), { slot: at("08:00"), at: at("08:10"), content: "headlines" });
+  assert.equal(dueSlot(at("09:05"), [], slots, 0), null, "a run more than an hour late leaves the slot");
+  const posted = [{ slot: new Date(at("08:00")).toISOString() } as PostRecord];
+  assert.equal(dueSlot(at("08:20"), posted, slots, 0), null, "one post per slot");
+  // Review: 45 minutes ahead, never less than 15 minutes from now.
+  const lead = 45 * 60_000;
+  assert.deepEqual(dueSlot(at("12:15"), [], slots, lead), { slot: at("13:00"), at: at("13:00"), content: "video" });
+  assert.deepEqual(dueSlot(at("12:50"), [], slots, lead), { slot: at("13:00"), at: at("13:05"), content: "video" });
+  // Just after midnight in Dhaka, the night before's slots are still the night before's.
+  assert.deepEqual(dueSlot(Date.parse("2026-10-15T23:30:00+06:00"), [], parseSlots("23:00"), 0)?.slot, Date.parse("2026-10-15T23:00:00+06:00"));
+  assert.deepEqual(parseSlots("21:30 Roundup, 8:00, bad, 25:00, 9:15 video, 7:00 news"), [
+    { time: "07:00", content: "news" },
+    { time: "08:00", content: "headlines" },
+    { time: "09:15", content: "video" },
+    { time: "21:30", content: "roundup" },
+  ]);
+  assert.equal(parseSlots(""), SLOTS);
+  assert.deepEqual(
+    [...new Set(SLOTS.map((s) => s.content))].map((c) => SLOTS.filter((s) => s.content === c).length),
+    [5, 3, 2],
+    "five headlines, three videos, two roundups",
+  );
+});
+
+test("page posts: sensitive headlines", () => {
+  assert.ok(isSensitive("কিশোরীকে ধর্ষণের অভিযোগে গ্রেপ্তার"));
+  assert.ok(isSensitive("Student commits suicide in Rajshahi"));
+  assert.ok(!isSensitive("প্রশ্নপত্র ফাঁসের অভিযোগে পরীক্ষা স্থগিত"));
+  assert.ok(!isSensitive("Grape exports rise"));
+});
+
+test("page posts: the most covered fresh story, an outlet in turn, no repeats", () => {
+  const now = Date.parse("2026-10-15T07:00:00Z");
+  const ago = (min: number) => new Date(now - min * 60_000).toISOString();
+  const story = (title: string, sources: string[], extra: Partial<NewsItem> = {}, heat = sources.length): Story => {
+    const items = sources.map((s) => item(s, title, { publishedAt: ago(30), category: "national", ...extra }));
+    return { id: items[0].link, lead: items[0], items, outlets: sources.length, latest: ago(30), heat };
+  };
+  const big = story("সেতুর উদ্বোধন আজ পদ্মায়", ["a", "b", "c", "d"]);
+  const small = story("নতুন বাজেট সংসদে পেশ", ["a", "b", "c"], { category: "business" });
+  const stale = story("পুরোনো খবর অনেক আগের", ["a", "b", "c", "d", "e"]);
+  stale.latest = ago(300);
+  const two = story("দুটি পত্রিকার খবর এখানে", ["a", "b"]);
+  const grim = story("নদীতে ঝুলন্ত মরদেহ উদ্ধার", ["a", "b", "c", "d", "e", "f"]);
+  const stories = [grim, stale, two, big, small];
+  const options = { now, at: now, history: [] as PostRecord[], hasPicture: () => true };
+
+  const first = pickStory(stories, options)!;
+  assert.equal(first.story, big);
+  assert.equal(first.item.sourceId, "a", "the lead's outlet among equals");
+  assert.equal(postMessage(first), "সেতুর উদ্বোধন আজ পদ্মায়\n\na · আরও ৩টি সংবাদমাধ্যমেও এই খবর");
+
+  // Posted: not again, and the next post credits an outlet not credited yet.
+  const history = [postRecord(first, { kind: "slot", at: new Date(now - 3600_000).toISOString(), link: "", mode: "on" })];
+  const second = pickStory(stories, { ...options, history })!;
+  assert.equal(second.story, small);
+  assert.equal(second.item.sourceId, "b");
+  // Too close to the last post.
+  assert.equal(pickStory(stories, { ...options, history, at: now - 3600_000 + 10 * 60_000 }), null);
+  // No picture, no post.
+  assert.equal(pickStory([big], { ...options, hasPicture: () => false }), null);
+  assert.equal(pickStory([big], { ...options, hasPicture: (it) => it.sourceId === "c" })?.item.sourceId, "c");
+  // The same subject from another cluster isn't posted again either.
+  const again = story("পদ্মায় সেতুর উদ্বোধন আজ বিকেলে", ["e", "f", "g"]);
+  assert.equal(pickStory([again], { ...options, history }), null);
+  // Breaking: only big, new stories.
+  assert.equal(pickStory([big], { ...options, breaking: true }), null);
+  const breaking = story("বড় খবর এইমাত্র", ["a", "b", "c", "d", "e", "f", "g", "h"]);
+  assert.equal(pickStory([breaking], { ...options, breaking: true })?.story, breaking);
+});
+
+test("page posts: sections take turns and keep to their daily caps", () => {
+  const now = Date.parse("2026-10-15T07:00:00Z");
+  const items = ["a", "b", "c"].map((s, i) => item(s, "খবর", { category: i ? "politics" : "other" }));
+  const story: Story = { id: "x", lead: items[0], items, outlets: 3, latest: new Date(now).toISOString(), heat: 3 };
+  assert.equal(storySection(story), "politics");
+  const posted = (h: number, category: PostRecord["category"]): PostRecord => ({
+    kind: "slot", at: new Date(now - h * 3600_000).toISOString(), title: "", link: "", sourceId: "z", category, keys: [], words: [], mode: "on",
+  });
+  const options = { now, at: now, hasPicture: () => true };
+  assert.equal(pickStory([story], { ...options, history: [posted(2, "politics"), posted(4, "politics")] }), null);
+  assert.equal(pickStory([story], { ...options, history: [posted(2, "politics")] })?.story, story);
+});
+
+test("page posts: videos two or more channels have, a channel in turn, no repeats across headlines", () => {
+  const now = Date.parse("2026-10-15T08:00:00Z");
+  const ago = (min: number) => new Date(now - min * 60_000).toISOString();
+  let n = 0;
+  const video = (channel: string, title: string, min: number, extra: Partial<Video> = {}): Video => ({
+    id: `vid${String(++n).padStart(8, "0")}`, channel, title, publishedAt: ago(min), ...extra,
+  });
+  const fire = [video("somoy", "চকবাজারে কারখানায় আ/গু/ন, নিয়ন্ত্রণে ১০ ইউনিট", 30, { story: "f", views: 9000 }), video("jamuna", "চকবাজারে কারখানায় আগুন নিয়ন্ত্রণে", 60, { story: "f" }), video("ntv", "চকবাজারের আগুন নিয়ন্ত্রণে ১০ ইউনিট", 90, { story: "f" })];
+  const bank = [video("channel24", "ন্যাশনাল ব্যাংক আমানতকারীদের টাকা ফেরত দিচ্ছে", 40, { story: "b" }), video("ekhon", "আমানতকারীদের টাকা ফেরত দিচ্ছে ন্যাশনাল ব্যাংক", 50, { story: "b" })];
+  const grim = [video("rtv", "কিশোরীকে ধ/র্ষ/ণ, গ্রেপ্তার ১", 20, { story: "g" }), video("itv", "কিশোরীকে ধর্ষণের অভিযোগ", 25, { story: "g" })];
+  const alone = video("dbc", "একটি চ্যানেলের ভিডিও খবর একা", 10, { views: 50_000 });
+  const old = [video("somoy", "পুরোনো ভিডিও খবর গতকালের", 600, { story: "o" }), video("ntv", "পুরোনো ভিডিও খবর গতকালের", 610, { story: "o" })];
+  const stories = videoStories([...grim, alone, ...fire, ...bank, ...old], now);
+  assert.equal(stories.find((s) => s.id === "f")?.channels, 3);
+  const options = { now, at: now, history: [] as PostRecord[] };
+
+  const first = pickVideo(stories, options)!;
+  assert.equal(first.story.id, "f", "most channels; the sensitive one (masked) and the single-channel one left out");
+  assert.equal(first.video.channel, "somoy", "most watched among channels never credited");
+  assert.equal(videoMessage(first), "চকবাজারে কারখানায় আগুন, নিয়ন্ত্রণে ১০ ইউনিট\n\nসময় টিভি · আরও ২টি চ্যানেলেও এই খবর");
+
+  const history = [videoRecord(first, { kind: "slot", at: ago(60), link: "", mode: "on" })];
+  assert.equal(pickVideo(stories, { ...options, history })?.story.id, "b");
+  // A headline already posted on the same subject: its videos wait.
+  const headline: PostRecord = { kind: "slot", content: "news", at: ago(120), title: "", link: "", sourceId: "x", category: "national", keys: [], words: keywords("আমানতকারীদের টাকা ফেরত দিচ্ছে ন্যাশনাল ব্যাংক"), mode: "on" };
+  assert.equal(pickVideo(stories, { ...options, history: [...history, headline] }), null);
+
+  // A roundup: one card per story, each from another channel; a much-watched single-channel video fills in.
+  const cards = pickRoundup(stories, options);
+  assert.deepEqual(cards.map((c) => c.story.id), ["f", "b", alone.id]);
+  assert.equal(new Set(cards.map((c) => c.video.channel)).size, 3);
+  assert.equal(roundupHeading(Date.parse("2026-10-15T21:00:00+06:00"), 5), "রাতের শীর্ষ ৫ ভিডিও খবর");
+  assert.match(roundupMessage(cards, now), /^দুপুরের শীর্ষ ৩ ভিডিও খবর\n\n১\. চকবাজারে.*— সময় টিভি\n২\. /);
+  const roundup = roundupRecord(cards, { kind: "slot", at: ago(60), link: "", mode: "on" });
+  // Its stories aren't posted again as videos; too few left for another roundup.
+  assert.equal(pickVideo(stories, { ...options, history: [roundup] }), null);
+  assert.deepEqual(pickRoundup(stories, { ...options, history: [roundup] }), []);
+});
+
+test("outlet profiles: every outlet page has one in each language, and a description that fits", () => {
+  const bangla = /[ঀ-৿]/;
+  for (const o of OUTLETS) {
+    const p = OUTLET_PROFILES[o.id];
+    assert.ok(p, `${o.id} has no profile`);
+    assert.ok(!bangla.test(p.en), `${o.id}: the English profile has Bangla letters`);
+    assert.ok(bangla.test(p.bn), `${o.id}: the Bangla profile is not in Bangla`);
+    for (const text of [p.en, p.bn]) assert.ok(text.length >= 60 && text.length <= 700, `${o.id}: profile length ${text.length}`);
+    if (p.since) assert.ok(p.since > 1900 && p.since <= 2026, `${o.id}: since ${p.since}`);
+    for (const locale of ["en", "bn"] as const) {
+      const d = outletDescription(o, locale);
+      assert.ok(d.length <= 170, `${o.id} (${locale}) description is ${d.length} characters: ${d}`);
+    }
+  }
+  assert.deepEqual(Object.keys(OUTLET_PROFILES).filter((id) => !OUTLETS.some((o) => o.id === id)), [], "profiles of no outlet");
+});
+
+test("page posts: five headlines in a carousel, each outlet once, two a section at most", () => {
+  const now = Date.parse("2026-10-15T07:00:00Z");
+  const ago = (min: number) => new Date(now - min * 60_000).toISOString();
+  const story = (title: string, sources: string[], category: NewsItem["category"], heat: number): Story => {
+    const items = sources.map((s) => item(s, title, { publishedAt: ago(20), category }));
+    return { id: items[0].link, lead: items[0], items, outlets: sources.length, latest: ago(20), heat };
+  };
+  const stories = [
+    story("প্রথম খবর সেতু উদ্বোধন", ["a", "b", "c"], "national", 9),
+    story("দ্বিতীয় খবর বন্যা পরিস্থিতি", ["a", "b", "c"], "national", 8),
+    story("তৃতীয় খবর ট্রেন দুর্ঘটনা", ["a", "b", "d"], "national", 7),
+    story("চতুর্থ খবর ক্রিকেট জয়", ["a", "e", "f"], "sports", 6),
+    story("পঞ্চম খবর বাজেট ঘোষণা", ["b", "g", "h"], "business", 5),
+    story("ষষ্ঠ খবর নির্বাচন কমিশন", ["c", "i", "j"], "politics", 4),
+  ];
+  const options = { now, at: now, history: [] as PostRecord[], hasPicture: () => true };
+  const cards = pickHeadlines(stories, options);
+  assert.equal(cards.length, 5);
+  assert.deepEqual(cards.map((c) => c.story.lead.title.split(" ")[0]), ["প্রথম", "দ্বিতীয়", "চতুর্থ", "পঞ্চম", "ষষ্ঠ"], "a third national story waits");
+  assert.equal(new Set(cards.map((c) => c.item.sourceId)).size, 5, "each outlet once");
+  assert.match(headlinesMessage(cards, Date.parse("2026-10-15T22:30:00+06:00")), /^রাতের শীর্ষ ৫ খবর\n\n১\. প্রথম খবর সেতু উদ্বোধন — a\n২\. /);
+  // Posted: those stories don't come back; too few left for five.
+  const record = headlinesRecord(cards, { kind: "slot", at: ago(120), link: "", mode: "on" });
+  assert.deepEqual(pickHeadlines(stories, { ...options, history: [record] }), []);
+  // Fewer than five stories with pictures: none (a single headline goes out instead).
+  assert.deepEqual(pickHeadlines(stories, { ...options, hasPicture: (it) => ["c", "d", "e"].includes(it.sourceId) }), []);
+
+test("news query from the request URL", () => {
+  assert.deepEqual(newsQueryFrom("http://x.test/api/news"), { lang: undefined, sourceIds: undefined, force: false });
+  assert.deepEqual(newsQueryFrom("http://x.test/api/news?lang=bn&source=a,%20b,,&refresh=1"), {
+    lang: "bn",
+    sourceIds: ["a", "b"],
+    force: true,
+  });
+  assert.equal(newsQueryFrom("http://x.test/?lang=fr").lang, undefined);
+  assert.equal(newsQueryFrom("http://x.test/?refresh=true").force, false);
+});
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

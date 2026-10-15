@@ -45,3 +45,6 @@ next-env.d.ts
 
 # wrangler pages dev
 .wrangler/
+
+# local Facebook posting history (scripts/post-facebook.ts writes .social/facebook.json)
+/.social/
