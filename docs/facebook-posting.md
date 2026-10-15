@@ -123,6 +123,31 @@ stay scheduled, so delete those in Business Suite if needed.
 
 Suggested: `dry` for two or three days, then `review` for two weeks, then `on` once the picks are trusted.
 
+### Going straight to `review`
+
+Skipping the dry run is safe: in `review` nothing goes out without 45 minutes in which it can be deleted. The picks
+are then judged on the Page instead of in the runs' summaries.
+
+- **The first post comes soon.** A slot is acted on from 45 minutes before its time until 15 minutes after it, so
+  switching shortly before a slot schedules that one; when the run is already late, it is scheduled 15 minutes from
+  the run instead (never sooner, which is as close as Facebook allows). Each later post is scheduled about 45 minutes
+  ahead of its time (the 19:00 headline around 18:15, the 21:00 roundup around 20:15).
+- **Where to check:** Meta Business Suite → Content → **Scheduled**. A post deleted there before its time doesn't go
+  out, and nothing replaces it in that slot.
+- **Breaking stories** (8 or more outlets within 90 minutes) are scheduled only 15 minutes ahead, at most twice a day:
+  less time to catch them.
+- **Dry runs don't count.** Their picks are left out of the history once posting is real, so the repeat, per-day and
+  outlet-turn rules start fresh.
+
+On the first day, look at:
+
+- the first post: its preview on the Page shows the headline and the outlet's picture;
+- the first roundup (13:00 or 21:00): five slides, or the run's note that Facebook refused the carousel and a video
+  post went out instead (see Videos above: the domain must be verified, with the Page connected to it).
+
+To stop everything: `FB_POSTING` to `off` (from the next run, within 15 minutes), and delete what is still in
+Scheduled in Business Suite.
+
 ## One-time setup in Meta
 
 A Page access token that doesn't expire, made by a **system user** of the Bartaboard business portfolio (the one that
