@@ -44,6 +44,9 @@ import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { compileSearch, installSearchTerms } from "../src/lib/search";
 import { SEARCH_TERMS } from "../src/lib/search-terms";
 import { findStories, keywords, type Story } from "../src/lib/stories";
+import { OUTLETS } from "../src/lib/directory";
+import { OUTLET_PROFILES } from "../src/lib/outlet-profiles";
+import { outletDescription } from "../src/lib/site";
 import {
   pickRoundup,
   pickVideo,
@@ -1315,6 +1318,23 @@ test("page posts: videos two or more channels have, a channel in turn, no repeat
   // Its stories aren't posted again as videos; too few left for another roundup.
   assert.equal(pickVideo(stories, { ...options, history: [roundup] }), null);
   assert.deepEqual(pickRoundup(stories, { ...options, history: [roundup] }), []);
+});
+
+test("outlet profiles: every outlet page has one in each language, and a description that fits", () => {
+  const bangla = /[ঀ-৿]/;
+  for (const o of OUTLETS) {
+    const p = OUTLET_PROFILES[o.id];
+    assert.ok(p, `${o.id} has no profile`);
+    assert.ok(!bangla.test(p.en), `${o.id}: the English profile has Bangla letters`);
+    assert.ok(bangla.test(p.bn), `${o.id}: the Bangla profile is not in Bangla`);
+    for (const text of [p.en, p.bn]) assert.ok(text.length >= 60 && text.length <= 700, `${o.id}: profile length ${text.length}`);
+    if (p.since) assert.ok(p.since > 1900 && p.since <= 2026, `${o.id}: since ${p.since}`);
+    for (const locale of ["en", "bn"] as const) {
+      const d = outletDescription(o, locale);
+      assert.ok(d.length <= 170, `${o.id} (${locale}) description is ${d.length} characters: ${d}`);
+    }
+  }
+  assert.deepEqual(Object.keys(OUTLET_PROFILES).filter((id) => !OUTLETS.some((o) => o.id === id)), [], "profiles of no outlet");
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);
