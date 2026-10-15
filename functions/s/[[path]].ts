@@ -324,13 +324,13 @@ interface Description {
 
 function describe({ data, image }: Resolved): Description {
   if (data.kind === "headline") {
-    const { item, related } = data;
+    const { item, related, others: count } = data;
     const bn = item.lang === "bn";
     const outlet = bn ? bnSourceName(item.sourceId, item.sourceName, "bn") : item.sourceName;
     const category = item.category === "other" ? undefined : CATEGORY.get(item.category);
     const time = item.publishedAt ?? item.seenAt;
     const facts = [outlet, category && (bn ? category.bn : category.label), time && formatDay(time, bn)].filter(Boolean);
-    const others = new Set(related.map((r) => r.sourceId)).size;
+    const others = count ?? new Set(related.map((r) => r.sourceId)).size;
     const description = bn
       ? `${facts.join(" · ")}।${others ? ` আরও ${others.toLocaleString("bn-BD")}টি সংবাদমাধ্যমে এই খবর।` : ""} বার্তাবোর্ডে দেশের সব খবর, এক জায়গায়।`
       : `${facts.join(" · ")}.${others ? ` Also reported by ${others} other outlet${others === 1 ? "" : "s"}.` : ""} Every Bangladeshi headline, on one board: Bartaboard.`;

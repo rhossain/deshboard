@@ -29,8 +29,9 @@ export type PackedRelated = string;
 
 /**
  * A headline in the index: title, link, source id, section, publish and first-seen times in seconds
- * since 1970 (0 for none), the same story from other outlets, and the article's picture when the
- * fetch found one (NewsItem.image).
+ * since 1970 (0 for none), the same story from other outlets (a few), the article's picture when the
+ * fetch found one (NewsItem.image; "" for none when a count follows), and how many other outlets have the
+ * story when that is more than `related` holds.
  */
 export type PackedShare = [
   title: string,
@@ -41,6 +42,7 @@ export type PackedShare = [
   seenAt: number,
   related?: PackedRelated[],
   image?: string,
+  others?: number,
 ];
 
 /** `share/<date | board>/<shard>.json`: the headlines whose key starts with the shard, by key. */
@@ -65,8 +67,10 @@ export type ShareData =
   | {
       kind: "headline";
       item: NewsItem;
-      /** The same story from other outlets. */
+      /** The same story from other outlets (a few of them: see `others`). */
       related: NewsItem[];
+      /** How many other outlets have the story, when more than `related` shows. */
+      others?: number;
       /** The outlet's logo, for SourceLogo. */
       logos: Pick<NewsFeed, "logos" | "logoShapes">;
       /**
@@ -101,7 +105,8 @@ function toItem(title: string, link: string, sourceId: string, category: Categor
   return item;
 }
 
-export function packShare(item: NewsItem, related: PackedRelated[]): PackedShare {
+/** `others`: how many other outlets have the story, of which `related` are a few. */
+export function packShare(item: NewsItem, related: PackedRelated[], others = related.length): PackedShare {
   const packed: PackedShare = [
     item.title,
     item.link,
@@ -110,8 +115,10 @@ export function packShare(item: NewsItem, related: PackedRelated[]): PackedShare
     seconds(item.publishedAt),
     seconds(item.seenAt),
   ];
-  if (related.length || item.image) packed.push(related);
-  if (item.image) packed.push(item.image);
+  const more = others > related.length;
+  if (related.length || item.image || more) packed.push(related);
+  if (item.image || more) packed.push(item.image ?? "");
+  if (more) packed.push(others);
   return packed;
 }
 
@@ -185,6 +192,7 @@ export async function findShared(
   const shared: ShareData & { kind: "headline" } = { kind: "headline", item, related, logos: logosFor(item.sourceId, await meta) };
   // Only a picture the fetch found: without one, the share function looks on the outlet's page.
   if (found.packed[7]) shared.image = found.packed[7];
+  if (found.packed[8]) shared.others = found.packed[8];
   return shared;
 }
 

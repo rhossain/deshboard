@@ -10,14 +10,14 @@ const DAY_MS = 86_400_000;
 
 /**
  * The same story from other outlets, for every headline in `items` that has any, as the stories stood
- * at `now` (findStories looks back 36 hours from it).
+ * at `now` (findStories looks back 36 hours from it). All of them: RELATED_MAX are kept, the rest counted.
  */
 function relatedByLink(items: NewsItem[], now: number, into: Map<string, NewsItem[]>) {
   for (const story of findStories(items, { now })) {
     for (const it of story.items) {
       if (into.has(it.link)) continue;
       const others = story.items.filter((o) => o.link !== it.link && o.sourceId !== it.sourceId);
-      if (others.length) into.set(it.link, others.slice(0, RELATED_MAX));
+      if (others.length) into.set(it.link, others);
     }
   }
 }
@@ -80,7 +80,8 @@ export function buildShareIndex(
       let file = files.get(path);
       if (!file) files.set(path, (file = {}));
       // An address listed twice in a day keeps its first entry.
-      file[key] ??= packShare(it, refs(dir, related.get(it.link)));
+      const others = related.get(it.link) ?? [];
+      file[key] ??= packShare(it, refs(dir, others.slice(0, RELATED_MAX)), others.length);
     }
   }
 

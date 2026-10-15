@@ -662,6 +662,17 @@ test("share index: a short link finds its headline, its story and its outlet's l
   assert.equal((await findShared(shareKey(undated.link), datesToSearch("2026-10-14"), load))?.item.title, undated.title);
   assert.equal(await findShared("zzzzzzzz", datesToSearch("2026-10-14"), load), null);
 
+  // A big story keeps six of the other outlets' headlines, and counts them all.
+  const many = Array.from({ length: 9 }, (_, i) =>
+    item("ঢাকায় সংসদ নির্বাচনের তফসিল ঘোষণা করল নির্বাচন কমিশন", `https://o${i}.test/a`, `o${i}`, `O${i}`, "2026-10-14T05:00:00Z"),
+  );
+  const big = buildShareIndex(new Map([["2026-10-14", [a, b, ...many]]]), [], { logos: {}, logoShapes: {} }, { generatedAt: "", channels: [], videos: [] }, Date.parse("2026-10-14T06:00:00Z"));
+  const bigLoad: ShareLoader = async (p) => (big.files.get(p.slice(SHARE_DIR.length + 1, -5)) ?? null) as never;
+  const crowded = await findShared(shareKey(a.link), ["2026-10-14"], bigLoad);
+  assert.equal(crowded?.related.length, 6);
+  assert.equal(crowded?.others, 10);
+  assert.equal(found?.others, undefined, "no count when every one is listed");
+
   const video = await findSharedVideo("2_G1z7wpfSE", load);
   assert.equal(video?.channelName, "Somoy TV");
   assert.equal(video?.video.channel, "somoy");
