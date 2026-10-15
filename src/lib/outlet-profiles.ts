@@ -22,18 +22,17 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
     bn: "প্রথম আলো ঢাকা থেকে প্রকাশিত বাংলা দৈনিক, যাত্রা শুরু ১৯৯৮ সালের ৪ নভেম্বর; প্রকাশক ট্রান্সকম গ্রুপের প্রতিষ্ঠান মিডিয়াস্টার। ছাপা সংস্করণের পাশাপাশি এর একটি সংবাদ ওয়েবসাইট আছে। ২০১৮ সালে কান্তার এমআরবির এক জরিপে এর ছাপা সংস্করণের দৈনিক পাঠকসংখ্যা প্রায় ৬৬ লাখ ধরা হয়েছিল।",
   },
   "prothomalo-en": {
-    since: 2015,
     en: "Prothom Alo English is the English-language news site of Prothom Alo, the Bangla daily founded in 1998. It launched on 22 March 2015 and is published from Dhaka by Mediastar, part of Transcom Group.",
     bn: "প্রথম আলো ইংরেজি হলো ১৯৯৮ সালে প্রতিষ্ঠিত বাংলা দৈনিক প্রথম আলোর ইংরেজি সংবাদ সাইট। এর যাত্রা শুরু ২০১৫ সালের ২২ মার্চ; ঢাকা থেকে প্রকাশ করে ট্রান্সকম গ্রুপের প্রতিষ্ঠান মিডিয়াস্টার।",
   },
   "dailystar-bn": {
-    en: "The Daily Star Bangla is the Bangla-language online edition of The Daily Star, the English daily founded in Dhaka in 1991. It is published by Mediaworld, in which Transcom Group holds the majority stake.",
-    bn: "দ্য ডেইলি স্টার বাংলা হলো ১৯৯১ সালে ঢাকায় প্রতিষ্ঠিত ইংরেজি দৈনিক দ্য ডেইলি স্টারের বাংলা অনলাইন সংস্করণ। প্রকাশক মিডিয়াওয়ার্ল্ড, যার সংখ্যাগরিষ্ঠ মালিকানা ট্রান্সকম গ্রুপের।",
+    en: "The Daily Star Bangla is the Bangla-language online edition of The Daily Star, the English daily founded in Dhaka in 1991. It is published by Mediaworld, in which Transcom Group holds a major share.",
+    bn: "দ্য ডেইলি স্টার বাংলা হলো ১৯৯১ সালে ঢাকায় প্রতিষ্ঠিত ইংরেজি দৈনিক দ্য ডেইলি স্টারের বাংলা অনলাইন সংস্করণ। প্রকাশক মিডিয়াওয়ার্ল্ড, যার বড় অংশের মালিক ট্রান্সকম গ্রুপ।",
   },
   dailystar: {
     since: 1991,
-    en: "The Daily Star is an English-language daily newspaper published in Dhaka since 14 January 1991. Its publisher, Mediaworld, is majority-owned by Transcom Group, which also owns Prothom Alo.",
-    bn: "দ্য ডেইলি স্টার ঢাকা থেকে প্রকাশিত ইংরেজি দৈনিক, প্রকাশ শুরু ১৯৯১ সালের ১৪ জানুয়ারি। প্রকাশক মিডিয়াওয়ার্ল্ডের সংখ্যাগরিষ্ঠ মালিকানা ট্রান্সকম গ্রুপের, যারা প্রথম আলোরও মালিক।",
+    en: "The Daily Star is an English-language daily newspaper published in Dhaka since 14 January 1991. Its publisher is Mediaworld, in which Transcom Group, the owner of Prothom Alo, holds a major share.",
+    bn: "দ্য ডেইলি স্টার ঢাকা থেকে প্রকাশিত ইংরেজি দৈনিক, প্রকাশ শুরু ১৯৯১ সালের ১৪ জানুয়ারি। প্রকাশক মিডিয়াওয়ার্ল্ড, যার বড় অংশের মালিক প্রথম আলোর মালিক প্রতিষ্ঠান ট্রান্সকম গ্রুপ।",
   },
   dailysun: {
     since: 2010,
@@ -86,7 +85,7 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
   "bd-pratidin": {
     since: 2010,
     en: "Bangladesh Pratidin is a Bangla-language daily newspaper published in Dhaka since 15 March 2010 by East West Media Group, part of Bashundhara Group. In 2014, figures from the government's Department of Films and Publications put its circulation above 553,000 copies a day, the highest of any daily.",
-    bn: "বাংলাদেশ প্রতিদিন ঢাকা থেকে প্রকাশিত বাংলা দৈনিক; ২০১০ সালের ১৫ মার্চ থেকে এটি প্রকাশ করছে বসুন্ধরা গ্রুপের ইস্ট ওয়েস্ট মিডিয়া গ্রুপ। ২০১৪ সালে চলচ্চিত্র ও প্রকাশনা অধিদপ্তরের হিসাবে এর দৈনিক প্রচারসংখ্যা ছিল সাড়ে পাঁচ লাখের বেশি, দেশের দৈনিকগুলোর মধ্যে সর্বোচ্চ।",
+    bn: "বাংলাদেশ প্রতিদিন ঢাকা থেকে প্রকাশিত বাংলা দৈনিক; ২০১০ সালের ১৫ মার্চ থেকে এটি প্রকাশ করছে বসুন্ধরা গ্রুপের ইস্ট ওয়েস্ট মিডিয়া গ্রুপ। ২০১৪ সালে চলচ্চিত্র ও প্রকাশনা অধিদপ্তরের হিসাবে এর দৈনিক প্রচারসংখ্যা ছিল ৫ লাখ ৫৩ হাজারের বেশি, দেশের দৈনিকগুলোর মধ্যে সর্বোচ্চ।",
   },
   nayadiganta: {
     since: 2004,
@@ -125,7 +124,7 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
   "bdnews24-en": {
     since: 2006,
     en: "bdnews24.com is an online newspaper published in Dhaka by Bangladesh News 24 Hours Ltd, open to the public since 23 October 2006. It grew out of BDNEWS, an internet news agency started in 2005, and describes itself as Bangladesh's first online newspaper.",
-    bn: "বিডিনিউজ২৪ ডটকম ঢাকা থেকে বাংলাদেশ নিউজ ২৪ আওয়ার্স লিমিটেড প্রকাশিত অনলাইন সংবাদপত্র, ২০০৬ সালের ২৩ অক্টোবর থেকে সবার জন্য উন্মুক্ত। ২০০৫ সালে চালু হওয়া ইন্টারনেটভিত্তিক সংবাদ সংস্থা বিডিনিউজ থেকে এর জন্ম; এটি নিজেকে দেশের প্রথম অনলাইন সংবাদপত্র বলে পরিচয় দেয়। এই পাতাটি এর ইংরেজি সংস্করণের।",
+    bn: "বিডিনিউজ২৪ ডটকম ঢাকা থেকে বাংলাদেশ নিউজ ২৪ আওয়ার্স লিমিটেড প্রকাশিত অনলাইন সংবাদপত্র, ২০০৬ সালের ২৩ অক্টোবর থেকে সবার জন্য উন্মুক্ত। ২০০৫ সালে চালু হওয়া ইন্টারনেটভিত্তিক সংবাদ সংস্থা বিডিনিউজ থেকে এর জন্ম; এটি নিজেকে দেশের প্রথম অনলাইন সংবাদপত্র বলে পরিচয় দেয়।",
   },
   dhakatribune: {
     since: 2013,
@@ -139,8 +138,8 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
   },
   tbs: {
     since: 2020,
-    en: "The Business Standard is an English-language daily newspaper published in Dhaka by The Horizon Media and Publication Ltd, online since 2019 and in print since 21 January 2020. It concentrates on business and the economy alongside general news.",
-    bn: "দ্য বিজনেস স্ট্যান্ডার্ড ঢাকা থেকে প্রকাশিত ইংরেজি দৈনিক, প্রকাশক দ্য হরাইজন মিডিয়া অ্যান্ড পাবলিকেশন লিমিটেড; অনলাইনে ২০১৯ সাল থেকে এবং ছাপা সংস্করণে ২০২০ সালের ২১ জানুয়ারি থেকে প্রকাশিত। সাধারণ খবরের পাশাপাশি এর মূল মনোযোগ ব্যবসা ও অর্থনীতিতে।",
+    en: "The Business Standard is an English-language daily newspaper published in Dhaka by The Horizon Media and Publication Ltd, online since 2019 and in print since January 2020. It concentrates on business and the economy alongside general news.",
+    bn: "দ্য বিজনেস স্ট্যান্ডার্ড ঢাকা থেকে প্রকাশিত ইংরেজি দৈনিক, প্রকাশক দ্য হরাইজন মিডিয়া অ্যান্ড পাবলিকেশন লিমিটেড; অনলাইনে ২০১৯ সাল থেকে এবং ছাপা সংস্করণে ২০২০ সালের জানুয়ারি থেকে প্রকাশিত। সাধারণ খবরের পাশাপাশি এর মূল মনোযোগ ব্যবসা ও অর্থনীতিতে।",
   },
   "tbs-bn": {
     en: "TBS Bangla is the Bangla-language online edition of The Business Standard, the English daily published in Dhaka by The Horizon Media and Publication Ltd since 2020. It brings the paper's business, economic and general news to Bangla readers.",
@@ -173,8 +172,8 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
   },
   risingbd: {
     since: 2013,
-    en: "Rising BD is a Bangla-language online news site launched in Dhaka on 26 April 2013 by Skyroute Media Limited. It also runs an English-language section.",
-    bn: "রাইজিংবিডি ঢাকা থেকে প্রকাশিত বাংলা অনলাইন সংবাদ সাইট; ২০১৩ সালের ২৬ এপ্রিল এটি চালু করে স্কাইরুট মিডিয়া লিমিটেড। এর একটি ইংরেজি বিভাগও আছে।",
+    en: "Rising BD is a Bangla-language online news site launched in Dhaka on 26 April 2013 and run by Skyroute Media Limited. It also runs an English-language section.",
+    bn: "রাইজিংবিডি ঢাকা থেকে প্রকাশিত বাংলা অনলাইন সংবাদ সাইট, যাত্রা শুরু ২০১৩ সালের ২৬ এপ্রিল; পরিচালনায় স্কাইরুট মিডিয়া লিমিটেড। এর একটি ইংরেজি বিভাগও আছে।",
   },
   "daily-bangladesh": {
     en: "Daily Bangladesh is a Bangla-language online news site based in Dhaka, published by Daily Bangladesh Media Limited and registered with the Ministry of Information and Broadcasting as an online news portal.",
@@ -190,8 +189,8 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
   },
   "ekushey-tv": {
     since: 2000,
-    en: "Ekushey Television (ETV) went on air on 14 April 2000 as Bangladesh's first private terrestrial TV channel, and returned as a satellite channel in 2007. Based in Dhaka, it broadcasts entertainment and news, which its website also publishes.",
-    bn: "একুশে টেলিভিশন (ইটিভি) ২০০০ সালের ১৪ এপ্রিল দেশের প্রথম বেসরকারি টেরেস্ট্রিয়াল টিভি চ্যানেল হিসেবে সম্প্রচার শুরু করে; ২০০৭ সালে এটি স্যাটেলাইট চ্যানেল হিসেবে আবার ফিরে আসে। ঢাকাভিত্তিক চ্যানেলটি বিনোদন ও সংবাদ সম্প্রচার করে, যার খবর এর ওয়েবসাইটেও প্রকাশিত হয়।",
+    en: "Ekushey Television (ETV) went on air on 14 April 2000 as Bangladesh's first private terrestrial TV channel. It went off air in 2002, returned in March 2007, and now broadcasts from Dhaka as a satellite channel carrying entertainment and news, which its website also publishes.",
+    bn: "একুশে টেলিভিশন (ইটিভি) ২০০০ সালের ১৪ এপ্রিল দেশের প্রথম বেসরকারি টেরেস্ট্রিয়াল টিভি চ্যানেল হিসেবে সম্প্রচার শুরু করে। ২০০২ সালে সম্প্রচার বন্ধ হওয়ার পর ২০০৭ সালের মার্চে এটি আবার সম্প্রচারে ফেরে; এখন ঢাকা থেকে স্যাটেলাইট চ্যানেল হিসেবে বিনোদন ও সংবাদ সম্প্রচার করে, যার খবর এর ওয়েবসাইটেও প্রকাশিত হয়।",
   },
   jamuna: {
     since: 2014,
@@ -225,8 +224,8 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
   },
   itv: {
     since: 2011,
-    en: "Independent Television is a 24-hour Bangla news channel owned by BEXIMCO, on air from Dhaka since 28 July 2011. It was the first Bangladeshi TV channel to broadcast using MPEG-4 technology.",
-    bn: "ইনডিপেনডেন্ট টেলিভিশন বেক্সিমকোর মালিকানাধীন ২৪ ঘণ্টার বাংলা সংবাদ চ্যানেল, ঢাকা থেকে সম্প্রচার শুরু ২০১১ সালের ২৮ জুলাই। দেশে এটিই প্রথম এমপেগ-৪ প্রযুক্তিতে সম্প্রচার শুরু করে।",
+    en: "Independent Television is a 24-hour Bangla news channel owned by BEXIMCO, on air from Dhaka since 28 July 2011. At its launch it was described as the first Bangladeshi TV channel to broadcast using MPEG-4 technology.",
+    bn: "ইনডিপেনডেন্ট টেলিভিশন বেক্সিমকোর মালিকানাধীন ২৪ ঘণ্টার বাংলা সংবাদ চ্যানেল, ঢাকা থেকে সম্প্রচার শুরু ২০১১ সালের ২৮ জুলাই। চালুর সময় একে দেশের প্রথম এমপেগ-৪ প্রযুক্তিতে সম্প্রচারকারী চ্যানেল বলা হয়েছিল।",
   },
   dbc: {
     since: 2016,
@@ -272,7 +271,6 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
     bn: "ইউনাইটেড নিউজ অব বাংলাদেশ (ইউএনবি) ১৯৮৮ সালে ঢাকায় প্রতিষ্ঠিত বেসরকারি সংবাদ সংস্থা। এটি সংবাদপত্র ও সম্প্রচারমাধ্যমে খবর সরবরাহ করে; আন্তর্জাতিক সংবাদ বিনিময়ে এর প্রধান সহযোগী অ্যাসোসিয়েটেড প্রেস (এপি)।",
   },
   "bss-bn": {
-    since: 1999,
     en: "BSS Bangla is the Bangla news service of Bangladesh Sangbad Sangstha (BSS), the state-owned national news agency founded in Dhaka on 1 January 1972. The Bangla service was introduced in 1999.",
     bn: "বাসস বাংলা হলো রাষ্ট্রায়ত্ত জাতীয় সংবাদ সংস্থা বাংলাদেশ সংবাদ সংস্থার (বাসস) বাংলা সংবাদ সেবা। বাসসের যাত্রা শুরু ১৯৭২ সালের ১ জানুয়ারি ঢাকায়; বাংলা সেবা চালু হয় ১৯৯৯ সালে।",
   },
@@ -291,8 +289,8 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
     bn: "প্রতিদিনের সংবাদ একটি বাংলা দৈনিক, প্রকাশক ফ্রক্স মিডিয়া লিমিটেড; প্রথম প্রকাশ ২০১২ সালে। ছাপা সংস্করণের পাশাপাশি এর খবর অনলাইনেও প্রকাশিত হয়।",
   },
   kholakagoj: {
-    en: "Khola Kagoj is a Bangla-language daily newspaper. Alongside the print edition, its news is published online at kholakagojbd.com.",
-    bn: "খোলা কাগজ একটি বাংলা দৈনিক। ছাপা সংস্করণের পাশাপাশি এর খবর অনলাইনেও প্রকাশিত হয় kholakagojbd.com ঠিকানায়।",
+    en: "Khola Kagoj is a Bangla-language newspaper with an e-paper edition; its news is published online at kholakagojbd.com.",
+    bn: "খোলা কাগজ একটি বাংলা সংবাদপত্র, এর ই-পেপার সংস্করণও আছে; এর খবর অনলাইনে প্রকাশিত হয় kholakagojbd.com ঠিকানায়।",
   },
   "dhakatribune-bn": {
     en: "Dhaka Tribune Bangla is the Bangla-language edition of the Dhaka Tribune, the English daily published in Dhaka since 2013 by 2A Media Limited. It is a separate site from Bangla Tribune, the same company's other Bangla news site.",
@@ -345,8 +343,8 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
   },
   btv: {
     since: 1964,
-    en: "Bangladesh Television (BTV) is the state-owned public broadcaster, on terrestrial and satellite. It started on 25 December 1964 as the Dhaka station of Pakistan Television and took its present name after independence in 1971.",
-    bn: "বাংলাদেশ টেলিভিশন (বিটিভি) রাষ্ট্রায়ত্ত সরকারি সম্প্রচারমাধ্যম, টেরেস্ট্রিয়াল ও স্যাটেলাইট দুই মাধ্যমেই সম্প্রচারিত হয়। ১৯৬৪ সালের ২৫ ডিসেম্বর পাকিস্তান টেলিভিশনের ঢাকা কেন্দ্র হিসেবে এর যাত্রা শুরু; ১৯৭১ সালে স্বাধীনতার পর এর বর্তমান নাম হয়।",
+    en: "Bangladesh Television (BTV) is the state-owned public broadcaster, on terrestrial and satellite. It started broadcasting from Dhaka on 25 December 1964, during the Pakistan period, became part of Pakistan Television in 1965, and took its present name after independence in 1971.",
+    bn: "বাংলাদেশ টেলিভিশন (বিটিভি) রাষ্ট্রায়ত্ত সরকারি সম্প্রচারমাধ্যম, টেরেস্ট্রিয়াল ও স্যাটেলাইট দুই মাধ্যমেই সম্প্রচারিত হয়। পাকিস্তান আমলে ১৯৬৪ সালের ২৫ ডিসেম্বর ঢাকা থেকে এর সম্প্রচার শুরু, ১৯৬৫ সালে এটি পাকিস্তান টেলিভিশনের অংশ হয়; ১৯৭১ সালে স্বাধীনতার পর এর বর্তমান নাম হয়।",
   },
   satv: {
     since: 2013,
@@ -373,8 +371,8 @@ export const OUTLET_PROFILES: Record<string, OutletProfile> = {
   },
   "channel9": {
     since: 2012,
-    en: "Channel Nine is a Bangla satellite TV channel run by Virgo Media Limited, broadcasting from Dhaka since 30 January 2012. Its programming centres on sport and entertainment, alongside news.",
-    bn: "চ্যানেল নাইন ভার্গো মিডিয়া লিমিটেডের বাংলা স্যাটেলাইট টিভি চ্যানেল, ঢাকা থেকে সম্প্রচার শুরু ২০১২ সালের ৩০ জানুয়ারি। এর অনুষ্ঠানের কেন্দ্রে খেলাধুলা ও বিনোদন, পাশাপাশি সংবাদ।",
+    en: "Channel Nine is a Bangla satellite TV channel run by Virgo Media Limited, broadcasting from Dhaka since 30 January 2012. Its programming centres on sport and entertainment; this page shows the videos from its YouTube channel.",
+    bn: "চ্যানেল নাইন ভার্গো মিডিয়া লিমিটেডের বাংলা স্যাটেলাইট টিভি চ্যানেল, ঢাকা থেকে সম্প্রচার শুরু ২০১২ সালের ৩০ জানুয়ারি। এর অনুষ্ঠানের কেন্দ্রে খেলাধুলা ও বিনোদন; এই পাতায় এর ইউটিউব চ্যানেলের ভিডিও দেখানো হয়।",
   },
   deepto: {
     since: 2015,
