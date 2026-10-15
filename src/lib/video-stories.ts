@@ -109,17 +109,21 @@ function wordLists() {
  */
 const SPACED = /(?<![\u0980-\u09FF])[\u0980-\u09FF]{1,2}(?: [\u0980-\u09FF]{1,2}){2,}(?![\u0980-\u09FF])/g;
 
-/** The words of a video title that say what it is about. */
-export function videoKeywords(title: string): string[] {
-  const { ignored, same } = wordLists();
-  const out = new Set<string>();
-  const clean = title
+/** A video title with channels' masking taken out: "গ্রে/প্তা/র" → "গ্রেপ্তার", "আ গু ন" → "আগুন". */
+export function unmaskTitle(title: string): string {
+  return title
     .normalize("NFC")
     .replace(INVISIBLE, "")
     .replace(MASKS, "")
     .replace(HYPHEN_MASK, "$1")
     .replace(SPACED, (run) => run.replaceAll(" ", ""));
-  for (const stemmedOnce of keywords(clean)) {
+}
+
+/** The words of a video title that say what it is about. */
+export function videoKeywords(title: string): string[] {
+  const { ignored, same } = wordLists();
+  const out = new Set<string>();
+  for (const stemmedOnce of keywords(unmaskTitle(title))) {
     // Checked before root(): stripped further, words can turn into ignored ones ("মেয়ে" → "মে", May).
     if (ignored.has(stemmedOnce)) continue;
     const word = root(stemmedOnce);

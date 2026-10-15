@@ -87,6 +87,39 @@ export interface LogoShape {
   light: boolean;
 }
 
+/**
+ * `news.json` (or its packed form): every fetched source's latest result, in display order, with each source's
+ * logo. The shape used by the share-lookup pipeline and by scripts/post-facebook.ts; see src/lib/packed.ts.
+ */
+export interface NewsFeed {
+  generatedAt: string;
+  /** Every fetched source's latest result, in display order. */
+  results: SourceResult[];
+  /** Source id → logo path under `/logos/`, for sources whose logo was found. */
+  logos: Record<string, string>;
+  /** Source id → the logo's measurements, so it is drawn at its final size on first paint. */
+  logoShapes: Record<string, LogoShape>;
+}
+
+/**
+ * The first file the board reads, before the rest of the feed: every headline in the whole feed (or in
+ * the section the page is for), with its source's headlines in their order and its categories' counts.
+ * Built by src/lib/packed.ts; loaded by the share-lookup pipeline and by scripts/post-facebook.ts.
+ */
+export interface NewsSeed extends NewsFeed {
+  /** Headlines per section in the whole feed, so the section tabs start out with their final counts. */
+  counts: Partial<Record<Category, number>>;
+  /** The section the page is for, if any: `totals` count only its headlines. */
+  category?: Category;
+  /** Source id → its headlines in the whole feed, so each card starts out at its final size. */
+  totals: Record<string, number>;
+  /**
+   * Every headline in the whole feed by age (see ageSteps), only the section's when `category` is set:
+   * the "new since your last visit" count before the rest arrives.
+   */
+  ages: number[];
+}
+
 /** A news channel on YouTube, for the Videos view (see src/lib/channels.ts). */
 export interface VideoChannel {
   id: string;
