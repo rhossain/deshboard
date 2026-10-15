@@ -155,7 +155,8 @@ The token is a password to the Page: only ever in the GitHub secret, never in th
 Also worth doing once, for the Page and the site:
 
 - **Domain verification** (Business settings → Brand safety → Domains → Add `bartaboard.com`): pick the DNS TXT
-  record and add it in Cloudflare's DNS, then add the Page under the domain's "Assigned assets". It proves
+  record and add it in Cloudflare's DNS (keep it there: Meta checks it again now and then), then **Connect assets**
+  on the domain and pick the Page. It proves
   Bartaboard's links are the Page's own, lets the business control how they are previewed, and is what the video
   roundups' carousels need.
 - The Page's **"Visit website"** button to `https://bartaboard.com/bn/`, and a **pinned post** saying what
