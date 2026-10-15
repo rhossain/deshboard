@@ -52,3 +52,6 @@ next-env.d.ts
 
 # wrangler pages dev
 .wrangler/
+
+# what the Facebook Page posted, carried between deploys by the Actions cache (scripts/post-facebook.ts)
+/.social/

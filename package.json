@@ -12,6 +12,7 @@
     "test": "tsx scripts/test-parsers.ts",
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p functions",
     "fetch": "tsx scripts/fetch-news.ts",
+    "post:facebook": "tsx scripts/post-facebook.ts",
     "package": "bash scripts/package.sh"
   },
   "dependencies": {
