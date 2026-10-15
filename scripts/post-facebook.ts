@@ -282,6 +282,7 @@ async function main() {
 
   const when = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", hour: "2-digit", minute: "2-digit" }).format(at);
   const verb = mode === "dry" ? "Would post" : at > now + 60_000 ? "Scheduled" : "Posted";
+  if (mode !== "dry") notice(`Facebook: ${verb.toLowerCase()} ${plan.record.content} for ${when} Dhaka (post ${plan.record.id}): ${plan.record.title}`);
   summary(
     [
       `### Facebook: ${verb} ${plan.record.content} (${fields.kind}, ${when} Dhaka)`,
