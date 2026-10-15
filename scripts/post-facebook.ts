@@ -104,6 +104,7 @@ function writeHistory(posts: PostRecord[]) {
   writeFileSync(STATE_FILE, `${JSON.stringify({ posts }, null, 1)}\n`);
 }
 
+const notice = (message: string) => console.log(process.env.GITHUB_ACTIONS ? `::notice::${message}` : `i ${message}`);
 const warn = (message: string) => console.log(process.env.GITHUB_ACTIONS ? `::warning::${message}` : `! ${message}`);
 
 /** A line or table in the run's summary page on GitHub (and the log). */
@@ -173,6 +174,20 @@ async function pageToken(pageId: string): Promise<void> {
   }
 }
 
+/**
+ * In a dry run with FB_PAGE_ID and FB_PAGE_TOKEN set: whether the token reaches the Page and can get its token, as a
+ * note on the run (no post is made), so the setup can be checked before posting is turned on.
+ */
+async function checkToken(pageId: string): Promise<void> {
+  try {
+    const page = await graph<{ name?: string; access_token?: string }>(`/${pageId}`, { fields: "name,access_token" }, "GET");
+    if (page.access_token) notice(`Facebook token works: it reaches the Page "${page.name ?? pageId}" and can post to it.`);
+    else warn(`Facebook token reaches the Page "${page.name ?? pageId}" but gets no Page token: check the system user's access to the Page.`);
+  } catch (err) {
+    warn(`Facebook token check failed: ${(err as Error).message}`);
+  }
+}
+
 /** Has Facebook read the link afresh (title, picture), so the post never shows an old or empty preview. */
 async function rescrape(link: string) {
   try {
@@ -192,6 +207,11 @@ async function main() {
   if (mode !== "dry" && (!pageId || !process.env.FB_PAGE_TOKEN)) {
     warn(`FB_POSTING is ${mode}, but FB_PAGE_ID or FB_PAGE_TOKEN is missing: nothing posted.`);
     return;
+  }
+
+  if (mode === "dry" && !local) {
+    if (pageId && token) await checkToken(pageId);
+    else notice(`Facebook token not checked: ${[!pageId && "FB_PAGE_ID", !token && "FB_PAGE_TOKEN"].filter(Boolean).join(" and ")} not set.`);
   }
 
   const now = Date.now();
