@@ -6,6 +6,7 @@ import { fullTime } from "@/components/time";
 import { thumb, watchUrl } from "@/components/youtube";
 import { possessive } from "@/lib/bn-names";
 import { CATEGORIES } from "@/lib/categories";
+import { outletProfile } from "@/lib/outlet-profiles";
 import { buildDirectory, OUTLETS, type Outlet, outletContent, outletName, outletPath } from "@/lib/directory";
 import { readFeed, readVideos } from "@/lib/feed";
 import { type Locale, languageAlternates, localDigits, localePath } from "@/lib/i18n";
@@ -38,6 +39,7 @@ const WORDS = {
     latestVideos: "Latest videos",
     noVideos: (name: string) => `No videos from ${name} in the last day.`,
     allVideos: "All TV news videos",
+    about: (name: string) => `About ${name}`,
   },
   bn: {
     tagline: () => "",
@@ -50,6 +52,7 @@ const WORDS = {
     latestVideos: "সর্বশেষ ভিডিও",
     noVideos: (name: string) => `গত এক দিনে ${possessive(name)} কোনো ভিডিও নেই।`,
     allVideos: "সব টিভি সংবাদ ভিডিও",
+    about: (name: string) => `${name} সম্পর্কে`,
   },
 };
 
@@ -98,6 +101,7 @@ export function OutletPage({ id, locale }: { id: string; locale: Locale }) {
     .filter((c) => c.count && categoryPath(c.id))
     .sort((a, b) => b.count - a.count);
   const link = "font-semibold text-accent hover:underline";
+  const profile = outletProfile(o.id);
 
   return (
     <InfoPage
@@ -144,6 +148,14 @@ export function OutletPage({ id, locale }: { id: string; locale: Locale }) {
           {w.allNewspapers}
         </Link>
       </p>
+
+      {profile && (
+        // In the page's own language: what makes the English and Bangla pages of an outlet two pages, not one.
+        <section>
+          <h2 className="mt-10 font-display text-2xl font-semibold">{w.about(name)}</h2>
+          <p className="mt-3 max-w-[65ch] leading-relaxed">{profile[locale]}</p>
+        </section>
+      )}
 
       {o.source && (
         <section>

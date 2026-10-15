@@ -4,11 +4,12 @@ import { type DirectoryEntry, type DirectoryGroup, type Outlet, outletName } fro
 import { type Locale, languageAlternates, LANG_TAG, localDigits, localePath, OG_LOCALE } from "./i18n";
 import { possessive } from "./bn-names";
 import { faq } from "./intros";
+import { outletProfile } from "./outlet-profiles";
 import { CHANNELS } from "./channels";
 import { SOCIAL_LINKS } from "./social";
 import { ACTIVE_SOURCES } from "./sources";
 import { itemTime, newestFirst } from "./stories";
-import type { SourceResult } from "./types";
+import type { NewsSource, SourceResult } from "./types";
 
 /** The public address, for absolute URLs (canonical, sitemap, share image). Set SITE_URL when deploying. */
 export const SITE_URL = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
@@ -149,7 +150,37 @@ export function outletHeading(o: Outlet, locale: Locale = "en"): string {
   return o.source ? `${o.name} latest news headlines` : `${o.name} news today: latest videos`;
 }
 
+/** "Bangla daily", "English news site": what a site is, for an outlet's description. */
+const SINCE_KIND: Record<Locale, Record<NewsSource["kind"], (lang: string) => string>> = {
+  en: {
+    Newspaper: (lang) => `${lang} daily`,
+    Online: (lang) => `${lang} news site`,
+    TV: () => "TV station",
+    Agency: () => "news agency",
+  },
+  bn: {
+    Newspaper: (lang) => `${lang} দৈনিক`,
+    Online: (lang) => `${lang} সংবাদ সাইট`,
+    TV: () => "টিভি স্টেশন",
+    Agency: () => "সংবাদ সংস্থা",
+  },
+};
+
 export function outletDescription(o: Outlet, locale: Locale = "en"): string {
+  const since = outletProfile(o.id)?.since;
+  if (since) {
+    // What it is and since when first: what tells one outlet's page from the next in search results.
+    const name = outletName(o, locale);
+    const videos = o.channel && o.source ? (locale === "bn" ? " ও ভিডিও" : " and videos") : "";
+    if (locale === "bn") {
+      const lang = o.source?.lang === "en" ? "ইংরেজি" : "বাংলা";
+      if (!o.source) return `${name} (${n(since, locale)} সাল থেকে সম্প্রচারে): ইউটিউবে সর্বশেষ সংবাদ ভিডিও, নতুনগুলো আগে, সঙ্গে লাইভ দেখার লিংক।`;
+      return `${name}, ${n(since, locale)} সাল থেকে ${SINCE_KIND.bn[o.source.kind](lang)}: আজকের সর্বশেষ শিরোনাম${videos}, ${SITE_NAME}-এ প্রতি ১৫ মিনিটে হালনাগাদ।`;
+    }
+    const lang = o.source?.lang === "en" ? "English" : "Bangla";
+    if (!o.source) return `${o.name} (on air since ${since}): the latest news videos from its YouTube channel, newest first, with a link to its live stream.`;
+    return `${o.name}, ${SINCE_KIND.en[o.source.kind](lang)} since ${since}: today's latest headlines${videos}, updated every 15 minutes on ${SITE_NAME}.`;
+  }
   if (locale === "bn") {
     const name = outletName(o, locale);
     if (!o.source) {
@@ -381,6 +412,7 @@ export function sourcesJsonLd(groups: DirectoryGroup[], locale: Locale = "en"): 
 /** Structured data for an outlet's page: about the outlet, under the sources page. */
 export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string, locale: Locale = "en"): string {
   const url = `${SITE_URL}${entry.href}`;
+  const profile = outletProfile(o.id);
   const youtube = entry.youtubeId && `https://www.youtube.com/channel/${entry.youtubeId}`;
   return jsonLd({
     "@graph": [
@@ -390,7 +422,8 @@ export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string,
         url,
         name: outletTitle(o, locale),
         description: outletDescription(o, locale),
-        inLanguage: locale === "bn" ? "bn" : (o.source?.lang ?? "bn"),
+        // The page's own language (its interface and its profile); the headlines carry their own lang.
+        inLanguage: locale,
         dateModified: updated,
         isPartOf: { "@id": `${SITE_URL}/#website` },
         about: {
@@ -399,6 +432,8 @@ export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string,
           ...(locale === "bn" && outletName(o, locale) !== o.name && { alternateName: outletName(o, locale) }),
           url: entry.homepage ?? youtube,
           ...(entry.homepage && youtube && { sameAs: [youtube] }),
+          ...(profile && { description: profile[locale] }),
+          ...(profile?.since && { foundingDate: String(profile.since) }),
         },
       },
       {
