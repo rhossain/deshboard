@@ -9,8 +9,9 @@
  *   dry             picks as it would, and writes the pick to the run's summary, posting nothing
  *   review          schedules each post 45 minutes ahead, so it can be checked (and deleted) in Meta Business Suite
  *   on              posts straight away
- * FB_PAGE_ID (variable) and FB_PAGE_TOKEN (secret, a Page access token with pages_manage_posts) are needed for review
- * and on. FB_SLOTS (variable, optional) replaces the times of day and what goes out at each (see parseSlots):
+ * FB_PAGE_ID (variable) and FB_PAGE_TOKEN (secret) are needed for review and on. The token can be the Page's own, or
+ * the business's system user's (with pages_manage_posts on the Page): each run asks Facebook for the Page's token with
+ * it (pageToken). FB_SLOTS (variable, optional) replaces the times of day and what goes out at each (see parseSlots):
  * "08:00, 09:15 video, 13:00 roundup, 21:30".
  *
  * What was posted is kept in .social/facebook.json (carried from run to run by the Actions cache), for the repeat,
@@ -140,10 +141,14 @@ interface GraphError {
   error?: { message?: string; code?: number; error_subcode?: number };
 }
 
-async function graph<T>(endpoint: string, params: Record<string, string>): Promise<T> {
-  const res = await fetch(`${GRAPH}${endpoint}`, {
-    method: "POST",
-    body: new URLSearchParams({ ...params, access_token: process.env.FB_PAGE_TOKEN ?? "" }),
+/** The token posts are made with: FB_PAGE_TOKEN, or the Page's own token got with it (pageToken). */
+let token = process.env.FB_PAGE_TOKEN?.trim() ?? "";
+
+async function graph<T>(endpoint: string, params: Record<string, string>, method: "GET" | "POST" = "POST"): Promise<T> {
+  const query = new URLSearchParams({ ...params, access_token: token });
+  const res = await fetch(method === "GET" ? `${GRAPH}${endpoint}?${query}` : `${GRAPH}${endpoint}`, {
+    method,
+    body: method === "POST" ? query : undefined,
     signal: AbortSignal.timeout(30_000),
   });
   const body = (await res.json().catch(() => ({}))) as T & GraphError;
@@ -152,6 +157,20 @@ async function graph<T>(endpoint: string, params: Record<string, string>): Promi
     throw new Error(`Facebook ${res.status}${e?.code ? ` (code ${e.code})` : ""}: ${e?.message ?? "no answer"}`);
   }
   return body;
+}
+
+/**
+ * The Page's own token. FB_PAGE_TOKEN can be a system user's token (Business settings → System users), which is
+ * simpler to make than the Page's; posting needs the Page's, which Facebook gives for it. A Page token is used as is.
+ */
+async function pageToken(pageId: string): Promise<void> {
+  try {
+    const { access_token } = await graph<{ access_token?: string }>(`/${pageId}`, { fields: "access_token" }, "GET");
+    if (access_token) token = access_token;
+  } catch (err) {
+    // A Page's own token may not be allowed to ask: it is used as it is, and posting says if it can't.
+    warn(`Page token not looked up (${(err as Error).message}); using FB_PAGE_TOKEN as it is.`);
+  }
 }
 
 /** Has Facebook read the link afresh (title, picture), so the post never shows an old or empty preview. */
@@ -323,7 +342,8 @@ function roundupPlan(cards: VideoChoice[], fields: Fields, fallback: () => Plan 
 }
 
 /** Makes the post (scheduled for `at` when that is ahead); its fallback if Facebook refuses it. Null: not posted. */
-async function publish(plan: Plan, pageId: string, at: number, now: number): Promise<Plan | null> {
+async function publish(plan: Plan, pageId: string, at: number, now: number, fallingBack = false): Promise<Plan | null> {
+  if (!fallingBack) await pageToken(pageId);
   try {
     for (const link of plan.links) await rescrape(link);
     const params: Record<string, string> = { ...plan.params };
@@ -340,7 +360,7 @@ async function publish(plan: Plan, pageId: string, at: number, now: number): Pro
     // A token or permission problem would refuse the fallback too.
     if (fallback && !/code (190|10|200)\b/.test(message)) {
       warn(`Roundup not posted (${message}); posting a video instead.`);
-      return publish(fallback, pageId, at, now);
+      return publish(fallback, pageId, at, now, true);
     }
     warn(`Not posted: ${message}`);
     return null;

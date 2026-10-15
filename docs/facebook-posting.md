@@ -144,14 +144,18 @@ changes or they leave.
    Bartaboard Page, with **full control** (or at least "Create content").
 4. **Its token.** On the system user, Generate new token → the app from step 1 → token expiry **Never** →
    permissions `pages_show_list`, `pages_read_engagement` and `pages_manage_posts`. Copy the token.
-5. **The Page's own token.** The token from step 4 is the system user's; posting needs the Page's. Open
-   [Graph API Explorer](https://developers.facebook.com/tools/explorer/), paste the token in "Access token", and run
-   `GET me/accounts`. The Bartaboard entry has the Page's `id` and its `access_token`. Check it in the
-   [Access Token Debugger](https://developers.facebook.com/tools/debug/accesstoken/): Type "Page", Expires "Never".
+5. **The Page's id.** Business settings → Accounts → **Pages** → Bartaboard: the number under its name (or the
+   Page's About → Page transparency).
 6. **GitHub.** Repository → Settings → Secrets and variables → Actions:
-   - secret `FB_PAGE_TOKEN`: the Page's access token from step 5;
+   - secret `FB_PAGE_TOKEN`: the system user's token from step 4. Each run asks Facebook for the Page's own token
+     with it, so there is no separate Page token to make. (A Page's own token works here too, if you have one.)
    - variable `FB_PAGE_ID`: the Page's id from step 5;
    - variable `FB_POSTING`: `dry`, then `review`, then `on` (above).
+
+   If step 4 says "No permissions available", the system user has no role on the app: Business settings → Accounts →
+   **Apps** → the app (add it with "Connect an app ID" if it isn't listed) → **Assign people** → the system user,
+   with full control. If a permission is still missing from the list, add the Page use case ("Manage everything on
+   your Page") under the app's **Use cases** on developers.facebook.com.
 
 The token is a password to the Page: only ever in the GitHub secret, never in the code, a chat or a document.
 
