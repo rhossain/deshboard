@@ -18,6 +18,30 @@ section 4 now carries its status: ✅ done, 🟡 partly done, ⬜ open, 🔁 ong
 - ⬜ **Open:** links and presence off the site (#22), and the monthly Search Console
   review (#23). `Organization.sameAs` and `twitter:site` wait for the first social profile.
 
+## Search Console review (15 October 2026, data to 12 October)
+
+The first Pages report (#23). Google knew 150 of the sitemap's 196 URLs: **92 indexed, 58 not**. Impressions
+began on 11 October (about 50–60 a day).
+
+| Why not indexed | Pages | |
+|---|---|---|
+| Crawled – currently not indexed | 49 | See below. |
+| Alternate page with proper canonical tag | 4 | Expected: `?view=` / `?cat=` views. |
+| Page with redirect | 3 | Expected: `www`, trailing slash, the old domain. |
+| Excluded by 'noindex' tag | 1 | Expected: `/health/` or `/account/`. |
+| Discovered – currently not indexed | 1 | Not crawled yet. |
+
+Of the 49 "crawled, not indexed": 35 English outlet pages of Bangla outlets and TV channels
+(`/sources/ittefaq/`, `/sources/somoy/`…), 5 English pages of English outlets, 5 Bangla outlet pages, 2 board
+URLs with `?source=` (canonical to `/`, fine) and 2 RSS feeds (fine). An outlet's English and Bangla pages
+carried the same headlines and no text of their own, so Google kept one of each pair.
+
+**Done:** every outlet page now has a profile in its own language (what it is, since when, who publishes it:
+`src/lib/outlet-profiles.ts`, sources in `docs/outlet-profile-sources.json`), its year in the description,
+`description` and `foundingDate` in its structured data, and `inLanguage` set to the page's language (it said
+`bn` on English pages of Bangla outlets). **Next:** request indexing for a few of the 35 English pages; export
+the Pages report again around 1 November and compare.
+
 ## Recheck (13 October 2026, after the videos and tour work)
 
 Lighthouse 12.8.2 run locally against the live site, simulated mid-range phone on slow 4G unless marked
