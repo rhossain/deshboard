@@ -132,10 +132,13 @@ changes or they leave.
 1. **An app.** [developers.facebook.com](https://developers.facebook.com/apps) → Create app. Name it "Bartaboard
    poster", pick the use case for managing a Page's content (“Manage everything on your Page”), and connect it to the
    Bartaboard business portfolio.
-2. **Make it live.** In the app's settings (App settings → Basic) set the privacy policy URL to
-   `https://bartaboard.com/privacy/` and a category, then switch **App mode** to **Live**. While an app is in
-   development, what it posts is shown only to the people who have a role on the app. No App Review is needed: the
-   app only posts to a Page of its own business.
+2. **Make it live.** First, in **App settings → Basic**, fill in the privacy policy URL
+   (`https://bartaboard.com/privacy/`), the terms of service URL (`https://bartaboard.com/terms/`), a category
+   (News) and an app icon, and save. Then, in the app's left-hand menu, open **Publish** (an app made from use cases,
+   as this one is, has no App mode switch any more). It lists what is still missing; when the list is clear, click
+   **Go live**. (An older app, made by app type, has an **App Mode** switch in the bar at the top instead.) While an
+   app is in development, only people with a role on it can use it. No App Review is needed for this: the app only
+   posts to a Page of its own business, with the business's own system user.
 3. **A system user.** [business.facebook.com](https://business.facebook.com/settings) → Business settings → Users →
    System users → Add, an **Admin** system user called "bartaboard-poster". Then Assign assets → Pages → the
    Bartaboard Page, with **full control** (or at least "Create content").
