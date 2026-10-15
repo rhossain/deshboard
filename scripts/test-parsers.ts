@@ -43,7 +43,18 @@ import { parseHead, slugTitle } from "../src/lib/outlet-head";
 import { byDay, keptDates, mergeDay } from "../src/lib/archive";
 import { compileSearch, installSearchTerms } from "../src/lib/search";
 import { SEARCH_TERMS } from "../src/lib/search-terms";
-import { findStories, keywords } from "../src/lib/stories";
+import { findStories, keywords, type Story } from "../src/lib/stories";
+import {
+  dueSlot,
+  isSensitive,
+  parseSlots,
+  pickStory,
+  postMessage,
+  postRecord,
+  type PostRecord,
+  SLOTS,
+  storySection,
+} from "../src/lib/page-posts";
 import type { NewsFeed, NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
 import { mergeVideos } from "../src/lib/videos";
 import { groupVideos, tagStories, videoKeywords } from "../src/lib/video-stories";
@@ -1153,6 +1164,84 @@ test("Packed files: the same headlines back, and a delta that turns one build in
   const day = { date: "2026-10-13", items: [item("b", 7), item("a", 6), item("b", 5), item("a", 4)] };
   assert.deepEqual(unpackDay(JSON.parse(JSON.stringify(packDay(day)))), day);
   assert.equal(unpackDay(day), day);
+});
+
+test("page posts: slots are due once, in their window, scheduled ahead in review", () => {
+  const slots = ["08:00", "13:00"];
+  const at = (hhmm: string) => Date.parse(`2026-10-15T${hhmm}:00+06:00`);
+  assert.equal(dueSlot(at("07:59"), [], slots, 0), null);
+  assert.deepEqual(dueSlot(at("08:10"), [], slots, 0), { slot: at("08:00"), at: at("08:10") });
+  assert.equal(dueSlot(at("09:05"), [], slots, 0), null, "a run more than an hour late leaves the slot");
+  const posted = [{ slot: new Date(at("08:00")).toISOString() } as PostRecord];
+  assert.equal(dueSlot(at("08:20"), posted, slots, 0), null, "one post per slot");
+  // Review: 45 minutes ahead, never less than 15 minutes from now.
+  const lead = 45 * 60_000;
+  assert.deepEqual(dueSlot(at("12:15"), [], slots, lead), { slot: at("13:00"), at: at("13:00") });
+  assert.deepEqual(dueSlot(at("12:50"), [], slots, lead), { slot: at("13:00"), at: at("13:05") });
+  // Just after midnight in Dhaka, the night before's slots are still the night before's.
+  assert.deepEqual(dueSlot(Date.parse("2026-10-15T23:30:00+06:00"), [], ["23:00"], 0)?.slot, Date.parse("2026-10-15T23:00:00+06:00"));
+  assert.deepEqual(parseSlots("21:30, 8:00 bad 25:00"), ["08:00", "21:30"]);
+  assert.equal(parseSlots(""), SLOTS);
+});
+
+test("page posts: sensitive headlines", () => {
+  assert.ok(isSensitive("কিশোরীকে ধর্ষণের অভিযোগে গ্রেপ্তার"));
+  assert.ok(isSensitive("Student commits suicide in Rajshahi"));
+  assert.ok(!isSensitive("প্রশ্নপত্র ফাঁসের অভিযোগে পরীক্ষা স্থগিত"));
+  assert.ok(!isSensitive("Grape exports rise"));
+});
+
+test("page posts: the most covered fresh story, an outlet in turn, no repeats", () => {
+  const now = Date.parse("2026-10-15T07:00:00Z");
+  const ago = (min: number) => new Date(now - min * 60_000).toISOString();
+  const story = (title: string, sources: string[], extra: Partial<NewsItem> = {}, heat = sources.length): Story => {
+    const items = sources.map((s) => item(s, title, { publishedAt: ago(30), category: "national", ...extra }));
+    return { id: items[0].link, lead: items[0], items, outlets: sources.length, latest: ago(30), heat };
+  };
+  const big = story("সেতুর উদ্বোধন আজ পদ্মায়", ["a", "b", "c", "d"]);
+  const small = story("নতুন বাজেট সংসদে পেশ", ["a", "b", "c"], { category: "business" });
+  const stale = story("পুরোনো খবর অনেক আগের", ["a", "b", "c", "d", "e"]);
+  stale.latest = ago(300);
+  const two = story("দুটি পত্রিকার খবর এখানে", ["a", "b"]);
+  const grim = story("নদীতে ঝুলন্ত মরদেহ উদ্ধার", ["a", "b", "c", "d", "e", "f"]);
+  const stories = [grim, stale, two, big, small];
+  const options = { now, at: now, history: [] as PostRecord[], hasPicture: () => true };
+
+  const first = pickStory(stories, options)!;
+  assert.equal(first.story, big);
+  assert.equal(first.item.sourceId, "a", "the lead's outlet among equals");
+  assert.equal(postMessage(first), "সেতুর উদ্বোধন আজ পদ্মায়\n\na · আরও ৩টি সংবাদমাধ্যমেও এই খবর");
+
+  // Posted: not again, and the next post credits an outlet not credited yet.
+  const history = [postRecord(first, { kind: "slot", at: new Date(now - 3600_000).toISOString(), link: "", mode: "on" })];
+  const second = pickStory(stories, { ...options, history })!;
+  assert.equal(second.story, small);
+  assert.equal(second.item.sourceId, "b");
+  // Too close to the last post.
+  assert.equal(pickStory(stories, { ...options, history, at: now - 3600_000 + 10 * 60_000 }), null);
+  // No picture, no post.
+  assert.equal(pickStory([big], { ...options, hasPicture: () => false }), null);
+  assert.equal(pickStory([big], { ...options, hasPicture: (it) => it.sourceId === "c" })?.item.sourceId, "c");
+  // The same subject from another cluster isn't posted again either.
+  const again = story("পদ্মায় সেতুর উদ্বোধন আজ বিকেলে", ["e", "f", "g"]);
+  assert.equal(pickStory([again], { ...options, history }), null);
+  // Breaking: only big, new stories.
+  assert.equal(pickStory([big], { ...options, breaking: true }), null);
+  const breaking = story("বড় খবর এইমাত্র", ["a", "b", "c", "d", "e", "f", "g", "h"]);
+  assert.equal(pickStory([breaking], { ...options, breaking: true })?.story, breaking);
+});
+
+test("page posts: sections take turns and keep to their daily caps", () => {
+  const now = Date.parse("2026-10-15T07:00:00Z");
+  const items = ["a", "b", "c"].map((s, i) => item(s, "খবর", { category: i ? "politics" : "other" }));
+  const story: Story = { id: "x", lead: items[0], items, outlets: 3, latest: new Date(now).toISOString(), heat: 3 };
+  assert.equal(storySection(story), "politics");
+  const posted = (h: number, category: PostRecord["category"]): PostRecord => ({
+    kind: "slot", at: new Date(now - h * 3600_000).toISOString(), title: "", link: "", sourceId: "z", category, keys: [], words: [], mode: "on",
+  });
+  const options = { now, at: now, hasPicture: () => true };
+  assert.equal(pickStory([story], { ...options, history: [posted(2, "politics"), posted(4, "politics")] }), null);
+  assert.equal(pickStory([story], { ...options, history: [posted(2, "politics")] })?.story, story);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);
