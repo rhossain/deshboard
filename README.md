@@ -160,7 +160,8 @@ The headlines are as fresh as the last run. For a one-off manual upload instead,
 bartaboard.com itself is served by Cloudflare Pages, which the same workflow uploads to. `docs/services.md` lists every
 hosted service (Cloudflare, Supabase, Google sign-in, Resend email) and what is set in each dashboard.
 
-After the upload, the same run can post the day's most covered stories to the Facebook Page, at set times; it is off
+After the upload, the same run can post the day's most covered stories and TV news videos to the Facebook Page, at
+set times; it is off
 until the `FB_POSTING` variable is set. `docs/facebook-posting.md` has the rules and the one-time setup.
 
 ## Features
