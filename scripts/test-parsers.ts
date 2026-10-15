@@ -59,7 +59,10 @@ import {
 } from "../src/lib/page-video-posts";
 import {
   dueSlot,
+  headlinesMessage,
+  headlinesRecord,
   isSensitive,
+  pickHeadlines,
   parseSlots,
   pickStory,
   postMessage,
@@ -1198,7 +1201,7 @@ test("page posts: slots are due once, in their window, scheduled ahead in review
   const slots = parseSlots("08:00, 13:00 video");
   const at = (hhmm: string) => Date.parse(`2026-10-15T${hhmm}:00+06:00`);
   assert.equal(dueSlot(at("07:59"), [], slots, 0), null);
-  assert.deepEqual(dueSlot(at("08:10"), [], slots, 0), { slot: at("08:00"), at: at("08:10"), content: "news" });
+  assert.deepEqual(dueSlot(at("08:10"), [], slots, 0), { slot: at("08:00"), at: at("08:10"), content: "headlines" });
   assert.equal(dueSlot(at("09:05"), [], slots, 0), null, "a run more than an hour late leaves the slot");
   const posted = [{ slot: new Date(at("08:00")).toISOString() } as PostRecord];
   assert.equal(dueSlot(at("08:20"), posted, slots, 0), null, "one post per slot");
@@ -1208,8 +1211,9 @@ test("page posts: slots are due once, in their window, scheduled ahead in review
   assert.deepEqual(dueSlot(at("12:50"), [], slots, lead), { slot: at("13:00"), at: at("13:05"), content: "video" });
   // Just after midnight in Dhaka, the night before's slots are still the night before's.
   assert.deepEqual(dueSlot(Date.parse("2026-10-15T23:30:00+06:00"), [], parseSlots("23:00"), 0)?.slot, Date.parse("2026-10-15T23:00:00+06:00"));
-  assert.deepEqual(parseSlots("21:30 Roundup, 8:00, bad, 25:00, 9:15 video"), [
-    { time: "08:00", content: "news" },
+  assert.deepEqual(parseSlots("21:30 Roundup, 8:00, bad, 25:00, 9:15 video, 7:00 news"), [
+    { time: "07:00", content: "news" },
+    { time: "08:00", content: "headlines" },
     { time: "09:15", content: "video" },
     { time: "21:30", content: "roundup" },
   ]);
@@ -1335,6 +1339,34 @@ test("outlet profiles: every outlet page has one in each language, and a descrip
     }
   }
   assert.deepEqual(Object.keys(OUTLET_PROFILES).filter((id) => !OUTLETS.some((o) => o.id === id)), [], "profiles of no outlet");
+});
+
+test("page posts: five headlines in a carousel, each outlet once, two a section at most", () => {
+  const now = Date.parse("2026-10-15T07:00:00Z");
+  const ago = (min: number) => new Date(now - min * 60_000).toISOString();
+  const story = (title: string, sources: string[], category: NewsItem["category"], heat: number): Story => {
+    const items = sources.map((s) => item(s, title, { publishedAt: ago(20), category }));
+    return { id: items[0].link, lead: items[0], items, outlets: sources.length, latest: ago(20), heat };
+  };
+  const stories = [
+    story("প্রথম খবর সেতু উদ্বোধন", ["a", "b", "c"], "national", 9),
+    story("দ্বিতীয় খবর বন্যা পরিস্থিতি", ["a", "b", "c"], "national", 8),
+    story("তৃতীয় খবর ট্রেন দুর্ঘটনা", ["a", "b", "d"], "national", 7),
+    story("চতুর্থ খবর ক্রিকেট জয়", ["a", "e", "f"], "sports", 6),
+    story("পঞ্চম খবর বাজেট ঘোষণা", ["b", "g", "h"], "business", 5),
+    story("ষষ্ঠ খবর নির্বাচন কমিশন", ["c", "i", "j"], "politics", 4),
+  ];
+  const options = { now, at: now, history: [] as PostRecord[], hasPicture: () => true };
+  const cards = pickHeadlines(stories, options);
+  assert.equal(cards.length, 5);
+  assert.deepEqual(cards.map((c) => c.story.lead.title.split(" ")[0]), ["প্রথম", "দ্বিতীয়", "চতুর্থ", "পঞ্চম", "ষষ্ঠ"], "a third national story waits");
+  assert.equal(new Set(cards.map((c) => c.item.sourceId)).size, 5, "each outlet once");
+  assert.match(headlinesMessage(cards, Date.parse("2026-10-15T22:30:00+06:00")), /^রাতের শীর্ষ ৫ খবর\n\n১\. প্রথম খবর সেতু উদ্বোধন — a\n২\. /);
+  // Posted: those stories don't come back; too few left for five.
+  const record = headlinesRecord(cards, { kind: "slot", at: ago(120), link: "", mode: "on" });
+  assert.deepEqual(pickHeadlines(stories, { ...options, history: [record] }), []);
+  // Fewer than five stories with pictures: none (a single headline goes out instead).
+  assert.deepEqual(pickHeadlines(stories, { ...options, hasPicture: (it) => ["c", "d", "e"].includes(it.sourceId) }), []);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

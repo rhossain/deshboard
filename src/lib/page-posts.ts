@@ -15,8 +15,11 @@ import type { NewsItem } from "./types";
  * credited least lately, so the Page carries every paper in turn rather than the same few.
  */
 
-/** What a post is: a headline, a TV channel's video, or a roundup of five videos (a carousel). */
-export type PostContent = "news" | "video" | "roundup";
+/**
+ * What a post is: five headlines (a carousel, "headlines"), one headline ("news": breaking news, or a headlines slot
+ * with too few stories), a TV channel's video, or five videos (a carousel, "roundup").
+ */
+export type PostContent = "headlines" | "news" | "video" | "roundup";
 
 /** A time of the Dhaka day ("HH:MM") and what goes out then. */
 export interface Slot {
@@ -25,21 +28,26 @@ export interface Slot {
 }
 
 /**
- * Ten posts a day: five headlines, three videos and two video roundups, an hour or more apart. The FB_SLOTS repository
- * variable replaces them (see parseSlots).
+ * Ten posts a day: five of five headlines, three videos and two of five videos, an hour or more apart. The FB_SLOTS
+ * repository variable replaces them (see parseSlots).
  */
 export const SLOTS: Slot[] = [
-  { time: "08:00", content: "news" },
+  { time: "08:00", content: "headlines" },
   { time: "09:15", content: "video" },
-  { time: "10:30", content: "news" },
+  { time: "10:30", content: "headlines" },
   { time: "12:00", content: "video" },
   { time: "13:00", content: "roundup" },
-  { time: "16:00", content: "news" },
+  { time: "16:00", content: "headlines" },
   { time: "17:30", content: "video" },
-  { time: "19:00", content: "news" },
+  { time: "19:00", content: "headlines" },
   { time: "21:00", content: "roundup" },
-  { time: "22:30", content: "news" },
+  { time: "22:30", content: "headlines" },
 ];
+
+/** Headlines (and videos) in a carousel post. */
+export const CAROUSEL_CARDS = 5;
+/** A story in a headlines carousel shares it with at most this many from its section. */
+const CAROUSEL_PER_SECTION = 2;
 
 /** A slot is acted on in the first runs of this window from its start (the deploy runs every 15 minutes). */
 const ACT_WINDOW_MS = 60 * 60_000;
@@ -142,16 +150,17 @@ function slotTimes(now: number, slots: Slot[]): (Slot & { at: number })[] {
 }
 
 /**
- * The `slots` setting (FB_SLOTS): times, each a headline unless followed by `video` or `roundup`:
- * "08:00, 09:15 video, 13:00 roundup, 21:30". Malformed entries are left out; none left, the default.
+ * The `slots` setting (FB_SLOTS): times, each five headlines unless followed by `news` (one headline), `video` (one
+ * video) or `roundup` (five videos): "08:00, 09:15 video, 13:00 roundup, 21:30". Malformed entries are left out; none
+ * left, the default.
  */
 export function parseSlots(value: string | undefined): Slot[] {
   const slots = new Map<string, Slot>();
   for (const entry of (value ?? "").split(",")) {
-    const m = /^\s*([01]?\d|2[0-3]):([0-5]\d)(?:\s+(news|video|roundup))?\s*$/i.exec(entry);
+    const m = /^\s*([01]?\d|2[0-3]):([0-5]\d)(?:\s+(headlines|news|video|roundup))?\s*$/i.exec(entry);
     if (!m) continue;
     const time = `${m[1].padStart(2, "0")}:${m[2]}`;
-    slots.set(time, { time, content: (m[3]?.toLowerCase() ?? "news") as PostContent });
+    slots.set(time, { time, content: (m[3]?.toLowerCase() ?? "headlines") as PostContent });
   }
   return slots.size ? [...slots.values()].sort((a, b) => minutes(a.time) - minutes(b.time)) : SLOTS;
 }
@@ -298,11 +307,16 @@ export function storySection(story: Story): Category {
  * The headline of the story to link to: of those with a picture, the one from the outlet credited least lately (never
  * yet comes first), the lead's outlet first among equals.
  */
-function creditedItem(story: Story, history: PostRecord[], hasPicture: (item: NewsItem) => boolean): NewsItem | null {
-  const last = lastCredited(history, ["news"]);
+function creditedItem(
+  story: Story,
+  history: PostRecord[],
+  hasPicture: (item: NewsItem) => boolean,
+  used = new Set<string>(),
+): NewsItem | null {
+  const last = lastCredited(history, ["news", "headlines"]);
   let best: NewsItem | null = null;
   for (const it of story.items) {
-    if (!hasPicture(it)) continue;
+    if (!hasPicture(it) || used.has(it.sourceId)) continue;
     if (!best || (last.get(it.sourceId) ?? 0) < (last.get(best.sourceId) ?? 0)) best = it;
   }
   return best;
@@ -338,6 +352,76 @@ export function postRecord(
     category: storySection(story),
     keys: [...new Set(story.items.map((it) => shareKey(it.link)))],
     words: keywords(story.lead.title),
+  };
+}
+
+/**
+ * A headlines carousel: the CAROUSEL_CARDS most covered fresh stories that pickStory's rules allow (not posted lately,
+ * nothing sensitive, a picture), at most CAROUSEL_PER_SECTION from a section, each card from a different outlet (the
+ * one credited least lately). Empty when there are fewer: one headline goes out instead.
+ */
+export function pickHeadlines(stories: Story[], { now, at, history, hasPicture }: PickOptions): PostChoice[] {
+  if (tooClose(history, at)) return [];
+  const recent = recentPosts(history, at);
+  const postedKeys = new Set(recent.flatMap((p) => p.keys));
+  const cards: PostChoice[] = [];
+  const used = new Set<string>();
+  const perSection = new Map<Category, number>();
+  const subjects: string[][] = [];
+  for (const story of stories) {
+    if (cards.length >= CAROUSEL_CARDS) break;
+    const outlets = new Set(story.items.map((it) => it.sourceId)).size;
+    if (outlets < MIN_OUTLETS) continue;
+    const latest = Date.parse(story.latest ?? "");
+    if (Number.isNaN(latest) || now - latest > FRESH_MS) continue;
+    const section = storySection(story);
+    if (section === "opinion" || (perSection.get(section) ?? 0) >= CAROUSEL_PER_SECTION) continue;
+    if (story.items.some((it) => isSensitive(it.title) || postedKeys.has(shareKey(it.link)))) continue;
+    const words = keywords(story.lead.title);
+    if (postedSubject(recent, words) || subjects.some((w) => sameSubject(words, w))) continue;
+    const item = creditedItem(story, history, hasPicture, used);
+    if (!item) continue;
+    cards.push({ story, item, outlets });
+    used.add(item.sourceId);
+    perSection.set(section, (perSection.get(section) ?? 0) + 1);
+    subjects.push(words);
+  }
+  return cards.length >= CAROUSEL_CARDS ? cards : [];
+}
+
+/** "সকালের", "দুপুরের", "বিকেলের" or "রাতের", by the Dhaka hour of `at`: a carousel's heading starts with it. */
+export function partOfDay(at: number): string {
+  const hour = new Date(at + DHAKA_OFFSET_MS).getUTCHours();
+  return hour < 11 ? "সকালের" : hour < 15 ? "দুপুরের" : hour < 18 ? "বিকেলের" : "রাতের";
+}
+
+/** A headlines carousel's heading: "রাতের শীর্ষ ৫ খবর". */
+export const headlinesHeading = (at: number, cards: number) =>
+  `${partOfDay(at)} শীর্ষ ${localDigits(String(cards), "bn")} খবর`;
+
+/** A headlines carousel's text: its heading, then each card's headline and outlet, numbered as the carousel has them. */
+export function headlinesMessage(cards: PostChoice[], at: number): string {
+  const lines = cards.map(
+    ({ item }, i) => `${localDigits(String(i + 1), "bn")}. ${item.title} — ${sourceName(item.sourceId, item.sourceName, "bn")}`,
+  );
+  return `${headlinesHeading(at, cards.length)}\n\n${lines.join("\n")}`;
+}
+
+/** The record of a headlines carousel. */
+export function headlinesRecord(
+  cards: PostChoice[],
+  fields: Pick<PostRecord, "kind" | "at" | "link" | "mode"> & Partial<Pick<PostRecord, "slot" | "id">>,
+): PostRecord {
+  return {
+    ...fields,
+    content: "headlines",
+    title: headlinesHeading(Date.parse(fields.at), cards.length),
+    sourceId: cards[0].item.sourceId,
+    alsoCredited: cards.slice(1).map((c) => c.item.sourceId),
+    category: "other",
+    keys: [...new Set(cards.flatMap((c) => c.story.items.map((it) => shareKey(it.link))))],
+    words: [],
+    subjects: cards.map((c) => keywords(c.story.lead.title)),
   };
 }
 

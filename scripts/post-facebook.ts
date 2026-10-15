@@ -18,7 +18,7 @@
  * per-day and outlet-rotation rules.
  *
  * Locally, with the live site's headlines and videos: npx tsx scripts/post-facebook.ts --site https://bartaboard.com
- * [--content news|video|roundup] (always a dry run, with or without FB_POSTING; it doesn't write the history either).
+ * [--content headlines|news|video|roundup] (always a dry run, with or without FB_POSTING; it doesn't write the history either).
  *
  * Never fails the deploy: a Facebook error is reported as a warning, and the next run tries again.
  */
@@ -26,6 +26,9 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import path from "node:path";
 import {
   dueSlot,
+  headlinesMessage,
+  headlinesRecord,
+  pickHeadlines,
   MIN_SCHEDULE_MS,
   pageStories,
   parseSlots,
@@ -58,6 +61,7 @@ import { unmaskTitle } from "../src/lib/video-stories";
 import { DATA_DIR, type PackedFeed, unpackFeed } from "../src/lib/packed";
 import { shareKey } from "../src/lib/share";
 import { datesToSearch, shardPath, type ShareShard } from "../src/lib/share-lookup";
+import { sourceName } from "../src/lib/bn-names";
 import type { NewsItem, VideoFeed } from "../src/lib/types";
 
 /** Facebook's Graph API (FB_GRAPH_URL replaces it, for trying the script against a stand-in). */
@@ -117,20 +121,20 @@ function summary(markdown: string) {
  * Which headlines are in the share index, and with a picture: a short link to one that isn't would show "this
  * headline has left Bartaboard", and one without a picture makes a bare preview.
  */
-async function picturesFor(items: NewsItem[], now: number): Promise<Set<NewsItem>> {
+async function picturesFor(items: NewsItem[], now: number): Promise<Map<NewsItem, string>> {
   const shards = new Map<string, Promise<ShareShard | null>>();
   const shard = (file: string) => {
     if (!shards.has(file)) shards.set(file, load<ShareShard>(file));
     return shards.get(file)!;
   };
-  const withPicture = new Set<NewsItem>();
+  const withPicture = new Map<NewsItem, string>();
   await Promise.all(
     items.map(async (it) => {
       const key = shareKey(it.link);
       for (const dir of datesToSearch(shareDay(it, now))) {
         const entry = (await shard(shardPath(dir, key)))?.[key];
         if (!entry) continue;
-        if (entry[7]) withPicture.add(it);
+        if (entry[7]) withPicture.set(it, entry[7]);
         return;
       }
     }),
@@ -225,7 +229,7 @@ async function main() {
   const slots = parseSlots(process.env.FB_SLOTS);
   // Locally, what the next slot of that kind (--content, default news) would get, whatever the time.
   const due =
-    dueSlot(now, history, slots, lead) ?? (local ? { slot: now, at: now, content: (contentArg ?? "news") as PostContent } : null);
+    dueSlot(now, history, slots, lead) ?? (local ? { slot: now, at: now, content: (contentArg ?? "headlines") as PostContent } : null);
   const at = due ? due.at : mode === "review" ? now + MIN_SCHEDULE_MS : now;
   const fields = {
     kind: (due ? "slot" : "breaking") as PostRecord["kind"],
@@ -235,7 +239,7 @@ async function main() {
   };
 
   let plan: Plan | null;
-  if (due && due.content !== "news") {
+  if (due && (due.content === "video" || due.content === "roundup")) {
     const feed = await load<VideoFeed>("/data/videos.json");
     if (!feed) {
       warn("No videos to choose from (public/data/videos.json is missing).");
@@ -261,8 +265,14 @@ async function main() {
       stories.flatMap((s) => s.items),
       now,
     );
-    const choice = pickStory(stories, { now, at, history, hasPicture: (it) => withPicture.has(it), breaking: !due });
-    plan = choice && newsPlan(choice, fields, now);
+    const options = { now, at, history, hasPicture: (it: NewsItem) => withPicture.has(it) };
+    const single = () => {
+      const choice = pickStory(stories, { ...options, breaking: !due });
+      return choice && newsPlan(choice, fields, now);
+    };
+    const cards = due?.content === "headlines" ? pickHeadlines(stories, options) : [];
+    // Too few stories for five, or a carousel Facebook won't take: one headline instead.
+    plan = cards.length ? headlinesPlan(cards, withPicture, fields, now, single) : single();
     if (!plan && !due) {
       console.log(`No slot due and no breaking story (${stories.length} stories from ${items.length} headlines).`);
       return;
@@ -336,6 +346,38 @@ function videoPlan(choice: VideoChoice, fields: Fields): Plan {
   };
 }
 
+/** A carousel of headlines: a card per story, each linking its Bartaboard page, the post itself the board. */
+function headlinesPlan(
+  cards: PostChoice[],
+  pictures: Map<NewsItem, string>,
+  fields: Fields,
+  now: number,
+  fallback: () => Plan | null,
+): Plan {
+  const link = `${SITE}/bn/`;
+  const links = cards.map((c) => postLink(SITE, c.item, now));
+  const children = cards.map((c, i) => ({
+    link: links[i],
+    name: c.item.title,
+    description: sourceName(c.item.sourceId, c.item.sourceName, "bn"),
+    picture: pictures.get(c.item)!,
+  }));
+  return {
+    params: {
+      message: headlinesMessage(cards, Date.parse(fields.at)),
+      link,
+      child_attachments: JSON.stringify(children),
+      multi_share_optimized: "false",
+      multi_share_end_card: "false",
+    },
+    links,
+    record: headlinesRecord(cards, { ...fields, link }),
+    cards: links,
+    note: `Headlines: ${cards.map((c) => `${c.item.sourceName} (${storySection(c.story)})`).join(", ")}`,
+    fallback,
+  };
+}
+
 /** A carousel: a card per video, each linking its Bartaboard page, the post itself the Videos page. */
 function roundupPlan(cards: VideoChoice[], fields: Fields, fallback: () => Plan | null): Plan {
   const link = `${SITE}/bn/videos/`;
@@ -380,7 +422,7 @@ async function publish(plan: Plan, pageId: string, at: number, now: number, fall
     const fallback = plan.fallback?.();
     // A token or permission problem would refuse the fallback too.
     if (fallback && !/code (190|10|200)\b/.test(message)) {
-      warn(`Roundup not posted (${message}); posting a video instead.`);
+      warn(`Carousel not posted (${message}); posting a single ${plan.record.content === "headlines" ? "headline" : "video"} instead.`);
       return publish(fallback, pageId, at, now, true);
     }
     warn(`Not posted: ${message}`);

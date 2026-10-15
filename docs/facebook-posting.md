@@ -14,24 +14,39 @@ works. Paid ads are a different plan: [promotion.md](promotion.md).
 
 | Time | Post |
 | --- | --- |
-| 08:00 | headline |
+| 08:00 | 5 headlines (carousel) |
 | 09:15 | video |
-| 10:30 | headline |
+| 10:30 | 5 headlines (carousel) |
 | 12:00 | video |
 | 13:00 | roundup of 5 videos |
-| 16:00 | headline |
+| 16:00 | 5 headlines (carousel) |
 | 17:30 | video |
-| 19:00 | headline |
+| 19:00 | 5 headlines (carousel) |
 | 21:00 | roundup of 5 videos |
-| 22:30 | headline |
+| 22:30 | 5 headlines (carousel) |
 
 A headline story breaking between those times (8 or more outlets within 90 minutes of its first headline) is posted
 at once, at most twice a day. No two posts are less than 45 minutes apart. The deploy runs every 15 minutes, so a
 post goes out within about 15 minutes of its time. After two weeks, Page Insights shows when the Page's readers are
-actually online; the `FB_SLOTS` variable replaces the table: times, each a headline unless followed by `video` or
-`roundup` (`08:00, 09:15 video, 13:00 roundup, 21:30`).
+actually online; the `FB_SLOTS` variable replaces the table: times, each five headlines unless followed by `news`
+(one headline), `video` (one video) or `roundup` (five videos): `08:00, 09:15 video, 13:00 roundup, 21:30`.
 
 ### Headlines
+
+**Five at a time.** Each headline time posts a carousel of the five most covered stories that pass the rules below,
+each card from a **different outlet**, at most **two from one section**, opinion never. The cards link each story's
+short link (`bartaboard.com/s/…`) with the article's own picture; the post itself links the board (`/bn/`), and its
+text numbers the five as the carousel has them:
+
+```
+রাতের শীর্ষ ৫ খবর
+
+১. বিমানের দাম্মাম ও রিয়াদগামী সব ফ্লাইট ১৮ অক্টোবর পর্যন্ত স্থগিত — যুগান্তর
+২. …
+```
+
+With fewer than five stories, or if Facebook refuses the carousel, one headline goes out instead, chosen as below.
+Breaking news is always one headline.
 
 **Which story.** The story the most outlets are reporting lately (the Top stories ranking), if it:
 
@@ -42,14 +57,15 @@ actually online; the `FB_SLOTS` variable replaces the table: times, each a headl
 - has **no sensitive words** in any of its headlines: sexual violence, suicide, graphic violence (কুপিয়ে, গলা কেটে,
   জবাই…), acid attacks, and pages that aren't news (রাশিফল, prayer times). The list is `SENSITIVE_BN` and
   `SENSITIVE_EN`;
-- keeps its section under the **daily cap**: national 3, crime 1, other sections 2, opinion never. A story from the
-  same section as the post before counts half, so sections take turns;
+- for a single headline, keeps its section under the **daily cap**: national 3, crime 1, other sections 2, opinion
+  never. A story from the same section as the post before counts half, so sections take turns (carousels mix
+  sections instead: two at most from one);
 - has a headline **with a picture** in the share index (posts without one get a bare preview, so the story waits).
 
 **Which outlet.** Of the story's headlines with a picture, the one from the outlet credited **least recently**. Over a
 week every paper gets its turn, rather than the same few big ones: the Page is even-handed, as the board is.
 
-**The post.** The headline, then the outlet and how many others report it, linking the headline's short link
+**A single post.** The headline, then the outlet and how many others report it, linking the headline's short link
 (`bartaboard.com/s/…`). The link's preview shows the headline, the outlet's picture and "also reported by N other
 outlets"; it opens Bartaboard's share page, with a button to the article. Facebook is asked to read the link afresh
 first, so the preview is never stale. No article text, and no summary: the headline is the outlet's own.
@@ -212,5 +228,5 @@ Also worth doing once, for the Page and the site:
 npx tsx scripts/post-facebook.ts --site https://bartaboard.com
 ```
 
-prints what the next headline slot would post from the live site's headlines, whatever the time; add
-`--content video` or `--content roundup` for the videos. It never posts and keeps no history.
+prints the five headlines the next headline time would post from the live site, whatever the time; add
+`--content news` for a single headline, `--content video` or `--content roundup` for the videos. It never posts and keeps no history.

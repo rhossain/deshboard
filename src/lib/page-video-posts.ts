@@ -4,6 +4,7 @@ import { localDigits } from "./i18n";
 import {
   isSensitive,
   lastCredited,
+  partOfDay,
   type PostingMode,
   postedSubject,
   type PostRecord,
@@ -199,9 +200,7 @@ export function videoMessage({ story, video }: VideoChoice): string {
 
 /** A roundup's heading, by the Dhaka time it goes out: "রাতের শীর্ষ ৫ ভিডিও খবর". */
 export function roundupHeading(at: number, cards: number): string {
-  const hour = new Date(at + 6 * 3600_000).getUTCHours();
-  const part = hour < 11 ? "সকালের" : hour < 15 ? "দুপুরের" : hour < 18 ? "বিকেলের" : "রাতের";
-  return `${part} শীর্ষ ${localDigits(String(cards), "bn")} ভিডিও খবর`;
+  return `${partOfDay(at)} শীর্ষ ${localDigits(String(cards), "bn")} ভিডিও খবর`;
 }
 
 /** A roundup's text: its heading, then each card's title and channel, numbered as the carousel has them. */
