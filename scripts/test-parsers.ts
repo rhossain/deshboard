@@ -45,6 +45,16 @@ import { compileSearch, installSearchTerms } from "../src/lib/search";
 import { SEARCH_TERMS } from "../src/lib/search-terms";
 import { findStories, keywords, type Story } from "../src/lib/stories";
 import {
+  pickRoundup,
+  pickVideo,
+  roundupHeading,
+  roundupMessage,
+  roundupRecord,
+  videoMessage,
+  videoRecord,
+  videoStories,
+} from "../src/lib/page-video-posts";
+import {
   dueSlot,
   isSensitive,
   parseSlots,
@@ -1182,21 +1192,30 @@ test("Packed files: the same headlines back, and a delta that turns one build in
 });
 
 test("page posts: slots are due once, in their window, scheduled ahead in review", () => {
-  const slots = ["08:00", "13:00"];
+  const slots = parseSlots("08:00, 13:00 video");
   const at = (hhmm: string) => Date.parse(`2026-10-15T${hhmm}:00+06:00`);
   assert.equal(dueSlot(at("07:59"), [], slots, 0), null);
-  assert.deepEqual(dueSlot(at("08:10"), [], slots, 0), { slot: at("08:00"), at: at("08:10") });
+  assert.deepEqual(dueSlot(at("08:10"), [], slots, 0), { slot: at("08:00"), at: at("08:10"), content: "news" });
   assert.equal(dueSlot(at("09:05"), [], slots, 0), null, "a run more than an hour late leaves the slot");
   const posted = [{ slot: new Date(at("08:00")).toISOString() } as PostRecord];
   assert.equal(dueSlot(at("08:20"), posted, slots, 0), null, "one post per slot");
   // Review: 45 minutes ahead, never less than 15 minutes from now.
   const lead = 45 * 60_000;
-  assert.deepEqual(dueSlot(at("12:15"), [], slots, lead), { slot: at("13:00"), at: at("13:00") });
-  assert.deepEqual(dueSlot(at("12:50"), [], slots, lead), { slot: at("13:00"), at: at("13:05") });
+  assert.deepEqual(dueSlot(at("12:15"), [], slots, lead), { slot: at("13:00"), at: at("13:00"), content: "video" });
+  assert.deepEqual(dueSlot(at("12:50"), [], slots, lead), { slot: at("13:00"), at: at("13:05"), content: "video" });
   // Just after midnight in Dhaka, the night before's slots are still the night before's.
-  assert.deepEqual(dueSlot(Date.parse("2026-10-15T23:30:00+06:00"), [], ["23:00"], 0)?.slot, Date.parse("2026-10-15T23:00:00+06:00"));
-  assert.deepEqual(parseSlots("21:30, 8:00 bad 25:00"), ["08:00", "21:30"]);
+  assert.deepEqual(dueSlot(Date.parse("2026-10-15T23:30:00+06:00"), [], parseSlots("23:00"), 0)?.slot, Date.parse("2026-10-15T23:00:00+06:00"));
+  assert.deepEqual(parseSlots("21:30 Roundup, 8:00, bad, 25:00, 9:15 video"), [
+    { time: "08:00", content: "news" },
+    { time: "09:15", content: "video" },
+    { time: "21:30", content: "roundup" },
+  ]);
   assert.equal(parseSlots(""), SLOTS);
+  assert.deepEqual(
+    [...new Set(SLOTS.map((s) => s.content))].map((c) => SLOTS.filter((s) => s.content === c).length),
+    [5, 3, 2],
+    "five headlines, three videos, two roundups",
+  );
 });
 
 test("page posts: sensitive headlines", () => {
@@ -1257,6 +1276,45 @@ test("page posts: sections take turns and keep to their daily caps", () => {
   const options = { now, at: now, hasPicture: () => true };
   assert.equal(pickStory([story], { ...options, history: [posted(2, "politics"), posted(4, "politics")] }), null);
   assert.equal(pickStory([story], { ...options, history: [posted(2, "politics")] })?.story, story);
+});
+
+test("page posts: videos two or more channels have, a channel in turn, no repeats across headlines", () => {
+  const now = Date.parse("2026-10-15T08:00:00Z");
+  const ago = (min: number) => new Date(now - min * 60_000).toISOString();
+  let n = 0;
+  const video = (channel: string, title: string, min: number, extra: Partial<Video> = {}): Video => ({
+    id: `vid${String(++n).padStart(8, "0")}`, channel, title, publishedAt: ago(min), ...extra,
+  });
+  const fire = [video("somoy", "চকবাজারে কারখানায় আ/গু/ন, নিয়ন্ত্রণে ১০ ইউনিট", 30, { story: "f", views: 9000 }), video("jamuna", "চকবাজারে কারখানায় আগুন নিয়ন্ত্রণে", 60, { story: "f" }), video("ntv", "চকবাজারের আগুন নিয়ন্ত্রণে ১০ ইউনিট", 90, { story: "f" })];
+  const bank = [video("channel24", "ন্যাশনাল ব্যাংক আমানতকারীদের টাকা ফেরত দিচ্ছে", 40, { story: "b" }), video("ekhon", "আমানতকারীদের টাকা ফেরত দিচ্ছে ন্যাশনাল ব্যাংক", 50, { story: "b" })];
+  const grim = [video("rtv", "কিশোরীকে ধ/র্ষ/ণ, গ্রেপ্তার ১", 20, { story: "g" }), video("itv", "কিশোরীকে ধর্ষণের অভিযোগ", 25, { story: "g" })];
+  const alone = video("dbc", "একটি চ্যানেলের ভিডিও খবর একা", 10, { views: 50_000 });
+  const old = [video("somoy", "পুরোনো ভিডিও খবর গতকালের", 600, { story: "o" }), video("ntv", "পুরোনো ভিডিও খবর গতকালের", 610, { story: "o" })];
+  const stories = videoStories([...grim, alone, ...fire, ...bank, ...old], now);
+  assert.equal(stories.find((s) => s.id === "f")?.channels, 3);
+  const options = { now, at: now, history: [] as PostRecord[] };
+
+  const first = pickVideo(stories, options)!;
+  assert.equal(first.story.id, "f", "most channels; the sensitive one (masked) and the single-channel one left out");
+  assert.equal(first.video.channel, "somoy", "most watched among channels never credited");
+  assert.equal(videoMessage(first), "চকবাজারে কারখানায় আগুন, নিয়ন্ত্রণে ১০ ইউনিট\n\nসময় টিভি · আরও ২টি চ্যানেলেও এই খবর");
+
+  const history = [videoRecord(first, { kind: "slot", at: ago(60), link: "", mode: "on" })];
+  assert.equal(pickVideo(stories, { ...options, history })?.story.id, "b");
+  // A headline already posted on the same subject: its videos wait.
+  const headline: PostRecord = { kind: "slot", content: "news", at: ago(120), title: "", link: "", sourceId: "x", category: "national", keys: [], words: keywords("আমানতকারীদের টাকা ফেরত দিচ্ছে ন্যাশনাল ব্যাংক"), mode: "on" };
+  assert.equal(pickVideo(stories, { ...options, history: [...history, headline] }), null);
+
+  // A roundup: one card per story, each from another channel; a much-watched single-channel video fills in.
+  const cards = pickRoundup(stories, options);
+  assert.deepEqual(cards.map((c) => c.story.id), ["f", "b", alone.id]);
+  assert.equal(new Set(cards.map((c) => c.video.channel)).size, 3);
+  assert.equal(roundupHeading(Date.parse("2026-10-15T21:00:00+06:00"), 5), "রাতের শীর্ষ ৫ ভিডিও খবর");
+  assert.match(roundupMessage(cards, now), /^দুপুরের শীর্ষ ৩ ভিডিও খবর\n\n১\. চকবাজারে.*— সময় টিভি\n২\. /);
+  const roundup = roundupRecord(cards, { kind: "slot", at: ago(60), link: "", mode: "on" });
+  // Its stories aren't posted again as videos; too few left for another roundup.
+  assert.equal(pickVideo(stories, { ...options, history: [roundup] }), null);
+  assert.deepEqual(pickRoundup(stories, { ...options, history: [roundup] }), []);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);

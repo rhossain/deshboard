@@ -8,22 +8,45 @@ import type { NewsItem } from "./types";
 
 /**
  * Which story the Facebook Page posts next, and when (scripts/post-facebook.ts posts it; docs/facebook-posting.md).
- * Pure: the script hands it the board's headlines, what was posted before, and the time.
+ * Pure: the script hands it the board's headlines, what was posted before, and the time. Videos: page-video-posts.ts.
  *
  * Posts go out at set times of the Dhaka day (SLOTS), each with the most covered story not posted yet that passes
  * the rules below, plus a breaking story between them now and then. Each credits one outlet of the story, the one
  * credited least lately, so the Page carries every paper in turn rather than the same few.
  */
 
-/** Times of the Dhaka day a post goes out ("HH:MM"). The FB_SLOTS repository variable replaces them. */
-export const SLOTS = ["08:00", "10:30", "13:00", "16:00", "19:00", "21:00", "22:30"];
+/** What a post is: a headline, a TV channel's video, or a roundup of five videos (a carousel). */
+export type PostContent = "news" | "video" | "roundup";
+
+/** A time of the Dhaka day ("HH:MM") and what goes out then. */
+export interface Slot {
+  time: string;
+  content: PostContent;
+}
+
+/**
+ * Ten posts a day: five headlines, three videos and two video roundups, an hour or more apart. The FB_SLOTS repository
+ * variable replaces them (see parseSlots).
+ */
+export const SLOTS: Slot[] = [
+  { time: "08:00", content: "news" },
+  { time: "09:15", content: "video" },
+  { time: "10:30", content: "news" },
+  { time: "12:00", content: "video" },
+  { time: "13:00", content: "roundup" },
+  { time: "16:00", content: "news" },
+  { time: "17:30", content: "video" },
+  { time: "19:00", content: "news" },
+  { time: "21:00", content: "roundup" },
+  { time: "22:30", content: "news" },
+];
 
 /** A slot is acted on in the first runs of this window from its start (the deploy runs every 15 minutes). */
 const ACT_WINDOW_MS = 60 * 60_000;
 /** Facebook takes a scheduled post from ten minutes ahead; this leaves room for a slow run. */
 export const MIN_SCHEDULE_MS = 15 * 60_000;
 /** No two posts closer than this. */
-const MIN_GAP_MS = 45 * 60_000;
+export const MIN_GAP_MS = 45 * 60_000;
 /** A story is posted only while it is still being reported: its newest headline at most this old... */
 const FRESH_MS = 2 * 3600_000;
 /** ...and its first at most this old. */
@@ -31,7 +54,7 @@ const MAX_AGE_MS = 12 * 3600_000;
 /** Outlets needed for a story to be posted: one outlet alone is too often a rumour, a scoop or a slant. */
 const MIN_OUTLETS = 3;
 /** A story posted is not posted again (as the same headlines, or as a story about the same thing) for this long. */
-const REPEAT_MS = 24 * 3600_000;
+export const REPEAT_MS = 24 * 3600_000;
 /** Posts kept in the history: long enough for the repeat rule and the outlet rotation. */
 export const HISTORY_MS = 7 * 24 * 3600_000;
 
@@ -68,19 +91,30 @@ export function isSensitive(title: string): boolean {
 export interface PostRecord {
   /** "slot": at a set time; "breaking": between them. */
   kind: "slot" | "breaking";
+  /** What it was; "news" when missing (posts from before videos were). */
+  content?: PostContent;
   /** The slot it was for (ISO), for a slot post. */
   slot?: string;
   /** When it goes out (ISO): now, or the time it is scheduled for. */
   at: string;
-  /** The headline linked to. */
+  /** The headline or video linked to (a roundup: its heading, and the Videos page). */
   title: string;
   link: string;
+  /** The outlet credited, or the channel (a roundup: its first card's). */
   sourceId: string;
+  /** A roundup's other cards' channels. */
+  alsoCredited?: string[];
+  /** The headline's section; "other" for videos. */
   category: Category;
-  /** The share keys (see shareKey) of every headline in the story, so none of them is posted again. */
+  /**
+   * What not to post again: the share keys (see shareKey) of every headline in the story, or the ids of every
+   * video in the video story.
+   */
   keys: string[];
-  /** The story's keywords (its lead's), so another story about the same thing isn't posted either. */
+  /** The story's keywords (keywords()), so another story about the same thing isn't posted either. */
   words: string[];
+  /** A roundup's: each card's story's keywords. */
+  subjects?: string[][];
   /** Facebook's id for the post; none in a dry run. */
   id?: string;
   /** How it was posted: "on" (straight away), "review" (scheduled, to be checked first) or "dry" (not posted). */
@@ -89,28 +123,37 @@ export interface PostRecord {
 
 export type PostingMode = "dry" | "review" | "on";
 
+/** What a record was: posts from before videos were all headlines. */
+export const contentOf = (p: PostRecord): PostContent => p.content ?? "news";
+
 /** "08:00" → minutes after midnight. */
-function minutes(slot: string): number {
-  const [h, m] = slot.split(":").map(Number);
+function minutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
 }
 
 const DHAKA_OFFSET_MS = 6 * 3600_000;
 const DAY_MS = 86_400_000;
 
-/** The slots of the Dhaka days around `now`, as times (ms). */
-function slotTimes(now: number, slots: string[]): number[] {
+/** The slots of the Dhaka days around `now`, with their times (ms). */
+function slotTimes(now: number, slots: Slot[]): (Slot & { at: number })[] {
   const midnight = Math.floor((now + DHAKA_OFFSET_MS) / DAY_MS) * DAY_MS - DHAKA_OFFSET_MS;
-  return [-1, 0, 1].flatMap((d) => slots.map((s) => midnight + d * DAY_MS + minutes(s) * 60_000));
+  return [-1, 0, 1].flatMap((d) => slots.map((s) => ({ ...s, at: midnight + d * DAY_MS + minutes(s.time) * 60_000 })));
 }
 
-/** The `slots` setting (FB_SLOTS): "08:00, 13:00, 21:30". Malformed entries are left out; none left, the default. */
-export function parseSlots(value: string | undefined): string[] {
-  const slots = (value ?? "")
-    .split(/[\s,]+/)
-    .filter((s) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(s))
-    .map((s) => s.padStart(5, "0"));
-  return slots.length ? [...new Set(slots)].sort() : SLOTS;
+/**
+ * The `slots` setting (FB_SLOTS): times, each a headline unless followed by `video` or `roundup`:
+ * "08:00, 09:15 video, 13:00 roundup, 21:30". Malformed entries are left out; none left, the default.
+ */
+export function parseSlots(value: string | undefined): Slot[] {
+  const slots = new Map<string, Slot>();
+  for (const entry of (value ?? "").split(",")) {
+    const m = /^\s*([01]?\d|2[0-3]):([0-5]\d)(?:\s+(news|video|roundup))?\s*$/i.exec(entry);
+    if (!m) continue;
+    const time = `${m[1].padStart(2, "0")}:${m[2]}`;
+    slots.set(time, { time, content: (m[3]?.toLowerCase() ?? "news") as PostContent });
+  }
+  return slots.size ? [...slots.values()].sort((a, b) => minutes(a.time) - minutes(b.time)) : SLOTS;
 }
 
 /**
@@ -118,15 +161,42 @@ export function parseSlots(value: string | undefined): string[] {
  * slot a post is made: in review mode it is scheduled ahead, so there is time to look at it (and delete it) in Meta
  * Business Suite before it goes out. Returns when it should go out (never sooner than MIN_SCHEDULE_MS when scheduled).
  */
-export function dueSlot(now: number, history: PostRecord[], slots: string[], lead: number): { slot: number; at: number } | null {
-  for (const slot of slotTimes(now, slots)) {
+export function dueSlot(
+  now: number,
+  history: PostRecord[],
+  slots: Slot[],
+  lead: number,
+): { slot: number; at: number; content: PostContent } | null {
+  for (const { at: slot, content } of slotTimes(now, slots)) {
     const from = slot - lead;
     if (now < from || now >= from + ACT_WINDOW_MS) continue;
     if (history.some((p) => p.slot && Date.parse(p.slot) === slot)) continue;
     const at = lead ? Math.max(slot, now + MIN_SCHEDULE_MS) : now;
-    return { slot, at };
+    return { slot, at, content };
   }
   return null;
+}
+
+/** Whether a post at `at` would come too soon after (or before) another. */
+export const tooClose = (history: PostRecord[], at: number) =>
+  history.some((p) => Math.abs(Date.parse(p.at) - at) < MIN_GAP_MS);
+
+/** The posts within REPEAT_MS before `at`, whose stories aren't posted again. */
+export const recentPosts = (history: PostRecord[], at: number) =>
+  history.filter((p) => Date.parse(p.at) > at - REPEAT_MS);
+
+/** Whether `words` (keywords()) are the subject of a recent post, or of one of a roundup's cards. */
+export const postedSubject = (recent: PostRecord[], words: string[]) =>
+  recent.some((p) => [p.words, ...(p.subjects ?? [])].some((w) => sameSubject(words, w)));
+
+/** When each outlet or channel was last credited (ms), in posts of these kinds. */
+export function lastCredited(history: PostRecord[], contents: PostContent[]): Map<string, number> {
+  const last = new Map<string, number>();
+  for (const p of history) {
+    if (!contents.includes(contentOf(p))) continue;
+    for (const id of [p.sourceId, ...(p.alsoCredited ?? [])]) last.set(id, Math.max(last.get(id) ?? 0, Date.parse(p.at)));
+  }
+  return last;
 }
 
 /** What to post: the story, and the headline of it to link to. */
@@ -163,7 +233,7 @@ const firstTime = (story: Story) =>
   }, Infinity);
 
 /** Whether two keyword lists are about the same thing: most of the shorter one's words are in the other. */
-function sameSubject(a: string[], b: string[]): boolean {
+export function sameSubject(a: string[], b: string[]): boolean {
   if (!a.length || !b.length) return false;
   const set = new Set(b);
   const shared = a.filter((w) => set.has(w)).length;
@@ -177,15 +247,17 @@ function sameSubject(a: string[], b: string[]): boolean {
  * section had the post before.
  */
 export function pickStory(stories: Story[], { now, at, history, hasPicture, breaking = false }: PickOptions): PostChoice | null {
-  const recent = history.filter((p) => Date.parse(p.at) > at - REPEAT_MS);
+  const recent = recentPosts(history, at);
   const postedKeys = new Set(recent.flatMap((p) => p.keys));
   const day = dhakaDay(at);
-  const today = history.filter((p) => dhakaDay(p.at) === day);
+  // Sections, their caps and their turns are the headlines' alone.
+  const news = history.filter((p) => contentOf(p) === "news");
+  const today = news.filter((p) => dhakaDay(p.at) === day);
   const perSection = new Map<Category, number>();
   for (const p of today) perSection.set(p.category, (perSection.get(p.category) ?? 0) + 1);
-  const last = [...history].sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
+  const last = [...news].sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
 
-  if (history.some((p) => Math.abs(Date.parse(p.at) - at) < MIN_GAP_MS)) return null;
+  if (tooClose(history, at)) return null;
   if (breaking && today.filter((p) => p.kind === "breaking").length >= BREAKING_PER_DAY) return null;
 
   let best: { pick: PostChoice; score: number } | null = null;
@@ -200,8 +272,7 @@ export function pickStory(stories: Story[], { now, at, history, hasPicture, brea
     if ((perSection.get(category) ?? 0) >= (SECTION_CAPS[category] ?? DEFAULT_CAP)) continue;
     if (story.items.some((it) => isSensitive(it.title))) continue;
     if (story.items.some((it) => postedKeys.has(shareKey(it.link)))) continue;
-    const words = keywords(story.lead.title);
-    if (recent.some((p) => sameSubject(words, p.words))) continue;
+    if (postedSubject(recent, keywords(story.lead.title))) continue;
 
     const item = creditedItem(story, history, hasPicture);
     if (!item) continue;
@@ -228,12 +299,11 @@ export function storySection(story: Story): Category {
  * yet comes first), the lead's outlet first among equals.
  */
 function creditedItem(story: Story, history: PostRecord[], hasPicture: (item: NewsItem) => boolean): NewsItem | null {
-  const lastCredited = new Map<string, number>();
-  for (const p of history) lastCredited.set(p.sourceId, Math.max(lastCredited.get(p.sourceId) ?? 0, Date.parse(p.at)));
+  const last = lastCredited(history, ["news"]);
   let best: NewsItem | null = null;
   for (const it of story.items) {
     if (!hasPicture(it)) continue;
-    if (!best || (lastCredited.get(it.sourceId) ?? 0) < (lastCredited.get(best.sourceId) ?? 0)) best = it;
+    if (!best || (last.get(it.sourceId) ?? 0) < (last.get(best.sourceId) ?? 0)) best = it;
   }
   return best;
 }
@@ -262,6 +332,7 @@ export function postRecord(
   const { story, item } = pick;
   return {
     ...fields,
+    content: "news",
     title: item.title,
     sourceId: item.sourceId,
     category: storySection(story),

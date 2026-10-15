@@ -10,13 +10,14 @@
  *   review          schedules each post 45 minutes ahead, so it can be checked (and deleted) in Meta Business Suite
  *   on              posts straight away
  * FB_PAGE_ID (variable) and FB_PAGE_TOKEN (secret, a Page access token with pages_manage_posts) are needed for review
- * and on. FB_SLOTS (variable, optional) replaces the times of day: "08:00, 13:00, 21:30".
+ * and on. FB_SLOTS (variable, optional) replaces the times of day and what goes out at each (see parseSlots):
+ * "08:00, 09:15 video, 13:00 roundup, 21:30".
  *
  * What was posted is kept in .social/facebook.json (carried from run to run by the Actions cache), for the repeat,
  * per-day and outlet-rotation rules.
  *
- * Locally, with the live site's headlines: npx tsx scripts/post-facebook.ts --site https://bartaboard.com
- * (always a dry run, with or without FB_POSTING; it doesn't write the history either).
+ * Locally, with the live site's headlines and videos: npx tsx scripts/post-facebook.ts --site https://bartaboard.com
+ * [--content news|video|roundup] (always a dry run, with or without FB_POSTING; it doesn't write the history either).
  *
  * Never fails the deploy: a Facebook error is reported as a warning, and the next run tries again.
  */
@@ -29,6 +30,7 @@ import {
   parseSlots,
   pickStory,
   type PostChoice,
+  type PostContent,
   postLink,
   postMessage,
   postRecord,
@@ -36,11 +38,26 @@ import {
   type PostRecord,
   recentHistory,
   shareDay,
+  storySection,
 } from "../src/lib/page-posts";
+import {
+  channelBn,
+  pickRoundup,
+  pickVideo,
+  roundupMessage,
+  roundupRecord,
+  type VideoChoice,
+  videoLink,
+  videoMessage,
+  videoRecord,
+  videoStories,
+  videoThumbnail,
+} from "../src/lib/page-video-posts";
+import { unmaskTitle } from "../src/lib/video-stories";
 import { DATA_DIR, type PackedFeed, unpackFeed } from "../src/lib/packed";
 import { shareKey } from "../src/lib/share";
 import { datesToSearch, shardPath, type ShareShard } from "../src/lib/share-lookup";
-import type { NewsItem } from "../src/lib/types";
+import type { NewsItem, VideoFeed } from "../src/lib/types";
 
 /** Facebook's Graph API (FB_GRAPH_URL replaces it, for trying the script against a stand-in). */
 const GRAPH = process.env.FB_GRAPH_URL ?? "https://graph.facebook.com/v23.0";
@@ -52,6 +69,7 @@ const REVIEW_LEAD_MS = 45 * 60_000;
 const args = process.argv.slice(2);
 const siteArg = args.includes("--site") ? args[args.indexOf("--site") + 1] : undefined;
 const local = !!siteArg;
+const contentArg = args.includes("--content") ? args[args.indexOf("--content") + 1] : undefined;
 const SITE = (siteArg ?? process.env.SITE_URL ?? "https://bartaboard.com").replace(/\/+$/, "");
 
 const setting = (process.env.FB_POSTING ?? "").trim().toLowerCase();
@@ -164,87 +182,169 @@ async function main() {
   // Written every run, old posts dropped, so the cache always has a file to keep.
   writeHistory(history);
 
-  const packed = await load<PackedFeed>(`${DATA_DIR}/news.json`);
-  if (!packed) {
-    warn("No headlines to choose from (public/data/v2/news.json is missing).");
-    return;
-  }
-  const items = unpackFeed(packed).results.flatMap((r) => r.items);
-  const stories = pageStories(items, now);
-  const withPicture = await picturesFor(
-    stories.flatMap((s) => s.items),
-    now,
-  );
-  const hasPicture = (it: NewsItem) => withPicture.has(it);
-
   const lead = mode === "review" ? REVIEW_LEAD_MS : 0;
-  // Locally, what the next slot would get, whatever the time.
-  const due = dueSlot(now, history, parseSlots(process.env.FB_SLOTS), lead) ?? (local ? { slot: now, at: now } : null);
-  let kind: PostRecord["kind"];
-  let at: number;
-  let choice: PostChoice | null;
-  if (due) {
-    kind = "slot";
-    at = due.at;
-    choice = pickStory(stories, { now, at, history, hasPicture });
-    if (!choice) {
-      console.log(`Slot ${new Date(due.slot).toISOString()}: no story passes the rules yet; the next run looks again.`);
+  const slots = parseSlots(process.env.FB_SLOTS);
+  // Locally, what the next slot of that kind (--content, default news) would get, whatever the time.
+  const due =
+    dueSlot(now, history, slots, lead) ?? (local ? { slot: now, at: now, content: (contentArg ?? "news") as PostContent } : null);
+  const at = due ? due.at : mode === "review" ? now + MIN_SCHEDULE_MS : now;
+  const fields = {
+    kind: (due ? "slot" : "breaking") as PostRecord["kind"],
+    at: new Date(at).toISOString(),
+    mode,
+    ...(due && { slot: new Date(due.slot).toISOString() }),
+  };
+
+  let plan: Plan | null;
+  if (due && due.content !== "news") {
+    const feed = await load<VideoFeed>("/data/videos.json");
+    if (!feed) {
+      warn("No videos to choose from (public/data/videos.json is missing).");
       return;
     }
+    const stories = videoStories(feed.videos, now);
+    const single = () => {
+      const choice = pickVideo(stories, { now, at, history });
+      return choice && videoPlan(choice, fields);
+    };
+    const cards = due.content === "roundup" ? pickRoundup(stories, { now, at, history }) : [];
+    // A roundup with too few stories, or one Facebook won't take, goes out as a video post instead.
+    plan = cards.length ? roundupPlan(cards, fields, single) : single();
   } else {
-    kind = "breaking";
-    at = mode === "review" ? now + MIN_SCHEDULE_MS : now;
-    choice = pickStory(stories, { now, at, history, hasPicture, breaking: true });
-    if (!choice) {
+    const packed = await load<PackedFeed>(`${DATA_DIR}/news.json`);
+    if (!packed) {
+      warn("No headlines to choose from (public/data/v2/news.json is missing).");
+      return;
+    }
+    const items = unpackFeed(packed).results.flatMap((r) => r.items);
+    const stories = pageStories(items, now);
+    const withPicture = await picturesFor(
+      stories.flatMap((s) => s.items),
+      now,
+    );
+    const choice = pickStory(stories, { now, at, history, hasPicture: (it) => withPicture.has(it), breaking: !due });
+    plan = choice && newsPlan(choice, fields, now);
+    if (!plan && !due) {
       console.log(`No slot due and no breaking story (${stories.length} stories from ${items.length} headlines).`);
       return;
     }
   }
-
-  const link = postLink(SITE, choice.item, now);
-  const message = postMessage(choice);
-  const record = postRecord(choice, {
-    kind,
-    at: new Date(at).toISOString(),
-    link,
-    mode,
-    ...(due && { slot: new Date(due.slot).toISOString() }),
-  });
+  if (!plan) {
+    console.log(`Slot ${fields.slot} (${due?.content}): nothing passes the rules yet; the next run looks again.`);
+    return;
+  }
 
   if (mode !== "dry") {
-    try {
-      await rescrape(link);
-      const params: Record<string, string> = { message, link };
-      if (at - now >= MIN_SCHEDULE_MS - 60_000) {
-        params.published = "false";
-        params.scheduled_publish_time = String(Math.floor(at / 1000));
-      }
-      const { id } = await graph<{ id: string }>(`/${pageId}/feed`, params);
-      record.id = id;
-    } catch (err) {
-      warn(`Not posted: ${(err as Error).message}`);
-      return;
-    }
+    const posted = await publish(plan, pageId, at, now);
+    if (!posted) return;
+    plan = posted;
   }
-  writeHistory([...history, record]);
+  writeHistory([...history, plan.record]);
 
   const when = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", hour: "2-digit", minute: "2-digit" }).format(at);
   const verb = mode === "dry" ? "Would post" : at > now + 60_000 ? "Scheduled" : "Posted";
-  const outlets = new Set(choice.story.items.map((it) => it.sourceName)).size;
   summary(
     [
-      `### Facebook: ${verb} (${kind}, ${when} Dhaka)`,
+      `### Facebook: ${verb} ${plan.record.content} (${fields.kind}, ${when} Dhaka)`,
       "",
       "```",
-      message,
-      link,
+      plan.params.message,
+      plan.params.link,
+      ...plan.cards.map((c) => `  ▸ ${c}`),
       "```",
       "",
-      `Section: ${record.category} · outlets: ${outlets} · credited: ${choice.item.sourceName}` +
-        (record.id ? ` · post ${record.id}` : ""),
+      plan.note + (plan.record.id ? ` · post ${plan.record.id}` : ""),
       "",
     ].join("\n"),
   );
+}
+
+/** A post ready to make: what is sent to Facebook, its record, and what the summary says of it. */
+interface Plan {
+  params: Record<string, string> & { message: string; link: string };
+  /** Links Facebook should read afresh first. */
+  links: string[];
+  record: PostRecord;
+  /** A roundup's cards, for the summary. */
+  cards: string[];
+  note: string;
+  /** What goes out if Facebook refuses this one (a roundup: a video post). */
+  fallback?: () => Plan | null;
+}
+
+type Fields = Pick<PostRecord, "kind" | "at" | "mode"> & Partial<Pick<PostRecord, "slot">>;
+
+function newsPlan(choice: PostChoice, fields: Fields, now: number): Plan {
+  const link = postLink(SITE, choice.item, now);
+  return {
+    params: { message: postMessage(choice), link },
+    links: [link],
+    record: postRecord(choice, { ...fields, link }),
+    cards: [],
+    note: `Section: ${storySection(choice.story)} · outlets: ${choice.outlets} · credited: ${choice.item.sourceName}`,
+  };
+}
+
+function videoPlan(choice: VideoChoice, fields: Fields): Plan {
+  const link = videoLink(SITE, choice.video);
+  return {
+    params: { message: videoMessage(choice), link },
+    links: [link],
+    record: videoRecord(choice, { ...fields, link }),
+    cards: [],
+    note: `Channels: ${choice.story.channels} · credited: ${choice.video.channel}`,
+  };
+}
+
+/** A carousel: a card per video, each linking its Bartaboard page, the post itself the Videos page. */
+function roundupPlan(cards: VideoChoice[], fields: Fields, fallback: () => Plan | null): Plan {
+  const link = `${SITE}/bn/videos/`;
+  const links = cards.map((c) => videoLink(SITE, c.video));
+  const children = cards.map((c, i) => ({
+    link: links[i],
+    name: unmaskTitle(c.video.title),
+    description: channelBn(c.video.channel),
+    picture: videoThumbnail(c.video),
+  }));
+  return {
+    params: {
+      message: roundupMessage(cards, Date.parse(fields.at)),
+      link,
+      child_attachments: JSON.stringify(children),
+      multi_share_optimized: "false",
+      multi_share_end_card: "false",
+    },
+    links,
+    record: roundupRecord(cards, { ...fields, link }),
+    cards: links,
+    note: `Roundup of ${cards.length}: ${cards.map((c) => c.video.channel).join(", ")}`,
+    fallback,
+  };
+}
+
+/** Makes the post (scheduled for `at` when that is ahead); its fallback if Facebook refuses it. Null: not posted. */
+async function publish(plan: Plan, pageId: string, at: number, now: number): Promise<Plan | null> {
+  try {
+    for (const link of plan.links) await rescrape(link);
+    const params: Record<string, string> = { ...plan.params };
+    if (at - now >= MIN_SCHEDULE_MS - 60_000) {
+      params.published = "false";
+      params.scheduled_publish_time = String(Math.floor(at / 1000));
+    }
+    const { id } = await graph<{ id: string }>(`/${pageId}/feed`, params);
+    plan.record.id = id;
+    return plan;
+  } catch (err) {
+    const message = (err as Error).message;
+    const fallback = plan.fallback?.();
+    // A token or permission problem would refuse the fallback too.
+    if (fallback && !/code (190|10|200)\b/.test(message)) {
+      warn(`Roundup not posted (${message}); posting a video instead.`);
+      return publish(fallback, pageId, at, now);
+    }
+    warn(`Not posted: ${message}`);
+    return null;
+  }
 }
 
 main().catch((err) => warn(`Facebook posting stopped: ${(err as Error).stack ?? err}`));
