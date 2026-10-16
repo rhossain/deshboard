@@ -68,7 +68,10 @@ week every paper gets its turn, rather than the same few big ones: the Page is e
 **A single post.** The headline, then the outlet and how many others report it, linking the headline's short link
 (`bartaboard.com/s/…`). The link's preview shows the headline, the outlet's picture and "also reported by N other
 outlets"; it opens Bartaboard's share page, with a button to the article. Facebook is asked to read the link afresh
-first, so the preview is never stale. No article text, and no summary: the headline is the outlet's own.
+first, and the post waits until Facebook has read the headline itself: if it still gets the site's fallback card
+("Bartaboard: every Bangladeshi headline, on one board") after four reads a minute apart, nothing is posted and the
+next run tries again. Single posts whose preview wasn't confirmed are read again on later runs, which corrects the
+preview on the post too. No article text, and no summary: the headline is the outlet's own.
 
 ```
 সাবেক উপমন্ত্রী বীর মুক্তিযোদ্ধা আব্দুল হাই আর নেই

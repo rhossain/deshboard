@@ -125,6 +125,11 @@ export interface PostRecord {
   subjects?: string[][];
   /** Facebook's id for the post; none in a dry run. */
   id?: string;
+  /**
+   * Facebook read the link's own preview (its headline and picture), not the site's fallback card. Set when checked;
+   * a single post without it is read again on later runs until it is (scripts/post-facebook.ts repairPreviews).
+   */
+  previewOk?: boolean;
   /** How it was posted: "on" (straight away), "review" (scheduled, to be checked first) or "dry" (not posted). */
   mode: PostingMode;
 }

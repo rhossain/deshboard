@@ -168,7 +168,10 @@ async function graph<T>(endpoint: string, params: Record<string, string>, method
  * The Page's own token. FB_PAGE_TOKEN can be a system user's token (Business settings → System users), which is
  * simpler to make than the Page's; posting needs the Page's, which Facebook gives for it. A Page token is used as is.
  */
+let pageTokenDone = false;
 async function pageToken(pageId: string): Promise<void> {
+  if (pageTokenDone) return;
+  pageTokenDone = true;
   try {
     const { access_token } = await graph<{ access_token?: string }>(`/${pageId}`, { fields: "access_token" }, "GET");
     if (access_token) token = access_token;
@@ -192,13 +195,52 @@ async function checkToken(pageId: string): Promise<void> {
   }
 }
 
-/** Has Facebook read the link afresh (title, picture), so the post never shows an old or empty preview. */
-async function rescrape(link: string) {
-  try {
-    await graph("/", { id: link, scrape: "true" });
-  } catch (err) {
-    // Facebook reads it anyway when the post is made.
-    warn(`Link preview not refreshed: ${(err as Error).message}`);
+/**
+ * The title of the site's own card, which a share link shows when it can't find its headline (or the share function
+ * didn't answer): a preview with it is a broken one.
+ */
+const FALLBACK_TITLE = /every Bangladeshi headline, on one board|has left Bartaboard/i;
+/** How many times, and how far apart, a link whose preview came out as the fallback card is read again. */
+const PREVIEW_TRIES = 4;
+const PREVIEW_RETRY_MS = 20_000;
+
+/**
+ * Has Facebook read the link afresh, and says what it saw: true when the preview is the link's own (its headline),
+ * false when it is the site's fallback card. Facebook keeps the preview it read when a post is made, so a link read
+ * at a bad moment (the upload not yet everywhere, a slow answer) would stay broken on the post. `tries` > 1 reads
+ * again a little later until the preview is right. Undefined: Facebook didn't answer.
+ */
+async function rescrape(link: string, tries = 1): Promise<boolean | undefined> {
+  let seen: string | undefined;
+  for (let i = 0; i < tries; i++) {
+    if (i) await new Promise((r) => setTimeout(r, PREVIEW_RETRY_MS));
+    try {
+      const { title } = await graph<{ title?: string }>("/", { id: link, scrape: "true" });
+      seen = title ?? "";
+      if (seen && !FALLBACK_TITLE.test(seen)) return true;
+    } catch (err) {
+      warn(`Link preview not refreshed: ${(err as Error).message}`);
+      return undefined;
+    }
+  }
+  warn(`Link preview of ${link} is still the site's fallback card ("${seen}") after ${tries} reads.`);
+  return false;
+}
+
+/**
+ * Single posts whose preview isn't known to be right (posted before the check, or by a run that couldn't confirm it):
+ * Facebook reads their links again, which also corrects the preview on the post itself. Up to a few a run.
+ */
+async function repairPreviews(history: PostRecord[], now: number): Promise<void> {
+  const due = history
+    .filter((p) => p.id && p.mode !== "dry" && !p.previewOk && (p.content ?? "news") !== "headlines" && p.content !== "roundup")
+    .filter((p) => now - Date.parse(p.at) < 3 * 86_400_000 && Date.parse(p.at) <= now)
+    .slice(-3);
+  for (const p of due) {
+    if (await rescrape(p.link)) {
+      p.previewOk = true;
+      notice(`Facebook: preview corrected for ${p.link} (${p.title}).`);
+    }
   }
 }
 
@@ -224,6 +266,11 @@ async function main() {
   if (mode !== "dry") history = history.filter((p) => p.mode !== "dry");
   // Written every run, old posts dropped, so the cache always has a file to keep.
   writeHistory(history);
+  if (mode !== "dry") {
+    await pageToken(pageId);
+    await repairPreviews(history, now);
+    writeHistory(history);
+  }
 
   const lead = mode === "review" ? REVIEW_LEAD_MS : 0;
   const slots = parseSlots(process.env.FB_SLOTS);
@@ -292,7 +339,7 @@ async function main() {
 
   const when = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", hour: "2-digit", minute: "2-digit" }).format(at);
   const verb = mode === "dry" ? "Would post" : at > now + 60_000 ? "Scheduled" : "Posted";
-  if (mode !== "dry") notice(`Facebook: ${verb.toLowerCase()} ${plan.record.content} for ${when} Dhaka (post ${plan.record.id}): ${plan.record.title}`);
+  if (mode !== "dry") notice(`Facebook: ${verb.toLowerCase()} ${plan.record.content} for ${when} Dhaka (post ${plan.record.id}): ${plan.record.title} ${plan.record.link}`);
   summary(
     [
       `### Facebook: ${verb} ${plan.record.content} (${fields.kind}, ${when} Dhaka)`,
@@ -408,7 +455,17 @@ function roundupPlan(cards: VideoChoice[], fields: Fields, fallback: () => Plan 
 async function publish(plan: Plan, pageId: string, at: number, now: number, fallingBack = false): Promise<Plan | null> {
   if (!fallingBack) await pageToken(pageId);
   try {
-    for (const link of plan.links) await rescrape(link);
+    // A carousel's cards carry their own title and picture; a single post shows only what Facebook reads at its link,
+    // so it waits until that is right, and goes out on a later run if it never is.
+    const single = !plan.params.child_attachments;
+    for (const link of plan.links) {
+      const ok = await rescrape(link, single ? PREVIEW_TRIES : 1);
+      if (single && ok === false) {
+        warn(`Not posted: ${link} would show the site's fallback card; the next run tries again.`);
+        return null;
+      }
+      if (single && ok) plan.record.previewOk = true;
+    }
     const params: Record<string, string> = { ...plan.params };
     if (at - now >= MIN_SCHEDULE_MS - 60_000) {
       params.published = "false";
