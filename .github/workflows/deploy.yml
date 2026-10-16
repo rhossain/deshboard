@@ -108,6 +108,8 @@ jobs:
           FB_POSTING: ${{ vars.FB_POSTING }}
           FB_PAGE_ID: ${{ vars.FB_PAGE_ID }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          FB_APP_ID: ${{ vars.FB_APP_ID }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
           FB_SLOTS: ${{ vars.FB_SLOTS }}
       - if: contains(fromJSON('["dry","review","on"]'), vars.FB_POSTING)
         uses: actions/cache/save@v4

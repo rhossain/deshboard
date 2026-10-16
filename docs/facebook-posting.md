@@ -68,10 +68,10 @@ week every paper gets its turn, rather than the same few big ones: the Page is e
 **A single post.** The headline, then the outlet and how many others report it, linking the headline's short link
 (`bartaboard.com/s/…`). The link's preview shows the headline, the outlet's picture and "also reported by N other
 outlets"; it opens Bartaboard's share page, with a button to the article. Facebook is asked to read the link afresh
-first, and the post waits until Facebook has read the headline itself: if it still gets the site's fallback card
-("Bartaboard: every Bangladeshi headline, on one board") after four reads a minute apart, nothing is posted and the
-next run tries again. Single posts whose preview wasn't confirmed are read again on later runs, which corrects the
-preview on the post too. No article text, and no summary: the headline is the outlet's own.
+first. A single post is made only once its link answers a crawler with the headline itself (checked from the run,
+four tries a minute apart; otherwise the next run tries again), and, when the app token is set (FB_APP_ID and
+FB_APP_SECRET, below), once Facebook's own read of it shows the headline too. With the app token, single posts whose
+preview wasn't confirmed are read again on later runs, which corrects the preview on the post. No article text, and no summary: the headline is the outlet's own.
 
 ```
 সাবেক উপমন্ত্রী বীর মুক্তিযোদ্ধা আব্দুল হাই আর নেই
@@ -195,6 +195,9 @@ changes or they leave.
      with it, so there is no separate Page token to make. (A Page's own token works here too, if you have one.)
    - variable `FB_PAGE_ID`: the Page's id from step 5;
    - variable `FB_POSTING`: `dry`, then `review`, then `on` (above).
+   - variable `FB_APP_ID` and secret `FB_APP_SECRET`: the app's App ID and App secret (developers.facebook.com → the
+     app → App settings → Basic; "Show" next to App secret). Optional, but without them Facebook can't be asked to
+     re-read a link (it takes that only from an app token), so a post's preview can't be checked or corrected.
 
    If step 4 says "No permissions available", the system user has no role on the app: Business settings → Accounts →
    **Apps** → the app (add it with "Connect an app ID" if it isn't listed) → **Assign people** → the system user,

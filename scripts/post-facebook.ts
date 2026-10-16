@@ -9,7 +9,8 @@
  *   dry             picks as it would, and writes the pick to the run's summary, posting nothing
  *   review          schedules each post 45 minutes ahead, so it can be checked (and deleted) in Meta Business Suite
  *   on              posts straight away
- * FB_PAGE_ID (variable) and FB_PAGE_TOKEN (secret) are needed for review and on. The token can be the Page's own, or
+ * FB_PAGE_ID (variable) and FB_PAGE_TOKEN (secret) are needed for review and on. FB_APP_ID (variable) and
+ * FB_APP_SECRET (secret), optional, let it have Facebook re-read links (rescrape). The token can be the Page's own, or
  * the business's system user's (with pages_manage_posts on the Page): each run asks Facebook for the Page's token with
  * it (pageToken). FB_SLOTS (variable, optional) replaces the times of day and what goes out at each (see parseSlots):
  * "08:00, 09:15 video, 13:00 roundup, 21:30".
@@ -150,7 +151,7 @@ interface GraphError {
 let token = process.env.FB_PAGE_TOKEN?.trim() ?? "";
 
 async function graph<T>(endpoint: string, params: Record<string, string>, method: "GET" | "POST" = "POST"): Promise<T> {
-  const query = new URLSearchParams({ ...params, access_token: token });
+  const query = new URLSearchParams({ access_token: token, ...params });
   const res = await fetch(method === "GET" ? `${GRAPH}${endpoint}?${query}` : `${GRAPH}${endpoint}`, {
     method,
     body: method === "POST" ? query : undefined,
@@ -211,12 +212,17 @@ const PREVIEW_RETRY_MS = 20_000;
  * again a little later until the preview is right. Undefined: Facebook didn't answer.
  */
 async function rescrape(link: string, tries = 1): Promise<boolean | undefined> {
+  // Facebook only takes this from an app token (app id|secret); a Page token gets "Invalid parameter".
+  if (!APP_TOKEN) return undefined;
   let seen: string | undefined;
   for (let i = 0; i < tries; i++) {
     if (i) await new Promise((r) => setTimeout(r, PREVIEW_RETRY_MS));
     try {
-      const { title } = await graph<{ title?: string }>("/", { id: link, scrape: "true" });
-      seen = title ?? "";
+      const page = await graph<{ title?: string; og_object?: { title?: string } }>(
+        "/",
+        { id: link, scrape: "true", access_token: APP_TOKEN },
+      );
+      seen = page.title ?? page.og_object?.title ?? "";
       if (seen && !FALLBACK_TITLE.test(seen)) return true;
     } catch (err) {
       warn(`Link preview not refreshed: ${(err as Error).message}`);
@@ -224,6 +230,42 @@ async function rescrape(link: string, tries = 1): Promise<boolean | undefined> {
     }
   }
   warn(`Link preview of ${link} is still the site's fallback card ("${seen}") after ${tries} reads.`);
+  return false;
+}
+
+/**
+ * Facebook's app token, for re-reading links (rescrape): FB_APP_ID and FB_APP_SECRET (App settings → Basic). Without
+ * them links are only checked from here (checkLink), and posts already made can't be corrected.
+ */
+const APP_TOKEN =
+  process.env.FB_APP_ID && process.env.FB_APP_SECRET ? `${process.env.FB_APP_ID}|${process.env.FB_APP_SECRET}` : "";
+
+/** A link-preview crawler's view of the link: its og:title, as Facebook's crawler would get it now. */
+async function crawlerTitle(link: string): Promise<string> {
+  try {
+    const res = await fetch(link, {
+      headers: { "user-agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" },
+      signal: AbortSignal.timeout(20_000),
+    });
+    const html = await res.text();
+    return /<meta property="og:title" content="([^"]*)"/.exec(html)?.[1] ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Whether the link answers with its own preview (its headline, not the site's fallback card) to a crawler right now,
+ * read again a little later while it doesn't: so a post isn't made while the share page can't find its headline.
+ */
+async function checkLink(link: string, tries = PREVIEW_TRIES): Promise<boolean> {
+  let seen = "";
+  for (let i = 0; i < tries; i++) {
+    if (i) await new Promise((r) => setTimeout(r, PREVIEW_RETRY_MS));
+    seen = await crawlerTitle(link);
+    if (seen && !FALLBACK_TITLE.test(seen)) return true;
+  }
+  warn(`${link} answers with the site's fallback card ("${seen}") after ${tries} tries.`);
   return false;
 }
 
@@ -266,7 +308,7 @@ async function main() {
   if (mode !== "dry") history = history.filter((p) => p.mode !== "dry");
   // Written every run, old posts dropped, so the cache always has a file to keep.
   writeHistory(history);
-  if (mode !== "dry") {
+  if (mode !== "dry" && APP_TOKEN) {
     await pageToken(pageId);
     await repairPreviews(history, now);
     writeHistory(history);
@@ -459,6 +501,10 @@ async function publish(plan: Plan, pageId: string, at: number, now: number, fall
     // so it waits until that is right, and goes out on a later run if it never is.
     const single = !plan.params.child_attachments;
     for (const link of plan.links) {
+      if (single && !(await checkLink(link))) {
+        warn(`Not posted: ${link} doesn't show its headline yet; the next run tries again.`);
+        return null;
+      }
       const ok = await rescrape(link, single ? PREVIEW_TRIES : 1);
       if (single && ok === false) {
         warn(`Not posted: ${link} would show the site's fallback card; the next run tries again.`);
