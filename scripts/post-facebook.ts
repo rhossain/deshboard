@@ -43,6 +43,8 @@ import {
   type PostingMode,
   type PostRecord,
   recentHistory,
+  storyTitles,
+  withFeedTitles,
   shareDay,
   storySection,
 } from "../src/lib/page-posts";
@@ -62,6 +64,7 @@ import {
 import { unmaskTitle } from "../src/lib/video-stories";
 import { DATA_DIR, type PackedFeed, unpackFeed } from "../src/lib/packed";
 import { shareKey } from "../src/lib/share";
+import { findStories } from "../src/lib/stories";
 import { datesToSearch, shardPath, type ShareShard } from "../src/lib/share-lookup";
 import { sourceName } from "../src/lib/bn-names";
 import {
@@ -304,9 +307,26 @@ async function main() {
     ...(due && { slot: new Date(due.slot).toISOString() }),
   };
 
+  // Both feeds: what is picked from, and the titles every story posted lately has now (withFeedTitles), so a story
+  // told another way, as a headline or a video, is known as posted.
+  const feed = await load<VideoFeed>("/data/videos.json");
+  const packed = await load<PackedFeed>(`${DATA_DIR}/news.json`);
+  const items = packed ? unpackFeed(packed).results.flatMap((r) => r.items) : [];
+  const videoGroups = new Map<string, [string, string][]>();
+  for (const v of feed?.videos ?? []) {
+    const id = v.story ?? v.id;
+    videoGroups.set(id, [...(videoGroups.get(id) ?? []), [v.id, unmaskTitle(v.title)]]);
+  }
+  const titles = storyTitles([
+    ...findStories(items.filter((it) => it.lang === "bn"), { minOutlets: 1, maxAgeMs: 2 * 86_400_000, now }).map((s) =>
+      s.items.map((it): [string, string] => [shareKey(it.link), it.title]),
+    ),
+    ...videoGroups.values(),
+  ]);
+  const posted = withFeedTitles(history, (key) => titles.get(key));
+
   let plan: Plan | null;
   if (due && (due.content === "video" || due.content === "roundup")) {
-    const feed = await load<VideoFeed>("/data/videos.json");
     if (!feed) {
       warn("No videos to choose from (public/data/videos.json is missing).");
       return;
@@ -314,7 +334,7 @@ async function main() {
     const stories = videoStories(feed.videos, now);
     // Videos that failed a check are left out, and the pick made again.
     const failed = new Set<string>();
-    const options = { now, at, history, skip: (v: Video) => failed.has(v.id) };
+    const options = { now, at, history: posted, skip: (v: Video) => failed.has(v.id) };
     const check = (card: boolean) => (c: VideoChoice) =>
       firstProblem(
         Promise.resolve(textProblem("video title", unmaskTitle(c.video.title))),
@@ -334,12 +354,10 @@ async function main() {
     // A roundup with too few stories that pass, or one Facebook won't take, goes out as a video post instead.
     plan = cards.length ? roundupPlan(cards, fields, single) : await single();
   } else {
-    const packed = await load<PackedFeed>(`${DATA_DIR}/news.json`);
     if (!packed) {
       warn("No headlines to choose from (public/data/v2/news.json is missing).");
       return;
     }
-    const items = unpackFeed(packed).results.flatMap((r) => r.items);
     const stories = pageStories(items, now);
     const withPicture = await picturesFor(
       stories.flatMap((s) => s.items),
@@ -347,7 +365,7 @@ async function main() {
     );
     // Headlines that failed a check are left out (as if they had no picture), and the pick made again.
     const failed = new Set<NewsItem>();
-    const options = { now, at, history, hasPicture: (it: NewsItem) => withPicture.has(it) && !failed.has(it) };
+    const options = { now, at, history: posted, hasPicture: (it: NewsItem) => withPicture.has(it) && !failed.has(it) };
     const check = (card: boolean) => (c: PostChoice) =>
       firstProblem(
         Promise.resolve(textProblem("headline", c.item.title)),

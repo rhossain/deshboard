@@ -68,8 +68,13 @@ import {
   postMessage,
   postRecord,
   type PostRecord,
+  sameSubject,
   SLOTS,
   storySection,
+  storyTitles,
+  subjectWords,
+  titleSubjects,
+  withFeedTitles,
 } from "../src/lib/page-posts";
 import type { NewsFeed, NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
 import { mergeVideos } from "../src/lib/videos";
@@ -1398,6 +1403,45 @@ test("page posts: five headlines in a carousel, each outlet once, two a section 
   assert.deepEqual(pickHeadlines(stories, { ...options, history: [record] }), []);
   // Fewer than five stories with pictures: none (a single headline goes out instead).
   assert.deepEqual(pickHeadlines(stories, { ...options, hasPicture: (it) => ["c", "d", "e"].includes(it.sourceId) }), []);
+});
+
+test("page posts: one story told two ways, or grown since it was posted, isn't posted again", () => {
+  const w = subjectWords;
+  // Compounds and longer forms are one word, each matched once.
+  assert.ok(sameSubject(w("দুর্গাপূজায় কোনো নিরাপত্তা শঙ্কা নেই"), w("মহাষষ্ঠীতে দুর্গোৎসব শুরু, মণ্ডপ ঘিরে নিরাপত্তা শঙ্কা নেই: ডিএমপি কমিশনার")));
+  assert.ok(sameSubject(w("দুর্গাপূজায় নাশকতার আশঙ্কা নেই"), w("দুর্গাপূজা ঘিরে নাশকতার শঙ্কা নেই: ডিএমপি কমিশনার")));
+  assert.ok(!sameSubject(w("মহাষষ্ঠীর পূজার মধ্য দিয়ে শুরু হলো দুর্গাপূজা"), w("দুর্গাপূজায় ফেসবুকে গুজব রোধে তৎপর এসআরবি")), "পূজা and দুর্গাপূজা aren't two shared words");
+  assert.ok(!sameSubject(w("দুর্গাপূজা ঘিরে কেনাকাটা জমজমাট"), w("দুর্গাপূজা ঘিরে কঠোর নিরাপত্তা")), "ঘিরে says nothing");
+  assert.equal(titleSubjects(["ক খগ ঘঙ চছ", "ক খগ ঘঙ চছ", "চছ জঝ টঠ"]).length, 2, "the same words once");
+
+  // Today's case: the 12:00 video post's story, and at 17:30 another channel's grouping of the same thing.
+  const at = (h: number) => Date.parse(`2026-10-16T${String(h).padStart(2, "0")}:00:00Z`);
+  const v = (id: string, story: string, channel: string, title: string, h: number): Video =>
+    ({ id, story, channel, title, publishedAt: new Date(at(h)).toISOString(), views: 5000 }) as Video;
+  const noon = [
+    v("a1", "A", "news24", "নিরাপত্তা নিয়ে নেই শঙ্কা, ঝুঁকি মোকাবেলায় প্রস্তুত আইনশৃঙ্খলা বাহিনী", 2),
+    v("a2", "A", "ekhon", "দুর্গাপূজা ঘিরে শঙ্কা নেই, নিরাপত্তায় প্রস্তুত আইনশৃঙ্খলা বাহিনী", 1),
+  ];
+  const posted = videoStories(noon, at(6))[0];
+  const record = videoRecord({ story: posted, video: noon[0] }, { kind: "slot", at: new Date(at(6)).toISOString(), link: "", mode: "on" });
+  const later = [
+    ...noon,
+    v("a3", "A", "itv", "‘দুর্গাপূজায় কোনো নিরাপত্তা শঙ্কা নেই’", 7),
+    v("b1", "B", "mohona", "মহাষষ্ঠীতে দুর্গোৎসব শুরু, মণ্ডপ ঘিরে নিরাপত্তা শঙ্কা নেই: ডিএমপি কমিশনার", 9),
+    v("b2", "B", "channel24", "দুর্গাপূজা ঘিরে কোনো ধ্বংসযজ্ঞের আভাস নেই: ডিএমপি কমিশনার", 10),
+    v("c1", "C", "somoy", "কুমিল্লা সীমান্তে দুই পুলিশ সদস্যকে আটক করে নিয়ে গেল বিএসএফ", 8),
+    v("c2", "C", "jamuna", "কুমিল্লা সীমান্তে আটক দুই পুলিশকে ফেরত দিল বিএসএফ", 8),
+  ];
+  const stories = videoStories(later, at(11));
+  const options = { now: at(11), at: at(11) + 1800_000 };
+  // Its record alone: story B reads differently from what the record kept, so it would go out again.
+  assert.equal(pickVideo(stories, { ...options, history: [record] })?.story.id, "B");
+  // With the titles story A has now, B is known as posted; the next story goes out instead.
+  const groups = new Map<string, [string, string][]>();
+  for (const x of later) groups.set(x.story!, [...(groups.get(x.story!) ?? []), [x.id, x.title]]);
+  const titles = storyTitles([...groups.values()]);
+  const history = withFeedTitles([record], (k) => titles.get(k));
+  assert.equal(pickVideo(stories, { ...options, history })?.story.id, "C");
 });
 
 test("post checks: titles, meta tags, picture sizes and gaps in text", () => {

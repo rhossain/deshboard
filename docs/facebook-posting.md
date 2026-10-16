@@ -53,7 +53,8 @@ Breaking news is always one headline.
 - is in Bangla, and reported by **3 or more outlets**. A headline only one outlet has is too often a rumour, a
   scoop or a slant;
 - is **still being reported**: its newest headline is under 2 hours old, its first under 12;
-- wasn't posted in the last 24 hours, as the same headlines or as another story about the same thing;
+- wasn't posted in the last 24 hours, as the same headlines or as **another story about the same thing** (see
+  "Same story, told another way" below);
 - has **no sensitive words** in any of its headlines: sexual violence, suicide, graphic violence (কুপিয়ে, গলা কেটে,
   জবাই…), acid attacks, and pages that aren't news (রাশিফল, prayer times). The list is `SENSITIVE_BN` and
   `SENSITIVE_EN`;
@@ -93,6 +94,24 @@ never downloaded or uploaded to the Page: the footage is the channels', and link
 
 It credits the story's channel credited least recently (of its videos from the last 6 hours), the most watched among
 equals.
+
+### Same story, told another way
+
+Outlets and channels tell one story in many ways, and grouping can split it in two: on 16 October the 12:00 video
+("নিরাপত্তা নিয়ে নেই শঙ্কা, ঝুঁকি মোকাবেলায় প্রস্তুত আইনশৃঙ্খলা বাহিনী") and the 17:30 one ("মহাষষ্ঠীতে দুর্গোৎসব শুরু,
+মণ্ডপ ঘিরে নিরাপত্তা শঙ্কা নেই: ডিএমপি কমিশনার") were the same news, from two groups whose leads share only two words.
+So a story counts as posted when:
+
+- **any** of its titles is about the same thing as **any** title of a story posted in the last 24 hours (most of the
+  shorter title's words, two at least, in the other), not just the two leads;
+- the posted story is taken **as it is now**: the titles it has gathered since it was posted (more outlets, other
+  channels' takes) count too, as headlines and as videos;
+- a word and its compound or longer form are one word ("পূজা" in "দুর্গাপূজা", "শঙ্কা" in "আশঙ্কা"), each counted once;
+  words that say nothing about the story ("ঘিরে", "উপলক্ষে", "শুরু", "চলছে") don't count.
+
+The same rule keeps a carousel's cards about different things. It can hold back a related story (on a day of Puja
+security news, a second security story waits a day), but not one that only shares the occasion: a Puja celebration
+story still goes out after a Puja security one.
 
 ```
 গাজীপুরে বকেয়া বেতনের দাবিতে শ্রমিকদের মহাসড়ক অবরোধ

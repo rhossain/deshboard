@@ -119,9 +119,9 @@ export interface PostRecord {
    * video in the video story.
    */
   keys: string[];
-  /** The story's keywords (keywords()), so another story about the same thing isn't posted either. */
+  /** The story's keywords (subjectWords() of its lead), so another story about the same thing isn't posted either. */
   words: string[];
-  /** A roundup's: each card's story's keywords. */
+  /** The keywords of each of the story's titles (titleSubjects); a carousel's, of each card's story's titles. */
   subjects?: string[][];
   /** Facebook's id for the post; none in a dry run. */
   id?: string;
@@ -199,9 +199,70 @@ export const tooClose = (history: PostRecord[], at: number) =>
 export const recentPosts = (history: PostRecord[], at: number) =>
   history.filter((p) => Date.parse(p.at) > at - REPEAT_MS);
 
-/** Whether `words` (keywords()) are the subject of a recent post, or of one of a roundup's cards. */
-export const postedSubject = (recent: PostRecord[], words: string[]) =>
-  recent.some((p) => [p.words, ...(p.subjects ?? [])].some((w) => sameSubject(words, w)));
+/**
+ * Words that say little about what a story is ("ঘিরে", "উপলক্ষে", "যা জানালেন"), left out of its subject on top of
+ * keywords()' stopwords: "দুর্গাপূজা ঘিরে X" and "দুর্গাপূজা ঘিরে Y" aren't the same story for sharing them.
+ */
+const SUBJECT_STOPWORDS = new Set(["ঘির", "উপলক্ষ", "উপলক্ষ্য", "যা", "জানালেন", "বিশেষ", "শুরু", "চলছে", "হলো"]);
+
+/** A title's subject: its keywords, less SUBJECT_STOPWORDS. */
+export const subjectWords = (title: string) => keywords(title).filter((w) => !SUBJECT_STOPWORDS.has(w));
+
+/** Titles of a story looked at for its subject, at most. */
+const MAX_TITLES = 16;
+
+/**
+ * A story's subjects: the keywords of each of its titles (up to MAX_TITLES different ones). Outlets and channels
+ * tell one story in many ways ("নিরাপত্তা নিয়ে নেই শঙ্কা…", "দুর্গাপূজায় কোনো নিরাপত্তা শঙ্কা নেই"), and grouping can
+ * split it in two: matched by any of its titles, a story isn't posted twice because its two leads read differently.
+ */
+export function titleSubjects(titles: string[], max = MAX_TITLES): string[][] {
+  const out: string[][] = [];
+  const seen = new Set<string>();
+  for (const title of titles) {
+    const words = subjectWords(title);
+    const key = [...words].sort().join(" ");
+    if (words.length < 2 || seen.has(key)) continue;
+    seen.add(key);
+    out.push(words);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** Whether any title of one story is about the same thing as any of another's. */
+export const sameStory = (a: string[][], b: string[][]) => a.some((x) => b.some((y) => sameSubject(x, y)));
+
+/** A post's subjects, as recorded (records from before titleSubjects have only their lead's words). */
+const postSubjects = (p: PostRecord) =>
+  [p.words, ...(p.subjects ?? [])].map((w) => w.filter((x) => !SUBJECT_STOPWORDS.has(x))).filter((w) => w.length);
+
+/** Whether a story (its titleSubjects) is the subject of a recent post, or of one of a carousel's cards. */
+export const postedSubject = (recent: PostRecord[], subjects: string[][]) =>
+  recent.some((p) => sameStory(subjects, postSubjects(p)));
+
+/**
+ * The history, each post's subjects added to from the feeds now: `titlesOf` gives, for a key (share key, video id),
+ * the titles of the whole story it is in now (`storyTitles`). A story keeps growing after it is posted (more
+ * outlets, other channels' takes), and those later titles are the ones a second post would be made from. For picking
+ * only; the history kept stays as it was.
+ */
+export function withFeedTitles(history: PostRecord[], titlesOf: (key: string) => string[] | undefined): PostRecord[] {
+  return history.map((p) => {
+    const titles = [...new Set(p.keys.flatMap((k) => titlesOf(k) ?? []))];
+    return titles.length ? { ...p, subjects: [...(p.subjects ?? []), ...titleSubjects(titles, Infinity)] } : p;
+  });
+}
+
+/** For withFeedTitles: each key's story's titles, from groups of [key, title] (a story's headlines, or videos). */
+export function storyTitles(groups: [string, string][][]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const group of groups) {
+    const titles = group.map(([, t]) => t);
+    for (const [key] of group) out.set(key, [...(out.get(key) ?? []), ...titles]);
+  }
+  return out;
+}
 
 /** When each outlet or channel was last credited (ms), in posts of these kinds. */
 export function lastCredited(history: PostRecord[], contents: PostContent[]): Map<string, number> {
@@ -246,13 +307,35 @@ const firstTime = (story: Story) =>
     return Number.isNaN(t) ? first : Math.min(first, t);
   }, Infinity);
 
+/**
+ * Whether two keywords are one word: the same, or one a compound or a longer form of the other ("পূজা" in
+ * "দুর্গাপূজা" and "পূজামণ্ডপ", "শঙ্কা" in "আশঙ্কা"). Short words only match exactly ("দল" isn't in "দলীয়").
+ */
+function sameWord(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return [...short].length >= 4 && (long.startsWith(short) || long.endsWith(short));
+}
+
 /** Whether two keyword lists are about the same thing: most of the shorter one's words are in the other. */
 export function sameSubject(a: string[], b: string[]): boolean {
   if (!a.length || !b.length) return false;
-  const set = new Set(b);
-  const shared = a.filter((w) => set.has(w)).length;
-  return shared >= 2 && shared / Math.min(a.length, b.length) >= 0.5;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  // Each word of the longer list matches once: "পূজা" and "দুর্গাপূজা" aren't two words shared with "দুর্গাপূজা".
+  const left = [...long];
+  let shared = 0;
+  for (const w of short) {
+    const i = left.findIndex((x) => x === w);
+    const j = i >= 0 ? i : left.findIndex((x) => sameWord(w, x));
+    if (j < 0) continue;
+    left.splice(j, 1);
+    shared++;
+  }
+  return shared >= 2 && shared / short.length >= 0.5;
 }
+
+/** A headline story's subjects: its lead's title first, then the rest of its headlines'. */
+export const storySubjects = (story: Story) => titleSubjects([story.lead.title, ...story.items.map((it) => it.title)]);
 
 /**
  * The next story to post, from `stories` (pageStories), or null when none passes: fresh, not posted in the last day
@@ -286,7 +369,7 @@ export function pickStory(stories: Story[], { now, at, history, hasPicture, brea
     if ((perSection.get(category) ?? 0) >= (SECTION_CAPS[category] ?? DEFAULT_CAP)) continue;
     if (story.items.some((it) => isSensitive(it.title))) continue;
     if (story.items.some((it) => postedKeys.has(shareKey(it.link)))) continue;
-    if (postedSubject(recent, keywords(story.lead.title))) continue;
+    if (postedSubject(recent, storySubjects(story))) continue;
 
     const item = creditedItem(story, history, hasPicture);
     if (!item) continue;
@@ -356,7 +439,8 @@ export function postRecord(
     sourceId: item.sourceId,
     category: storySection(story),
     keys: [...new Set(story.items.map((it) => shareKey(it.link)))],
-    words: keywords(story.lead.title),
+    words: subjectWords(story.lead.title),
+    subjects: storySubjects(story),
   };
 }
 
@@ -372,7 +456,7 @@ export function pickHeadlines(stories: Story[], { now, at, history, hasPicture }
   const cards: PostChoice[] = [];
   const used = new Set<string>();
   const perSection = new Map<Category, number>();
-  const subjects: string[][] = [];
+  const subjects: string[][][] = [];
   for (const story of stories) {
     if (cards.length >= CAROUSEL_CARDS) break;
     const outlets = new Set(story.items.map((it) => it.sourceId)).size;
@@ -382,8 +466,8 @@ export function pickHeadlines(stories: Story[], { now, at, history, hasPicture }
     const section = storySection(story);
     if (section === "opinion" || (perSection.get(section) ?? 0) >= CAROUSEL_PER_SECTION) continue;
     if (story.items.some((it) => isSensitive(it.title) || postedKeys.has(shareKey(it.link)))) continue;
-    const words = keywords(story.lead.title);
-    if (postedSubject(recent, words) || subjects.some((w) => sameSubject(words, w))) continue;
+    const words = storySubjects(story);
+    if (postedSubject(recent, words) || subjects.some((w) => sameStory(words, w))) continue;
     const item = creditedItem(story, history, hasPicture, used);
     if (!item) continue;
     cards.push({ story, item, outlets });
@@ -426,7 +510,7 @@ export function headlinesRecord(
     category: "other",
     keys: [...new Set(cards.flatMap((c) => c.story.items.map((it) => shareKey(it.link))))],
     words: [],
-    subjects: cards.map((c) => keywords(c.story.lead.title)),
+    subjects: cards.flatMap((c) => storySubjects(c.story)),
   };
 }
 

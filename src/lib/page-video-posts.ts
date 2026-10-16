@@ -9,11 +9,12 @@ import {
   postedSubject,
   type PostRecord,
   recentPosts,
-  sameSubject,
+  sameStory,
+  subjectWords,
+  titleSubjects,
   tooClose,
 } from "./page-posts";
 import { videoSharePath } from "./share";
-import { keywords } from "./stories";
 import type { Video } from "./types";
 import { unmaskTitle } from "./video-stories";
 
@@ -105,14 +106,14 @@ export interface VideoPickOptions {
   skip?: (video: Video) => boolean;
 }
 
-/** A story's words, as headlines' are taken (keywords()), so a video and a headline on one subject meet. */
-const subject = (story: VideoStory) => keywords(unmaskTitle(story.videos[0].title));
+/** A story's subjects, as headlines' are taken (titleSubjects), so a video and a headline on one subject meet. */
+const subjects = (story: VideoStory) => titleSubjects(story.videos.map((v) => unmaskTitle(v.title)));
 
 /** Whether a story can be posted at all: nothing sensitive in any of its titles, and not posted lately. */
 function postable(story: VideoStory, recent: PostRecord[], postedIds: Set<string>): boolean {
   if (story.videos.some((v) => isSensitive(unmaskTitle(v.title)))) return false;
   if (story.videos.some((v) => postedIds.has(v.id))) return false;
-  return !postedSubject(recent, subject(story));
+  return !postedSubject(recent, subjects(story));
 }
 
 /**
@@ -166,7 +167,7 @@ export function pickRoundup(stories: VideoStory[], { now, at, history, skip }: V
 
   const cards: VideoChoice[] = [];
   const used = new Set<string>();
-  const subjects: string[][] = [];
+  const taken: string[][][] = [];
   const fits = (story: VideoStory, single: boolean) =>
     story.latest > since &&
     (single
@@ -176,13 +177,13 @@ export function pickRoundup(stories: VideoStory[], { now, at, history, skip }: V
     for (const story of stories) {
       if (cards.length >= ROUNDUP_CARDS) break;
       if (!fits(story, single) || cards.some((c) => c.story === story) || !postable(story, recent, postedIds)) continue;
-      const words = subject(story);
-      if (subjects.some((w) => sameSubject(words, w))) continue;
+      const words = subjects(story);
+      if (taken.some((w) => sameStory(words, w))) continue;
       const video = creditedVideo(story, last, now, used, skip);
       if (!video) continue;
       cards.push({ story, video });
       used.add(video.channel);
-      subjects.push(words);
+      taken.push(words);
     }
   }
   return cards.length >= ROUNDUP_MIN_CARDS ? cards : [];
@@ -230,7 +231,8 @@ export function videoRecord({ story, video }: VideoChoice, fields: RecordFields)
     sourceId: video.channel,
     category: "other",
     keys: story.videos.map((v) => v.id),
-    words: subject(story),
+    words: subjectWords(unmaskTitle(video.title)),
+    subjects: subjects(story),
   };
 }
 
@@ -245,6 +247,6 @@ export function roundupRecord(cards: VideoChoice[], fields: RecordFields & { mod
     category: "other",
     keys: cards.flatMap((c) => c.story.videos.map((v) => v.id)),
     words: [],
-    subjects: cards.map((c) => subject(c.story)),
+    subjects: cards.flatMap((c) => subjects(c.story)),
   };
 }
