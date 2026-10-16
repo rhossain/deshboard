@@ -1444,6 +1444,32 @@ test("page posts: one story told two ways, or grown since it was posted, isn't p
   assert.equal(pickVideo(stories, { ...options, history })?.story.id, "C");
 });
 
+test("page posts: the same news again only after 8 hours, and only with newer reports from more outlets", () => {
+  const t = (h: number) => Date.parse(`2026-10-16T${String(h).padStart(2, "0")}:00:00Z`);
+  const hi = (source: string, title: string, h: number) =>
+    item(source, title, { publishedAt: new Date(t(h)).toISOString(), category: "national" });
+  const first = [
+    hi("a", "দুর্গাপূজা ঘিরে নাশকতার শঙ্কা নেই: ডিএমপি কমিশনার", 1),
+    hi("b", "দুর্গাপূজায় নাশকতার আশঙ্কা নেই, বললেন ডিএমপি কমিশনার", 1),
+    hi("c", "পূজায় নাশকতার শঙ্কা নেই: ডিএমপি কমিশনার", 1),
+  ];
+  const story = (items: NewsItem[], at: number): Story => ({ id: items[0].link, lead: items[0], items, outlets: new Set(items.map((i) => i.sourceId)).size, latest: new Date(at).toISOString(), heat: 5 });
+  const posted = pickStory([story(first, t(1))], { now: t(1), at: t(1), history: [], hasPicture: () => true })!;
+  const history = [postRecord(posted, { kind: "slot", at: new Date(t(1)).toISOString(), link: "", mode: "on" })];
+  const newer = [hi("d", "দুর্গাপূজায় নাশকতার শঙ্কা নেই, সতর্ক ডিএমপি কমিশনার", 6), hi("e", "ডিএমপি কমিশনার: দুর্গাপূজায় নাশকতার শঙ্কা নেই", 6)];
+  const pick = (items: NewsItem[], at: number) =>
+    pickStory([story(items, at)], { now: at, at, history, hasPicture: () => true });
+  // 5 hours on, more outlets or not: not again.
+  assert.equal(pick([...first, ...newer, hi("f", "নাশকতার শঙ্কা নেই দুর্গাপূজায়: ডিএমপি কমিশনার", 6)], t(6)), null);
+  // 9 hours on, two more outlets: not news enough.
+  assert.equal(pick([...first, ...newer.map((n) => ({ ...n, publishedAt: new Date(t(9)).toISOString() }))], t(9)), null);
+  // 9 hours on, three more: a follow-up, linking one of the newer reports.
+  const later = [...newer, hi("f", "নাশকতার শঙ্কা নেই দুর্গাপূজায়: ডিএমপি কমিশনার", 6)].map((n) => ({ ...n, publishedAt: new Date(t(9)).toISOString() }));
+  const followUp = pick([...first, ...later], t(10));
+  assert.ok(followUp && ["d", "e", "f"].includes(followUp.item.sourceId), "credits a newer report");
+  assert.equal(followUp?.followUpOf, new Date(t(1)).toISOString());
+});
+
 test("post checks: titles, meta tags, picture sizes and gaps in text", () => {
   const html = `<meta content="Padma &amp; Jamuna" property="og:title"/><meta property='og:image' content='https://x.test/a.jpg'>`;
   assert.equal(metaContent(html, "og:title"), "Padma & Jamuna");

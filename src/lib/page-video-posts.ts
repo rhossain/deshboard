@@ -6,8 +6,9 @@ import {
   lastCredited,
   partOfDay,
   type PostingMode,
-  postedSubject,
+  FOLLOW_UP_CHANNELS,
   type PostRecord,
+  postableEntries,
   recentPosts,
   sameStory,
   subjectWords,
@@ -95,6 +96,8 @@ export function videoStories(videos: Video[], now: number): VideoStory[] {
 export interface VideoChoice {
   story: VideoStory;
   video: Video;
+  /** A follow-up of the story posted then (ISO): `video` is one of the reports since. */
+  followUpOf?: string;
 }
 
 export interface VideoPickOptions {
@@ -109,11 +112,19 @@ export interface VideoPickOptions {
 /** A story's subjects, as headlines' are taken (titleSubjects), so a video and a headline on one subject meet. */
 const subjects = (story: VideoStory) => titleSubjects(story.videos.map((v) => unmaskTitle(v.title)));
 
-/** Whether a story can be posted at all: nothing sensitive in any of its titles, and not posted lately. */
-function postable(story: VideoStory, recent: PostRecord[], postedIds: Set<string>): boolean {
-  if (story.videos.some((v) => isSensitive(unmaskTitle(v.title)))) return false;
-  if (story.videos.some((v) => postedIds.has(v.id))) return false;
-  return !postedSubject(recent, subjects(story));
+/**
+ * Whether a story can be posted, and with which of its videos (postableEntries): nothing sensitive in any of its
+ * titles, and not posted lately, or posted 8 hours ago or more and reported by more channels since (a follow-up).
+ */
+function postable(story: VideoStory, recent: PostRecord[], at: number) {
+  if (story.videos.some((v) => isSensitive(unmaskTitle(v.title)))) return null;
+  const result = postableEntries(recent, at, story.videos, subjects(story), {
+    key: (v) => v.id,
+    time: (v) => Date.parse(v.publishedAt) || 0,
+    source: (v) => v.channel,
+    minSources: FOLLOW_UP_CHANNELS,
+  });
+  return result && { story: { ...story, videos: result.entries }, followUpOf: result.followUpOf };
 }
 
 /**
@@ -141,13 +152,13 @@ function creditedVideo(
 export function pickVideo(stories: VideoStory[], { now, at, history, skip }: VideoPickOptions): VideoChoice | null {
   if (tooClose(history, at)) return null;
   const recent = recentPosts(history, at);
-  const postedIds = new Set(recent.flatMap((p) => p.keys));
   const last = lastCredited(history, ["video", "roundup"]);
   for (const story of stories) {
     if (story.channels < MIN_CHANNELS || now - story.latest > FRESH_MS) continue;
-    if (!postable(story, recent, postedIds)) continue;
-    const video = creditedVideo(story, last, now, undefined, skip);
-    if (video) return { story, video };
+    const ok = postable(story, recent, at);
+    if (!ok) continue;
+    const video = creditedVideo(ok.story, last, now, undefined, skip);
+    if (video) return { story, video, followUpOf: ok.followUpOf };
   }
   return null;
 }
@@ -160,7 +171,6 @@ export function pickVideo(stories: VideoStory[], { now, at, history, skip }: Vid
 export function pickRoundup(stories: VideoStory[], { now, at, history, skip }: VideoPickOptions): VideoChoice[] {
   if (tooClose(history, at)) return [];
   const recent = recentPosts(history, at);
-  const postedIds = new Set(recent.flatMap((p) => p.keys));
   const last = lastCredited(history, ["video", "roundup"]);
   const previous = history.filter((p) => p.content === "roundup").map((p) => Date.parse(p.at));
   const since = Math.max(at - ROUNDUP_WINDOW_MS, ...previous.filter((t) => t < at));
@@ -176,12 +186,13 @@ export function pickRoundup(stories: VideoStory[], { now, at, history, skip }: V
   for (const single of [false, true]) {
     for (const story of stories) {
       if (cards.length >= ROUNDUP_CARDS) break;
-      if (!fits(story, single) || cards.some((c) => c.story === story) || !postable(story, recent, postedIds)) continue;
+      const ok = fits(story, single) && !cards.some((c) => c.story === story) && postable(story, recent, at);
+      if (!ok) continue;
       const words = subjects(story);
       if (taken.some((w) => sameStory(words, w))) continue;
-      const video = creditedVideo(story, last, now, used, skip);
+      const video = creditedVideo(ok.story, last, now, used, skip);
       if (!video) continue;
-      cards.push({ story, video });
+      cards.push({ story, video, followUpOf: ok.followUpOf });
       used.add(video.channel);
       taken.push(words);
     }
@@ -223,7 +234,7 @@ export function roundupMessage(cards: VideoChoice[], at: number): string {
 type RecordFields = Pick<PostRecord, "kind" | "at" | "link" | "mode"> & Partial<Pick<PostRecord, "slot" | "id">>;
 
 /** The record of a video post. */
-export function videoRecord({ story, video }: VideoChoice, fields: RecordFields): PostRecord {
+export function videoRecord({ story, video, followUpOf }: VideoChoice, fields: RecordFields): PostRecord {
   return {
     ...fields,
     content: "video",
@@ -233,6 +244,7 @@ export function videoRecord({ story, video }: VideoChoice, fields: RecordFields)
     keys: story.videos.map((v) => v.id),
     words: subjectWords(unmaskTitle(video.title)),
     subjects: subjects(story),
+    ...(followUpOf && { followUpOf }),
   };
 }
 

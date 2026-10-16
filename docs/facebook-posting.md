@@ -109,9 +109,14 @@ So a story counts as posted when:
 - a word and its compound or longer form are one word ("পূজা" in "দুর্গাপূজা", "শঙ্কা" in "আশঙ্কা"), each counted once;
   words that say nothing about the story ("ঘিরে", "উপলক্ষে", "শুরু", "চলছে") don't count.
 
-The same rule keeps a carousel's cards about different things. It can hold back a related story (on a day of Puja
-security news, a second security story waits a day), but not one that only shares the occasion: a Puja celebration
-story still goes out after a Puja security one.
+The same rule keeps a carousel's cards about different things. It doesn't hold back a story that only shares the
+occasion: a Puja celebration story still goes out after a Puja security one.
+
+**Follow-ups.** News that has moved on can go out again, but never within **8 hours** of its last post. After 8
+hours (and up to the 24 hours the repeat rule covers), the same story goes out again only when **3 more outlets**
+(2 more channels, for a video) have reported it since the last post, and the post links one of those newer reports,
+never one posted before. A story with no new reports waits out the 24 hours. The run's note says when a post is a
+follow-up ("a follow-up: the story was posted 12:00 Dhaka, more reports since").
 
 ```
 গাজীপুরে বকেয়া বেতনের দাবিতে শ্রমিকদের মহাসড়ক অবরোধ

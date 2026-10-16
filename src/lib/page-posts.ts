@@ -61,8 +61,16 @@ const FRESH_MS = 2 * 3600_000;
 const MAX_AGE_MS = 12 * 3600_000;
 /** Outlets needed for a story to be posted: one outlet alone is too often a rumour, a scoop or a slant. */
 const MIN_OUTLETS = 3;
-/** A story posted is not posted again (as the same headlines, or as a story about the same thing) for this long. */
+/** A story posted is not posted again (as the same headlines, or as a story about the same thing) for this long... */
 export const REPEAT_MS = 24 * 3600_000;
+/**
+ * ...unless it has moved on: from this long after it was posted, it can go out again as a follow-up when
+ * FOLLOW_UP_OUTLETS more outlets (FOLLOW_UP_CHANNELS channels, for a video) have reported it since, linking one of
+ * those newer reports. Never sooner.
+ */
+export const FOLLOW_UP_AFTER_MS = 8 * 3600_000;
+export const FOLLOW_UP_OUTLETS = 3;
+export const FOLLOW_UP_CHANNELS = 2;
 /** Posts kept in the history: long enough for the repeat rule and the outlet rotation. */
 export const HISTORY_MS = 7 * 24 * 3600_000;
 
@@ -123,6 +131,8 @@ export interface PostRecord {
   words: string[];
   /** The keywords of each of the story's titles (titleSubjects); a carousel's, of each card's story's titles. */
   subjects?: string[][];
+  /** A follow-up of the story posted then (ISO). */
+  followUpOf?: string;
   /** Facebook's id for the post; none in a dry run. */
   id?: string;
   /**
@@ -241,6 +251,45 @@ const postSubjects = (p: PostRecord) =>
 export const postedSubject = (recent: PostRecord[], subjects: string[][]) =>
   recent.some((p) => sameStory(subjects, postSubjects(p)));
 
+/** What of a story can be posted: its reports to link to, and whether it goes out as a follow-up. */
+export interface Postable<T> {
+  entries: T[];
+  /** When the story was last posted (ISO), if this is a follow-up of it. */
+  followUpOf?: string;
+}
+
+/**
+ * Whether a story can be posted, given the posts of the last REPEAT_MS (`recent`), and with which of its reports
+ * (headlines, videos). Not posted lately (none of its reports, nor its subject): all of them. Posted less than
+ * FOLLOW_UP_AFTER_MS ago: null. Posted before that: a follow-up, with the reports since then, when `minSources`
+ * outlets or channels have reported it since; null when they haven't (no news since).
+ */
+export function postableEntries<T>(
+  recent: PostRecord[],
+  at: number,
+  entries: T[],
+  subjects: string[][],
+  { key, time, source, minSources }: { key: (e: T) => string; time: (e: T) => number; source: (e: T) => string; minSources: number },
+): Postable<T> | null {
+  const keys = new Set(entries.map(key));
+  const related = recent.filter((p) => p.keys.some((k) => keys.has(k)) || sameStory(subjects, postSubjects(p)));
+  if (!related.length) return { entries };
+  const last = Math.max(...related.map((p) => Date.parse(p.at)));
+  if (at - last < FOLLOW_UP_AFTER_MS) return null;
+  const posted = new Set(related.flatMap((p) => p.keys));
+  const since = entries.filter((e) => time(e) > last && !posted.has(key(e)));
+  return new Set(since.map(source)).size >= minSources ? { entries: since, followUpOf: new Date(last).toISOString() } : null;
+}
+
+/** A headline story's postableEntries: its headlines, by share key, time and outlet. */
+const postableItems = (recent: PostRecord[], at: number, story: Story) =>
+  postableEntries(recent, at, story.items, storySubjects(story), {
+    key: (it) => shareKey(it.link),
+    time: (it) => Date.parse(itemTime(it) ?? "") || 0,
+    source: (it) => it.sourceId,
+    minSources: FOLLOW_UP_OUTLETS,
+  });
+
 /**
  * The history, each post's subjects added to from the feeds now: `titlesOf` gives, for a key (share key, video id),
  * the titles of the whole story it is in now (`storyTitles`). A story keeps growing after it is posted (more
@@ -280,6 +329,8 @@ export interface PostChoice {
   item: NewsItem;
   /** Distinct outlets reporting it. */
   outlets: number;
+  /** A follow-up of the story posted then (ISO): `item` is one of the reports since. */
+  followUpOf?: string;
 }
 
 export interface PickOptions {
@@ -345,7 +396,6 @@ export const storySubjects = (story: Story) => titleSubjects([story.lead.title, 
  */
 export function pickStory(stories: Story[], { now, at, history, hasPicture, breaking = false }: PickOptions): PostChoice | null {
   const recent = recentPosts(history, at);
-  const postedKeys = new Set(recent.flatMap((p) => p.keys));
   const day = dhakaDay(at);
   // Sections, their caps and their turns are the headlines' alone.
   const news = history.filter((p) => contentOf(p) === "news");
@@ -368,13 +418,13 @@ export function pickStory(stories: Story[], { now, at, history, hasPicture, brea
     const category = storySection(story);
     if ((perSection.get(category) ?? 0) >= (SECTION_CAPS[category] ?? DEFAULT_CAP)) continue;
     if (story.items.some((it) => isSensitive(it.title))) continue;
-    if (story.items.some((it) => postedKeys.has(shareKey(it.link)))) continue;
-    if (postedSubject(recent, storySubjects(story))) continue;
+    const postable = postableItems(recent, at, story);
+    if (!postable) continue;
 
-    const item = creditedItem(story, history, hasPicture);
+    const item = creditedItem({ ...story, items: postable.entries }, history, hasPicture);
     if (!item) continue;
     const score = story.heat * (last && last.category === category ? SAME_SECTION_FACTOR : 1);
-    if (!best || score > best.score) best = { pick: { story, item, outlets }, score };
+    if (!best || score > best.score) best = { pick: { story, item, outlets, followUpOf: postable.followUpOf }, score };
   }
   return best?.pick ?? null;
 }
@@ -441,6 +491,7 @@ export function postRecord(
     keys: [...new Set(story.items.map((it) => shareKey(it.link)))],
     words: subjectWords(story.lead.title),
     subjects: storySubjects(story),
+    ...(pick.followUpOf && { followUpOf: pick.followUpOf }),
   };
 }
 
@@ -452,7 +503,6 @@ export function postRecord(
 export function pickHeadlines(stories: Story[], { now, at, history, hasPicture }: PickOptions): PostChoice[] {
   if (tooClose(history, at)) return [];
   const recent = recentPosts(history, at);
-  const postedKeys = new Set(recent.flatMap((p) => p.keys));
   const cards: PostChoice[] = [];
   const used = new Set<string>();
   const perSection = new Map<Category, number>();
@@ -465,12 +515,13 @@ export function pickHeadlines(stories: Story[], { now, at, history, hasPicture }
     if (Number.isNaN(latest) || now - latest > FRESH_MS) continue;
     const section = storySection(story);
     if (section === "opinion" || (perSection.get(section) ?? 0) >= CAROUSEL_PER_SECTION) continue;
-    if (story.items.some((it) => isSensitive(it.title) || postedKeys.has(shareKey(it.link)))) continue;
+    if (story.items.some((it) => isSensitive(it.title))) continue;
     const words = storySubjects(story);
-    if (postedSubject(recent, words) || subjects.some((w) => sameStory(words, w))) continue;
-    const item = creditedItem(story, history, hasPicture, used);
+    const postable = postableItems(recent, at, story);
+    if (!postable || subjects.some((w) => sameStory(words, w))) continue;
+    const item = creditedItem({ ...story, items: postable.entries }, history, hasPicture, used);
     if (!item) continue;
-    cards.push({ story, item, outlets });
+    cards.push({ story, item, outlets, followUpOf: postable.followUpOf });
     used.add(item.sourceId);
     perSection.set(section, (perSection.get(section) ?? 0) + 1);
     subjects.push(words);

@@ -407,9 +407,10 @@ async function main() {
   }
   writeHistory([...history, plan.record]);
 
-  const when = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", hour: "2-digit", minute: "2-digit" }).format(at);
+  const when = dhakaTime(at);
   const verb = mode === "dry" ? "Would post" : at > now + 60_000 ? "Scheduled" : "Posted";
-  if (mode !== "dry") notice(`Facebook: ${verb.toLowerCase()} ${plan.record.content} for ${when} Dhaka (post ${plan.record.id}): ${plan.record.title} ${plan.record.link}`);
+  const followUp = plan.record.followUpOf ? ` (a follow-up: the story was posted ${dhakaTime(Date.parse(plan.record.followUpOf))} Dhaka, more reports since)` : "";
+  if (mode !== "dry") notice(`Facebook: ${verb.toLowerCase()} ${plan.record.content}${followUp} for ${when} Dhaka (post ${plan.record.id}): ${plan.record.title} ${plan.record.link}`);
   summary(
     [
       `### Facebook: ${verb} ${plan.record.content} (${fields.kind}, ${when} Dhaka)`,
@@ -420,11 +421,15 @@ async function main() {
       ...plan.cards.map((c) => `  ▸ ${c}`),
       "```",
       "",
-      plan.note + (plan.record.id ? ` · post ${plan.record.id}` : ""),
+      plan.note + followUp + (plan.record.id ? ` · post ${plan.record.id}` : ""),
       "",
     ].join("\n"),
   );
 }
+
+/** A time as Dhaka's clock reads it: "17:30". */
+const dhakaTime = (ms: number) =>
+  new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", hour: "2-digit", minute: "2-digit" }).format(ms);
 
 /** A post ready to make: what is sent to Facebook, its record, and what the summary says of it. */
 interface Plan {
