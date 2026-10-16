@@ -161,23 +161,48 @@ async function picturesFor(items: NewsItem[], now: number): Promise<Map<NewsItem
 }
 
 interface GraphError {
-  error?: { message?: string; code?: number; error_subcode?: number };
+  error?: {
+    message?: string;
+    code?: number;
+    error_subcode?: number;
+    error_user_title?: string;
+    error_user_msg?: string;
+    fbtrace_id?: string;
+  };
 }
 
 /** The token posts are made with: FB_PAGE_TOKEN, or the Page's own token got with it (pageToken). */
 let token = process.env.FB_PAGE_TOKEN?.trim() ?? "";
 
-async function graph<T>(endpoint: string, params: Record<string, string>, method: "GET" | "POST" = "POST"): Promise<T> {
+/**
+ * A Graph API call. POST sends the parameters as a form, or with `inQuery`, in the address (as Facebook's Sharing
+ * Debugger does).
+ */
+async function graph<T>(
+  endpoint: string,
+  params: Record<string, string>,
+  method: "GET" | "POST" = "POST",
+  inQuery = false,
+): Promise<T> {
   const query = new URLSearchParams({ access_token: token, ...params });
-  const res = await fetch(method === "GET" ? `${GRAPH}${endpoint}?${query}` : `${GRAPH}${endpoint}`, {
+  const res = await fetch(method === "GET" || inQuery ? `${GRAPH}${endpoint}?${query}` : `${GRAPH}${endpoint}`, {
     method,
-    body: method === "POST" ? query : undefined,
+    body: method === "POST" && !inQuery ? query : undefined,
     signal: AbortSignal.timeout(30_000),
   });
   const body = (await res.json().catch(() => ({}))) as T & GraphError;
   if (!res.ok || body.error) {
     const e = body.error;
-    throw new Error(`Facebook ${res.status}${e?.code ? ` (code ${e.code})` : ""}: ${e?.message ?? "no answer"}`);
+    // Facebook's whole answer (never the token): its subcode and user message say what "Invalid parameter" means.
+    const more = [
+      e?.error_subcode && `subcode ${e.error_subcode}`,
+      e?.error_user_title,
+      e?.error_user_msg,
+      e?.fbtrace_id && `trace ${e.fbtrace_id}`,
+    ].filter(Boolean);
+    throw new Error(
+      `Facebook ${res.status}${e?.code ? ` (code ${e.code})` : ""}: ${e?.message ?? "no answer"}${more.length ? ` [${more.join("; ")}]` : ""}`,
+    );
   }
   return body;
 }
@@ -227,14 +252,18 @@ async function rescrape(link: string, tries = 1): Promise<boolean | undefined> {
   for (let i = 0; i < tries; i++) {
     if (i) await new Promise((r) => setTimeout(r, PREVIEW_RETRY_MS));
     try {
-      const page = await graph<{ title?: string; og_object?: { title?: string } }>(
-        "/",
-        { id: link, scrape: "true", access_token: APP_TOKEN },
-      );
+      const params = { id: link, scrape: "true", access_token: APP_TOKEN };
+      type Scraped = { title?: string; og_object?: { title?: string } };
+      // As a form first; refused as an invalid parameter, in the address, as the Sharing Debugger sends it.
+      const page = await graph<Scraped>("/", params).catch((err: Error) => {
+        if (!/code 100\b/.test(err.message)) throw err;
+        warn(`Link preview: ${err.message}; trying again with the parameters in the address.`);
+        return graph<Scraped>("/", params, "POST", true);
+      });
       seen = page.title ?? page.og_object?.title ?? "";
       if (seen && !FALLBACK_TITLE.test(seen)) return true;
     } catch (err) {
-      warn(`Link preview not refreshed: ${(err as Error).message}`);
+      warn(`Link preview not refreshed (${link}): ${(err as Error).message}`);
       return undefined;
     }
   }
