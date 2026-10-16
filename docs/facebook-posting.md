@@ -69,7 +69,7 @@ week every paper gets its turn, rather than the same few big ones: the Page is e
 (`bartaboard.com/s/…`). The link's preview shows the headline, the outlet's picture and "also reported by N other
 outlets"; it opens Bartaboard's share page, with a button to the article. Facebook is asked to read the link afresh
 first. A single post is made only once its link answers a crawler with the headline itself (checked from the run,
-four tries a minute apart; otherwise the next run tries again), and, when the app token is set (FB_APP_ID and
+four tries over a minute; otherwise the next run tries again), and, when the app token is set (FB_APP_ID and
 FB_APP_SECRET, below), once Facebook's own read of it shows the headline too. With the app token, single posts whose
 preview wasn't confirmed are read again on later runs, which corrects the preview on the post. No article text, and no summary: the headline is the outlet's own.
 
