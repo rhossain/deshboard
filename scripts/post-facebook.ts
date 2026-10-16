@@ -174,20 +174,11 @@ interface GraphError {
 /** The token posts are made with: FB_PAGE_TOKEN, or the Page's own token got with it (pageToken). */
 let token = process.env.FB_PAGE_TOKEN?.trim() ?? "";
 
-/**
- * A Graph API call. POST sends the parameters as a form, or with `inQuery`, in the address (as Facebook's Sharing
- * Debugger does).
- */
-async function graph<T>(
-  endpoint: string,
-  params: Record<string, string>,
-  method: "GET" | "POST" = "POST",
-  inQuery = false,
-): Promise<T> {
+async function graph<T>(endpoint: string, params: Record<string, string>, method: "GET" | "POST" = "POST"): Promise<T> {
   const query = new URLSearchParams({ access_token: token, ...params });
-  const res = await fetch(method === "GET" || inQuery ? `${GRAPH}${endpoint}?${query}` : `${GRAPH}${endpoint}`, {
+  const res = await fetch(method === "GET" ? `${GRAPH}${endpoint}?${query}` : `${GRAPH}${endpoint}`, {
     method,
-    body: method === "POST" && !inQuery ? query : undefined,
+    body: method === "POST" ? query : undefined,
     signal: AbortSignal.timeout(30_000),
   });
   const body = (await res.json().catch(() => ({}))) as T & GraphError;
@@ -252,19 +243,18 @@ async function rescrape(link: string, tries = 1): Promise<boolean | undefined> {
   for (let i = 0; i < tries; i++) {
     if (i) await new Promise((r) => setTimeout(r, PREVIEW_RETRY_MS));
     try {
-      const params = { id: link, scrape: "true", access_token: APP_TOKEN };
-      type Scraped = { title?: string; og_object?: { title?: string } };
-      // As a form first; refused as an invalid parameter, in the address, as the Sharing Debugger sends it.
-      const page = await graph<Scraped>("/", params).catch((err: Error) => {
-        if (!/code 100\b/.test(err.message)) throw err;
-        warn(`Link preview: ${err.message}; trying again with the parameters in the address.`);
-        return graph<Scraped>("/", params, "POST", true);
+      const page = await graph<{ title?: string; og_object?: { title?: string } }>("/", {
+        id: link,
+        scrape: "true",
+        access_token: APP_TOKEN,
       });
       seen = page.title ?? page.og_object?.title ?? "";
       if (seen && !FALLBACK_TITLE.test(seen)) return true;
     } catch (err) {
-      warn(`Link preview not refreshed (${link}): ${(err as Error).message}`);
-      return undefined;
+      const message = (err as Error).message;
+      warn(`Link preview not refreshed (${link}): ${message}`);
+      // Facebook read the page and found it invalid (a bad tag): its preview would be broken, so it isn't posted.
+      return /code 100\b/.test(message) ? false : undefined;
     }
   }
   warn(`Link preview of ${link} is still the site's fallback card ("${seen}") after ${tries} reads.`);

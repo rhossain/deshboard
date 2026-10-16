@@ -8,7 +8,12 @@ export const LOCALES: Locale[] = ["en", "bn"];
 
 /** The language codes the pages declare (`<html lang>`, hreflang, Open Graph). */
 export const LANG_TAG: Record<Locale, string> = { en: "en", bn: "bn" };
-export const OG_LOCALE: Record<Locale, string> = { en: "en_US", bn: "bn_BD" };
+/**
+ * Open Graph's og:locale. Facebook only takes the locales it lists, and its one for Bangla is bn_IN: "bn_BD" makes
+ * it reject the whole page (an invalid object: no preview read, no re-read), so bn_IN it is. Search engines go by
+ * hreflang (LANG_TAG), not this.
+ */
+export const OG_LOCALE: Record<Locale, string> = { en: "en_US", bn: "bn_IN" };
 
 /** An address in `locale`: "/news/sports/" → "/bn/news/sports/". `path` is the English address. */
 export function localePath(path: string, locale: Locale): string {

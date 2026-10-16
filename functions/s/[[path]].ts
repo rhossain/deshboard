@@ -392,7 +392,8 @@ async function render(env: Env, site: URL, resolved: Resolved, canonicalPath: st
     meta("property", "og:title", d.ogTitle),
     meta("property", "og:description", d.description),
     meta("property", "og:url", canonical),
-    meta("property", "og:locale", d.lang === "bn" ? "bn_BD" : "en_US"),
+    // Facebook's locale for Bangla is bn_IN; it rejects a page saying bn_BD (src/lib/i18n.ts, OG_LOCALE).
+    meta("property", "og:locale", d.lang === "bn" ? "bn_IN" : "en_US"),
     meta("property", "og:image", image),
     meta("property", "og:image:alt", d.imageAlt ?? d.ogTitle),
     meta("property", "article:published_time", d.published),

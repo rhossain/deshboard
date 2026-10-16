@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, Noto_Sans_Bengali } from "next/font/google";
 import { ANALYTICS_TOKEN, KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
+import { OG_LOCALE } from "@/lib/i18n";
 import { THEME_SCRIPT } from "@/lib/theme";
 import { NEWS_DENSITY_SCRIPT } from "@/lib/news-density";
 import { VIDEO_LAYOUT_SCRIPT } from "@/lib/video-layout";
@@ -42,8 +43,8 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     siteName: SITE_NAME,
     type: "website",
-    locale: "en_US",
-    alternateLocale: ["bn_BD"],
+    locale: OG_LOCALE.en,
+    alternateLocale: [OG_LOCALE.bn],
   },
   twitter: { card: "summary_large_image", title: SITE_TITLE, description: SITE_DESCRIPTION },
   appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: "default" },

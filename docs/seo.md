@@ -168,7 +168,7 @@ Console review (#23).
 | sitemap.xml | 15 URLs: board, 12 sections, privacy, terms |
 | Meta robots | `index, follow, max-image-preview:large, max-snippet:-1` on indexable pages; `noindex` on `/health/`, `/account/`, `404.html` (so every shared `/s/…` link stays out of search) |
 | Titles / descriptions | unique per section, bilingual (`Bangladesh Sports News Today (খেলা) · Bartaboard`) |
-| Open Graph / Twitter | title, description, 1200×630 image, alt, locales `en_US` + `bn_BD` |
+| Open Graph / Twitter | title, description, 1200×630 image, alt, locales `en_US` + `bn_IN` (Facebook's only Bangla locale: it rejects pages saying `bn_BD`) |
 | Structured data | `WebSite` + `Organization` on the board; `CollectionPage` + `BreadcrumbList` on sections |
 | Prerendered content | real headlines in the HTML (~170 links, ~24k characters of text on the board), not an empty shell |
 | Language markup | `<html lang="en">`, every Bangla headline carries `lang="bn"` |
