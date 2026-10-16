@@ -67,11 +67,8 @@ week every paper gets its turn, rather than the same few big ones: the Page is e
 
 **A single post.** The headline, then the outlet and how many others report it, linking the headline's short link
 (`bartaboard.com/s/…`). The link's preview shows the headline, the outlet's picture and "also reported by N other
-outlets"; it opens Bartaboard's share page, with a button to the article. Facebook is asked to read the link afresh
-first. A single post is made only once its link answers a crawler with the headline itself (checked from the run,
-four tries over a minute; otherwise the next run tries again), and, when the app token is set (FB_APP_ID and
-FB_APP_SECRET, below), once Facebook's own read of it shows the headline too. With the app token, single posts whose
-preview wasn't confirmed are read again on later runs, which corrects the preview on the post. No article text, and no summary: the headline is the outlet's own.
+outlets"; it opens Bartaboard's share page, with a button to the article. It goes out only once it passes the
+checks below. No article text, and no summary: the headline is the outlet's own.
 
 ```
 সাবেক উপমন্ত্রী বীর মুক্তিযোদ্ধা আব্দুল হাই আর নেই
@@ -125,6 +122,30 @@ carousels of links (`child_attachments`) are allowed only for links the Page can
 **domain verification** (below) is for. Until bartaboard.com is verified, expect the roundups to come out as video
 posts; the run's summary says so ("Roundup not posted …; posting a video instead"). Carousel cards are square, so
 Facebook crops the thumbnails' sides.
+
+### Checked before anything goes out
+
+Every post, and every card of a carousel, is checked from the run just before it is made (`src/lib/post-checks.ts`).
+Nothing goes out with a missing or broken part:
+
+| Checked | Fails when |
+| --- | --- |
+| The Bartaboard link, read as Facebook's crawler reads it | it doesn't answer, redirects (a video gone from YouTube), shows the site's fallback card, or shows a different headline or video title than the post's. Read four times over a minute before giving up, in case the upload isn't everywhere yet |
+| The picture (a card's own; a single post's, from its link's page) | it doesn't load, isn't a picture, is the site's stand-in picture, or is smaller than 200×150 (or 2 KB) |
+| The video, on YouTube | it is private or gone, or its channel doesn't let other sites play it (Bartaboard plays it on its own page) |
+| The article, at the outlet | the outlet has taken it down (404 or 410). Other answers pass: some outlets refuse GitHub's servers |
+| The text | the post's text, a headline, title, outlet or channel name is empty or has a gap ("undefined", "null") |
+| The carousel | it has fewer cards than it should (5 headlines; 3 videos at least), or a card lacks its link, title, outlet or picture; or the page the post links (`/bn/`, `/bn/videos/`) doesn't answer |
+
+**A card that fails is left out** and the pick made again without it: the next story in line, or the same story from
+another outlet or channel, takes its place (four tries). If a carousel can't be filled with cards that pass, a single
+post goes out instead, checked the same way; if nothing passes, **nothing is posted** and the next run (15 minutes
+later) tries again. Each card left out is a warning on the run ("Left out of the headlines carousel: …"), so a source
+whose pictures keep failing shows up there.
+
+Then, for a single post, Facebook is asked to read the link afresh. With the app token set (FB_APP_ID and
+FB_APP_SECRET, below), the post is made only once Facebook's own read shows the headline too, and single posts whose
+preview wasn't confirmed are read again on later runs, which corrects the preview on the post itself.
 
 ## Turning it on: `FB_POSTING`
 
@@ -223,6 +244,9 @@ Also worth doing once, for the Page and the site:
 - **Problems**: a Facebook error (an expired token, a permission missing) shows as a warning on the run and is tried
   again next run; it never stops the deploy. Error code 190 means the token is no longer valid: make a new one
   (steps 4–5).
+- **Cards left out**: "Left out of the … carousel: …" warnings name the card and what failed (a picture that didn't
+  load, a link showing the wrong title). One now and then is the checks doing their job; the same outlet's pictures
+  failing run after run means its pictures don't reach GitHub's servers (or Facebook's), worth a look.
 - **What was posted** is kept in `.social/facebook.json`, in the Actions cache `facebook-posts-…`, for the repeat,
   daily-cap and outlet-turn rules. Deleting that cache only forgets the last week's history.
 - **How it does**: Page Insights → Content: reach and link clicks per post, which sections and times work. Shared

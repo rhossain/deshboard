@@ -101,6 +101,8 @@ export interface VideoPickOptions {
   /** When the post goes out. */
   at: number;
   history: PostRecord[];
+  /** Videos not to link to (they failed the checks before posting: gone, not playable, no thumbnail). */
+  skip?: (video: Video) => boolean;
 }
 
 /** A story's words, as headlines' are taken (keywords()), so a video and a headline on one subject meet. */
@@ -117,10 +119,16 @@ function postable(story: VideoStory, recent: PostRecord[], postedIds: Set<string
  * The video of the story to link to: a recent one, from the channel credited least lately (`used` channels never),
  * the most watched among equals.
  */
-function creditedVideo(story: VideoStory, last: Map<string, number>, now: number, used = new Set<string>()): Video | null {
+function creditedVideo(
+  story: VideoStory,
+  last: Map<string, number>,
+  now: number,
+  used = new Set<string>(),
+  skip?: (video: Video) => boolean,
+): Video | null {
   let best: Video | null = null;
   for (const v of story.videos) {
-    if (used.has(v.channel) || now - Date.parse(v.publishedAt) > LINKED_WITHIN_MS) continue;
+    if (used.has(v.channel) || now - Date.parse(v.publishedAt) > LINKED_WITHIN_MS || skip?.(v)) continue;
     const a = last.get(v.channel) ?? 0;
     const b = best ? (last.get(best.channel) ?? 0) : Infinity;
     if (!best || a < b || (a === b && (v.views ?? 0) > (best.views ?? 0))) best = v;
@@ -129,7 +137,7 @@ function creditedVideo(story: VideoStory, last: Map<string, number>, now: number
 }
 
 /** The next video post: the hottest fresh story two or more channels have, not posted lately; null if none. */
-export function pickVideo(stories: VideoStory[], { now, at, history }: VideoPickOptions): VideoChoice | null {
+export function pickVideo(stories: VideoStory[], { now, at, history, skip }: VideoPickOptions): VideoChoice | null {
   if (tooClose(history, at)) return null;
   const recent = recentPosts(history, at);
   const postedIds = new Set(recent.flatMap((p) => p.keys));
@@ -137,7 +145,7 @@ export function pickVideo(stories: VideoStory[], { now, at, history }: VideoPick
   for (const story of stories) {
     if (story.channels < MIN_CHANNELS || now - story.latest > FRESH_MS) continue;
     if (!postable(story, recent, postedIds)) continue;
-    const video = creditedVideo(story, last, now);
+    const video = creditedVideo(story, last, now, undefined, skip);
     if (video) return { story, video };
   }
   return null;
@@ -148,7 +156,7 @@ export function pickVideo(stories: VideoStory[], { now, at, history }: VideoPick
  * channel and about a different thing; much-watched single-channel videos fill in when there are too few. Empty when
  * fewer than ROUNDUP_MIN_CARDS: a video post goes out instead.
  */
-export function pickRoundup(stories: VideoStory[], { now, at, history }: VideoPickOptions): VideoChoice[] {
+export function pickRoundup(stories: VideoStory[], { now, at, history, skip }: VideoPickOptions): VideoChoice[] {
   if (tooClose(history, at)) return [];
   const recent = recentPosts(history, at);
   const postedIds = new Set(recent.flatMap((p) => p.keys));
@@ -170,7 +178,7 @@ export function pickRoundup(stories: VideoStory[], { now, at, history }: VideoPi
       if (!fits(story, single) || cards.some((c) => c.story === story) || !postable(story, recent, postedIds)) continue;
       const words = subject(story);
       if (subjects.some((w) => sameSubject(words, w))) continue;
-      const video = creditedVideo(story, last, now, used);
+      const video = creditedVideo(story, last, now, used, skip);
       if (!video) continue;
       cards.push({ story, video });
       used.add(video.channel);

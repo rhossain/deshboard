@@ -26,6 +26,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
+  CAROUSEL_CARDS,
   dueSlot,
   headlinesMessage,
   headlinesRecord,
@@ -63,7 +64,20 @@ import { DATA_DIR, type PackedFeed, unpackFeed } from "../src/lib/packed";
 import { shareKey } from "../src/lib/share";
 import { datesToSearch, shardPath, type ShareShard } from "../src/lib/share-lookup";
 import { sourceName } from "../src/lib/bn-names";
-import type { NewsItem, VideoFeed } from "../src/lib/types";
+import {
+  articleProblem,
+  checkedPick,
+  crawl,
+  FALLBACK_TITLE,
+  firstProblem,
+  linkProblem,
+  pictureProblem,
+  PREVIEW_RETRY_MS,
+  PREVIEW_TRIES,
+  textProblem,
+  videoProblem,
+} from "../src/lib/post-checks";
+import type { NewsItem, Video, VideoFeed } from "../src/lib/types";
 
 /** Facebook's Graph API (FB_GRAPH_URL replaces it, for trying the script against a stand-in). */
 const GRAPH = process.env.FB_GRAPH_URL ?? "https://graph.facebook.com/v23.0";
@@ -196,14 +210,6 @@ async function checkToken(pageId: string): Promise<void> {
   }
 }
 
-/**
- * The title of the site's own card, which a share link shows when it can't find its headline (or the share function
- * didn't answer): a preview with it is a broken one.
- */
-const FALLBACK_TITLE = /every Bangladeshi headline, on one board|has left Bartaboard/i;
-/** How many times, and how far apart, a link whose preview came out as the fallback card is read again. */
-const PREVIEW_TRIES = 4;
-const PREVIEW_RETRY_MS = 20_000;
 
 /**
  * Has Facebook read the link afresh, and says what it saw: true when the preview is the link's own (its headline),
@@ -235,39 +241,10 @@ async function rescrape(link: string, tries = 1): Promise<boolean | undefined> {
 
 /**
  * Facebook's app token, for re-reading links (rescrape): FB_APP_ID and FB_APP_SECRET (App settings → Basic). Without
- * them links are only checked from here (checkLink), and posts already made can't be corrected.
+ * them links are only checked from here (src/lib/post-checks.ts), and posts already made can't be corrected.
  */
 const APP_TOKEN =
   process.env.FB_APP_ID && process.env.FB_APP_SECRET ? `${process.env.FB_APP_ID}|${process.env.FB_APP_SECRET}` : "";
-
-/** A link-preview crawler's view of the link: its og:title, as Facebook's crawler would get it now. */
-async function crawlerTitle(link: string): Promise<string> {
-  try {
-    const res = await fetch(link, {
-      headers: { "user-agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" },
-      signal: AbortSignal.timeout(20_000),
-    });
-    const html = await res.text();
-    return /<meta property="og:title" content="([^"]*)"/.exec(html)?.[1] ?? "";
-  } catch {
-    return "";
-  }
-}
-
-/**
- * Whether the link answers with its own preview (its headline, not the site's fallback card) to a crawler right now,
- * read again a little later while it doesn't: so a post isn't made while the share page can't find its headline.
- */
-async function checkLink(link: string, tries = PREVIEW_TRIES): Promise<boolean> {
-  let seen = "";
-  for (let i = 0; i < tries; i++) {
-    if (i) await new Promise((r) => setTimeout(r, PREVIEW_RETRY_MS));
-    seen = await crawlerTitle(link);
-    if (seen && !FALLBACK_TITLE.test(seen)) return true;
-  }
-  warn(`${link} answers with the site's fallback card ("${seen}") after ${tries} tries.`);
-  return false;
-}
 
 /**
  * Single posts whose preview isn't known to be right (posted before the check, or by a run that couldn't confirm it):
@@ -316,9 +293,9 @@ async function main() {
 
   const lead = mode === "review" ? REVIEW_LEAD_MS : 0;
   const slots = parseSlots(process.env.FB_SLOTS);
-  // Locally, what the next slot of that kind (--content, default news) would get, whatever the time.
-  const due =
-    dueSlot(now, history, slots, lead) ?? (local ? { slot: now, at: now, content: (contentArg ?? "headlines") as PostContent } : null);
+  // Locally, what a slot of that kind (--content; else the slot due, else headlines) would get, whatever the time.
+  const asked = local ? { slot: now, at: now, content: (contentArg ?? "headlines") as PostContent } : null;
+  const due = (contentArg && asked) || dueSlot(now, history, slots, lead) || asked;
   const at = due ? due.at : mode === "review" ? now + MIN_SCHEDULE_MS : now;
   const fields = {
     kind: (due ? "slot" : "breaking") as PostRecord["kind"],
@@ -335,13 +312,27 @@ async function main() {
       return;
     }
     const stories = videoStories(feed.videos, now);
-    const single = () => {
-      const choice = pickVideo(stories, { now, at, history });
-      return choice && videoPlan(choice, fields);
+    // Videos that failed a check are left out, and the pick made again.
+    const failed = new Set<string>();
+    const options = { now, at, history, skip: (v: Video) => failed.has(v.id) };
+    const check = (card: boolean) => (c: VideoChoice) =>
+      firstProblem(
+        Promise.resolve(textProblem("video title", unmaskTitle(c.video.title))),
+        Promise.resolve(textProblem("channel name", channelBn(c.video.channel))),
+        videoProblem(c.video),
+        // A card shows the thumbnail it is given; a video post, the one its link's page names.
+        linkProblem(videoLink(SITE, c.video), c.video.title, !card),
+        card ? pictureProblem(videoThumbnail(c.video)) : Promise.resolve(null),
+      );
+    const pick = (label: string, cards: () => VideoChoice[], card: boolean) =>
+      checkedPick(label, cards, (c) => c.video.id, check(card), (c) => failed.add(c.video.id), warn);
+    const single = async () => {
+      const [choice] = await pick("video post", () => [pickVideo(stories, options)].filter((c) => !!c), false);
+      return choice ? videoPlan(choice, fields) : null;
     };
-    const cards = due.content === "roundup" ? pickRoundup(stories, { now, at, history }) : [];
-    // A roundup with too few stories, or one Facebook won't take, goes out as a video post instead.
-    plan = cards.length ? roundupPlan(cards, fields, single) : single();
+    const cards = due.content === "roundup" ? await pick("roundup", () => pickRoundup(stories, options), true) : [];
+    // A roundup with too few stories that pass, or one Facebook won't take, goes out as a video post instead.
+    plan = cards.length ? roundupPlan(cards, fields, single) : await single();
   } else {
     const packed = await load<PackedFeed>(`${DATA_DIR}/news.json`);
     if (!packed) {
@@ -354,21 +345,40 @@ async function main() {
       stories.flatMap((s) => s.items),
       now,
     );
-    const options = { now, at, history, hasPicture: (it: NewsItem) => withPicture.has(it) };
-    const single = () => {
-      const choice = pickStory(stories, { ...options, breaking: !due });
-      return choice && newsPlan(choice, fields, now);
+    // Headlines that failed a check are left out (as if they had no picture), and the pick made again.
+    const failed = new Set<NewsItem>();
+    const options = { now, at, history, hasPicture: (it: NewsItem) => withPicture.has(it) && !failed.has(it) };
+    const check = (card: boolean) => (c: PostChoice) =>
+      firstProblem(
+        Promise.resolve(textProblem("headline", c.item.title)),
+        Promise.resolve(textProblem("outlet name", sourceName(c.item.sourceId, c.item.sourceName, "bn"))),
+        articleProblem(c.item),
+        // A card shows the picture it is given; a single post, the one its link's page names.
+        linkProblem(postLink(SITE, c.item, now), c.item.title, !card),
+        card ? pictureProblem(withPicture.get(c.item)) : Promise.resolve(null),
+      );
+    const pick = (label: string, cards: () => PostChoice[], card: boolean) =>
+      checkedPick(label, cards, (c) => c.item, check(card), (c) => failed.add(c.item), warn);
+    const single = async () => {
+      // Nothing to check (no breaking story, the usual case between slots) makes no requests.
+      const [choice] = await pick("headline post", () => [pickStory(stories, { ...options, breaking: !due })].filter((c) => !!c), false);
+      return choice ? newsPlan(choice, fields, now) : null;
     };
-    const cards = due?.content === "headlines" ? pickHeadlines(stories, options) : [];
-    // Too few stories for five, or a carousel Facebook won't take: one headline instead.
-    plan = cards.length ? headlinesPlan(cards, withPicture, fields, now, single) : single();
+    const cards = due?.content === "headlines" ? await pick("headlines carousel", () => pickHeadlines(stories, options), true) : [];
+    // Too few stories that pass for five, or a carousel Facebook won't take: one headline instead.
+    plan = cards.length ? headlinesPlan(cards, withPicture, fields, now, single) : await single();
     if (!plan && !due) {
       console.log(`No slot due and no breaking story (${stories.length} stories from ${items.length} headlines).`);
       return;
     }
   }
   if (!plan) {
-    console.log(`Slot ${fields.slot} (${due?.content}): nothing passes the rules yet; the next run looks again.`);
+    console.log(`Slot ${fields.slot} (${due?.content}): nothing passes the rules and checks yet; the next run looks again.`);
+    return;
+  }
+  const problem = await planProblem(plan);
+  if (problem) {
+    warn(`Not posted: ${problem}; the next run tries again.`);
     return;
   }
 
@@ -407,8 +417,8 @@ interface Plan {
   /** A roundup's cards, for the summary. */
   cards: string[];
   note: string;
-  /** What goes out if Facebook refuses this one (a roundup: a video post). */
-  fallback?: () => Plan | null;
+  /** What goes out if Facebook refuses this one (a roundup: a video post), checked as this one was. */
+  fallback?: () => Promise<Plan | null>;
 }
 
 type Fields = Pick<PostRecord, "kind" | "at" | "mode"> & Partial<Pick<PostRecord, "slot">>;
@@ -441,7 +451,7 @@ function headlinesPlan(
   pictures: Map<NewsItem, string>,
   fields: Fields,
   now: number,
-  fallback: () => Plan | null,
+  fallback: () => Promise<Plan | null>,
 ): Plan {
   const link = `${SITE}/bn/`;
   const links = cards.map((c) => postLink(SITE, c.item, now));
@@ -468,7 +478,7 @@ function headlinesPlan(
 }
 
 /** A carousel: a card per video, each linking its Bartaboard page, the post itself the Videos page. */
-function roundupPlan(cards: VideoChoice[], fields: Fields, fallback: () => Plan | null): Plan {
+function roundupPlan(cards: VideoChoice[], fields: Fields, fallback: () => Promise<Plan | null>): Plan {
   const link = `${SITE}/bn/videos/`;
   const links = cards.map((c) => videoLink(SITE, c.video));
   const children = cards.map((c, i) => ({
@@ -493,18 +503,35 @@ function roundupPlan(cards: VideoChoice[], fields: Fields, fallback: () => Plan 
   };
 }
 
+/**
+ * The last look at a post as a whole before it goes out (its cards and links were checked as they were picked): its
+ * text, every card's title, outlet and picture there, and the page the post itself links to answering.
+ */
+async function planProblem(plan: Plan): Promise<string | null> {
+  const text = textProblem("the post's text", plan.params.message);
+  if (text) return text;
+  if (plan.params.child_attachments) {
+    const children = JSON.parse(plan.params.child_attachments) as Record<"link" | "name" | "description" | "picture", string>[];
+    const least = plan.record.content === "headlines" ? CAROUSEL_CARDS : 3;
+    if (children.length < least) return `the carousel has ${children.length} cards, not ${least}`;
+    for (const [i, c] of children.entries()) {
+      const gap = (["link", "name", "description", "picture"] as const).map((f) => textProblem(`card ${i + 1}'s ${f}`, c[f])).find(Boolean);
+      if (gap) return gap;
+    }
+    const page = await crawl(plan.params.link);
+    if (page.status !== 200) return `${plan.params.link} answers ${page.status || `nothing (${page.error})`}`;
+  }
+  return null;
+}
+
 /** Makes the post (scheduled for `at` when that is ahead); its fallback if Facebook refuses it. Null: not posted. */
 async function publish(plan: Plan, pageId: string, at: number, now: number, fallingBack = false): Promise<Plan | null> {
   if (!fallingBack) await pageToken(pageId);
   try {
-    // A carousel's cards carry their own title and picture; a single post shows only what Facebook reads at its link,
-    // so it waits until that is right, and goes out on a later run if it never is.
+    // A carousel's cards carry their own title and picture; a single post shows only what Facebook reads at its link
+    // (checked from here as it was picked), so Facebook reads it afresh, and it waits for a later run if that's wrong.
     const single = !plan.params.child_attachments;
     for (const link of plan.links) {
-      if (single && !(await checkLink(link))) {
-        warn(`Not posted: ${link} doesn't show its headline yet; the next run tries again.`);
-        return null;
-      }
       const ok = await rescrape(link, single ? PREVIEW_TRIES : 1);
       if (single && ok === false) {
         warn(`Not posted: ${link} would show the site's fallback card; the next run tries again.`);
@@ -522,11 +549,16 @@ async function publish(plan: Plan, pageId: string, at: number, now: number, fall
     return plan;
   } catch (err) {
     const message = (err as Error).message;
-    const fallback = plan.fallback?.();
     // A token or permission problem would refuse the fallback too.
-    if (fallback && !/code (190|10|200)\b/.test(message)) {
-      warn(`Carousel not posted (${message}); posting a single ${plan.record.content === "headlines" ? "headline" : "video"} instead.`);
-      return publish(fallback, pageId, at, now, true);
+    if (plan.fallback && !/code (190|10|200)\b/.test(message)) {
+      const fallback = await plan.fallback();
+      const problem = fallback && (await planProblem(fallback));
+      if (fallback && !problem) {
+        warn(`Carousel not posted (${message}); posting a single ${plan.record.content === "headlines" ? "headline" : "video"} instead.`);
+        return publish(fallback, pageId, at, now, true);
+      }
+      warn(`Carousel not posted (${message}), and no single post passes the checks${problem ? ` (${problem})` : ""}.`);
+      return null;
     }
     warn(`Not posted: ${message}`);
     return null;

@@ -74,16 +74,47 @@ import {
 import type { NewsFeed, NewsItem, NewsSource, SourceResult, SourceStatus, Video } from "../src/lib/types";
 import { mergeVideos } from "../src/lib/videos";
 import { groupVideos, tagStories, videoKeywords } from "../src/lib/video-stories";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import { articleProblem, checkedPick, linkProblem, metaContent, pictureProblem, pictureSize, sameTitle, textProblem } from "../src/lib/post-checks";
+
+/** A PNG's first bytes for a picture of that size, padded to look like a real one (3,000 bytes). */
+function fakePng(width: number, height: number): Uint8Array {
+  const b = new Uint8Array(3000);
+  b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  new DataView(b.buffer).setUint32(16, width);
+  new DataView(b.buffer).setUint32(20, height);
+  return b;
+}
+
+/** A JPEG's first bytes (an APP0 segment, then the frame with its size). */
+function fakeJpeg(width: number, height: number): Uint8Array {
+  const b = new Uint8Array(3000);
+  b.set([0xff, 0xd8, 0xff, 0xe0, 0, 16]);
+  b.set([0xff, 0xc0, 0, 17, 8, height >> 8, height & 255, width >> 8, width & 255], 2 + 2 + 16);
+  return b;
+}
+
+const sampleItem: NewsItem = { title: "x", link: "", sourceId: "prothomalo", sourceName: "Prothom Alo", lang: "bn", category: "national" };
 
 let passed = 0;
-function test(name: string, fn: () => void) {
-  try {
-    fn();
+/** Tests that return a promise (async ones), awaited before the count is printed. */
+const pending: Promise<void>[] = [];
+function test(name: string, fn: () => void | Promise<void>) {
+  const pass = () => {
     passed++;
     console.log(`  ✓ ${name}`);
-  } catch (err) {
+  };
+  const fail = (err: unknown) => {
     console.error(`  ✗ ${name}\n`, err);
     process.exitCode = 1;
+  };
+  try {
+    const result = fn();
+    if (result instanceof Promise) pending.push(result.then(pass, fail));
+    else pass();
+  } catch (err) {
+    fail(err);
   }
 }
 
@@ -1369,4 +1400,89 @@ test("page posts: five headlines in a carousel, each outlet once, two a section 
   assert.deepEqual(pickHeadlines(stories, { ...options, hasPicture: (it) => ["c", "d", "e"].includes(it.sourceId) }), []);
 });
 
-console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`);
+test("post checks: titles, meta tags, picture sizes and gaps in text", () => {
+  const html = `<meta content="Padma &amp; Jamuna" property="og:title"/><meta property='og:image' content='https://x.test/a.jpg'>`;
+  assert.equal(metaContent(html, "og:title"), "Padma & Jamuna");
+  assert.equal(metaContent(html, "og:image"), "https://x.test/a.jpg");
+  assert.equal(metaContent(html, "og:description"), "");
+  assert.equal(metaContent(`<meta property="og:title" content="Yemen's palace hit"/>`, "og:title"), "Yemen's palace hit");
+  assert.ok(!sameTitle("Yemen", "Yemen's presidential palace hit by missiles"), "a cut-off title doesn't pass");
+  assert.ok(sameTitle("পদ্মা সেতুতে  যান চলাচল শুরু", "পদ্মা সেতুতে যান চলাচল শুরু"));
+  assert.ok(sameTitle("ধ/র্ষ/ণ মামলায় গ্রেপ্তার ৩", "ধ/র্ষ/ণ মামলায় গ্রেপ্তার ৩"));
+  assert.ok(!sameTitle("সংসদ নির্বাচনের তফসিল ঘোষণা", "পদ্মা সেতুতে যান চলাচল শুরু"));
+  assert.ok(!sameTitle("", "পদ্মা সেতু"));
+  assert.deepEqual(pictureSize(fakePng(1200, 630)), { width: 1200, height: 630 });
+  assert.deepEqual(pictureSize(fakeJpeg(480, 360)), { width: 480, height: 360 });
+  assert.equal(pictureSize(new Uint8Array(40)), null);
+  assert.equal(textProblem("headline", "পদ্মা সেতু"), null);
+  assert.match(textProblem("headline", " ")!, /empty/);
+  assert.match(textProblem("the post's text", "১. undefined — প্রথম আলো")!, /gap/);
+});
+
+test("post checks: a card that fails is left out and the pick made again", async () => {
+  const pool = ["a", "b", "c", "d", "e", "f"];
+  const out = new Set<string>();
+  const reports: string[] = [];
+  const cards = await checkedPick(
+    "carousel",
+    () => pool.filter((c) => !out.has(c)).slice(0, 3),
+    (c) => c,
+    async (c) => (c === "b" || c === "d" ? `${c} is broken` : null),
+    (c) => out.add(c),
+    (m) => reports.push(m),
+  );
+  assert.deepEqual(cards, ["a", "c", "e"]);
+  assert.deepEqual(reports, ["Left out of the carousel: b is broken", "Left out of the carousel: d is broken"]);
+  // Never good enough: nothing.
+  assert.deepEqual(await checkedPick("post", () => ["x"], (c) => c, async () => "bad", () => {}, () => {}), []);
+});
+
+test("post checks: links and pictures as Facebook's crawler would get them", async () => {
+  const page = (title: string, image: string) =>
+    `<html><head><meta property="og:title" content="${title}"/><meta property="og:image" content="${image}"/></head></html>`;
+  const server = createServer((req, res) => {
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const send = (status: number, type: string, body: string | Uint8Array) => {
+      res.writeHead(status, { "content-type": type });
+      res.end(body);
+    };
+    switch (req.url) {
+      case "/s/good": return send(200, "text/html", page("পদ্মা সেতুতে যান চলাচল", `${base}/big.png`));
+      case "/s/fallback": return send(200, "text/html", page("Bartaboard: every Bangladeshi headline, on one board", `${base}/big.png`));
+      case "/s/other": return send(200, "text/html", page("সংসদ নির্বাচনের তফসিল ঘোষণা", `${base}/big.png`));
+      case "/s/site-picture": return send(200, "text/html", page("পদ্মা সেতুতে যান চলাচল", `${base}/opengraph-image`));
+      case "/s/small-picture": return send(200, "text/html", page("পদ্মা সেতুতে যান চলাচল", `${base}/small.png`));
+      case "/s/gone":
+        res.writeHead(302, { location: "https://www.youtube.com/watch?v=x" });
+        return res.end();
+      case "/big.png": return send(200, "image/png", fakePng(1200, 630));
+      case "/small.png": return send(200, "image/png", fakePng(100, 100));
+      case "/tiny.png": return send(200, "image/png", fakePng(1200, 630).slice(0, 500));
+      case "/page.png": return send(200, "text/html", "<html></html>");
+      default: return send(404, "text/plain", "not found");
+    }
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  try {
+    const title = "পদ্মা সেতুতে যান চলাচল";
+    assert.equal(await linkProblem(`${base}/s/good`, title, true, 1), null);
+    assert.equal(await linkProblem(`${base}/s/small-picture`, title, false, 1), null, "a card's picture is checked on its own");
+    assert.match((await linkProblem(`${base}/s/fallback`, title, false, 1))!, /fallback card/);
+    assert.match((await linkProblem(`${base}/s/other`, title, false, 1))!, /shows "সংসদ/);
+    assert.match((await linkProblem(`${base}/s/gone`, title, false, 1))!, /answers 302/);
+    assert.match((await linkProblem(`${base}/s/site-picture`, title, true, 1))!, /no picture of its own/);
+    assert.match((await linkProblem(`${base}/s/small-picture`, title, true, 1))!, /100×100/);
+    assert.equal(await pictureProblem(`${base}/big.png`), null);
+    assert.match((await pictureProblem(`${base}/tiny.png`))!, /500 bytes/);
+    assert.match((await pictureProblem(`${base}/page.png`))!, /isn't a picture/);
+    assert.match((await pictureProblem(`${base}/missing.png`))!, /answers 404/);
+    assert.match((await pictureProblem(undefined))!, /no picture/);
+    assert.match((await articleProblem({ ...sampleItem, link: `${base}/missing` }))!, /gone from/);
+    assert.equal(await articleProblem({ ...sampleItem, link: `${base}/s/good` }), null);
+  } finally {
+    server.close();
+  }
+});
+
+Promise.all(pending).then(() => console.log(`\n${passed} passed${process.exitCode ? ", some failed" : ""}`));
