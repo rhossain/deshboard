@@ -24,7 +24,7 @@ import {
 import type { PostRecord } from "../src/lib/page-posts";
 import { blockSets, MISSED_MS, queueAction, sameStories, slotsToDraft } from "../src/lib/social-queue";
 import { DEFAULT_SETTINGS, queueSettings } from "../src/lib/social-settings";
-import { ActionError, approve, createManual, edit, postNow, reject, reopen, skip } from "../src/lib/social-actions";
+import { ActionError, approve, createFromItem, createManual, edit, postNow, reject, reopen, skip } from "../src/lib/social-actions";
 import { getPost, recordRun } from "../src/lib/social-store";
 import { reviewButtons, reviewText } from "../src/lib/telegram-review";
 
@@ -304,6 +304,43 @@ async function main() {
     const a = await approve({ db, actor: "telegram", fb: null }, d!.id, d!.version);
     assert.match(reviewText(a, { ...o, trial: false }), /Approved here: goes out at 17:30/);
     assert.deepEqual(reviewButtons(a, o).flat().map((b) => b.callback_data?.split(":")[0] ?? "url"), ["reopen", "reject", "url"]);
+  });
+
+  await test("a carousel's cards can be removed, added and swapped; Facebook's payload follows", async () => {
+    const pic = (n: number) => `https://img.example/${n}.jpg`;
+    const c = (n: number) => ({ link: `https://bartaboard.com/s/261019-${n}`, title: `শিরোনাম ${n}`, source: `উৎস ${n}`, picture: pic(n), key: `key${n}`, sourceId: `src${n}` });
+    const slot3 = "2026-10-19T16:30:00.000Z";
+    const p = await insertPost(db, {
+      kind: "slot", content: "headlines", status: "draft", slot: slot3, scheduledAt: slot3, message: "x",
+      params: { message: "x", link: "https://bartaboard.com/bn/", child_attachments: JSON.stringify([1, 2, 3, 4, 5].map((n) => ({ link: c(n).link }))) },
+      cards: [1, 2, 3, 4, 5].map(c), record: { ...record, slot: slot3, at: slot3, keys: ["key1", "key2"] },
+    });
+    // Remove card 2, add a new one at the end.
+    const e = await edit(ctx, p!.id, 1, { cards: [c(1), c(3), c(4), c(5), c(9)], message: "নতুন" });
+    assert.deepEqual(e.cards.map((x) => x.title), ["শিরোনাম 1", "শিরোনাম 3", "শিরোনাম 4", "শিরোনাম 5", "শিরোনাম 9"]);
+    const children = JSON.parse(e.params.child_attachments) as Record<string, string>[];
+    assert.deepEqual(children[4], { link: c(9).link, name: "শিরোনাম 9", description: "উৎস 9", picture: pic(9) });
+    assert.ok(e.record!.keys.includes("key9") && e.record!.keys.includes("key2"));
+    assert.ok(e.locked && e.edited);
+    // Down to two is allowed; one, or a card without a picture, or a link off the site, is not.
+    const two = await edit(ctx, p!.id, e.version, { cards: [c(1), c(9)] });
+    assert.equal(two.cards.length, 2);
+    await assert.rejects(edit(ctx, p!.id, two.version, { cards: [c(1)] }), ActionError);
+    await assert.rejects(edit(ctx, p!.id, two.version, { cards: [c(1), { ...c(2), picture: undefined }] }), /picture/);
+    await assert.rejects(edit(ctx, p!.id, two.version, { cards: [c(1), { ...c(2), link: "https://evil.example/x" }] }), /bartaboard\.com/);
+  });
+
+  await test("one headline or video from the site becomes its own approved post", async () => {
+    const card = { link: "https://bartaboard.com/s/youtu.be/abc123", title: "ভিডিও খবর", source: "সময় টিভি", key: "abc123", sourceId: "somoy" };
+    const p = await createFromItem(ctx, { card, content: "video" });
+    assert.equal(p.status, "approved");
+    assert.equal(p.kind, "manual");
+    assert.equal(p.content, "video");
+    assert.equal(p.message, "ভিডিও খবর\n\nসময় টিভি");
+    assert.equal(p.params.link, card.link);
+    assert.deepEqual(p.record?.keys, ["abc123"]);
+    assert.ok(p.record?.slot === undefined);
+    await assert.rejects(createFromItem(ctx, { card: { ...card, link: "https://youtube.com/watch?v=x" }, content: "video" }), ActionError);
   });
 
   console.log(`\n${passed} passed`);

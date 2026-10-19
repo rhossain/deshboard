@@ -5,6 +5,9 @@
  * as its actor ("panel:<email>", "telegram").
  */
 import type { Db } from "./social-db";
+import type { PostRecord } from "./page-posts";
+
+type PostRecordCategory = PostRecord["category"];
 import { deletePost, type GraphAccess, postToFeed, rescrape } from "./facebook-graph";
 import {
   addBlock,
@@ -110,6 +113,11 @@ export async function reopen(ctx: ActionContext, id: string, version: number) {
 
 export interface Edit {
   message?: string;
+  /**
+   * The post's cards, as they should now be (removed, added, swapped, reordered): each a bartaboard.com link with a
+   * title, its outlet or channel, and (in a carousel) a picture. A carousel keeps 2 to 10; a single post, one.
+   */
+  cards?: Card[];
   /** ISO; when it goes out. */
   scheduledAt?: string;
   /** A carousel's cards in their new order (indexes into the current order). */
@@ -137,6 +145,22 @@ export async function edit(ctx: ActionContext, id: string, version: number, e: E
     params.child_attachments = JSON.stringify(e.order.map((i) => children[i]));
     cards = e.order.map((i) => post.cards[i]);
   }
+  let record = post.record;
+  if (e.cards) {
+    const carousel = !!post.params.child_attachments;
+    const checked = e.cards.map((c) => checkCard(c, carousel));
+    if (carousel && (checked.length < 2 || checked.length > 10)) throw new ActionError(400, "a carousel needs 2 to 10 cards");
+    if (!carousel && checked.length !== 1) throw new ActionError(400, "a single post has one item");
+    cards = checked;
+    if (carousel) {
+      params.child_attachments = JSON.stringify(checked.map((c) => ({ link: c.link, name: c.title, description: c.source, picture: c.picture })));
+    } else params.link = checked[0].link;
+    // The stories added count as posted from now on (the picking rules' repeats); removed ones stay counted.
+    if (record) {
+      const keys = [...new Set([...record.keys, ...checked.map((c) => c.key).filter((k): k is string => !!k)])];
+      record = { ...record, keys, link: params.link, ...(checked[0].sourceId && { sourceId: checked[0].sourceId }), title: carousel ? record.title : checked[0].title };
+    }
+  }
   if (e.scheduledAt !== undefined) {
     const t = Date.parse(e.scheduledAt);
     if (Number.isNaN(t)) throw new ActionError(400, "not a time");
@@ -150,6 +174,8 @@ export async function edit(ctx: ActionContext, id: string, version: number, e: E
       params,
       cards,
       message: params.message ?? post.message,
+      link: params.link ?? post.link,
+      record,
       ...(e.scheduledAt && { scheduledAt: new Date(e.scheduledAt).toISOString() }),
       ...(e.policy && { policy: e.policy }),
       locked: true,
@@ -204,6 +230,84 @@ export async function takeDown(ctx: ActionContext, id: string, version: number) 
     throw new ActionError(502, `Facebook refused: ${(err as Error).message}`);
   }
   return change(ctx, post, { removedAt: nowIso(), note: `${post.note ?? ""} · taken down by ${ctx.actor}` }, "take-down");
+}
+
+const SITE_HOSTS = ["bartaboard.com", "www.bartaboard.com"];
+
+/** A card a person added: a Bartaboard link, a title, its source, and a picture where it shows one. */
+function checkCard(c: Card, needsPicture: boolean): Card {
+  const title = c?.title?.trim();
+  const source = c?.source?.trim();
+  if (!title || title.length > 300) throw new ActionError(400, "each item needs a title");
+  if (!source || source.length > 120) throw new ActionError(400, `"${title.slice(0, 40)}" needs its outlet or channel`);
+  let link: URL;
+  try {
+    link = new URL(c.link);
+  } catch {
+    throw new ActionError(400, `"${title.slice(0, 40)}" has no link`);
+  }
+  if (link.protocol !== "https:" || !SITE_HOSTS.includes(link.hostname)) throw new ActionError(400, "items link to their bartaboard.com page");
+  let picture: string | undefined;
+  if (c.picture) {
+    try {
+      const p = new URL(c.picture);
+      if (p.protocol !== "https:") throw new Error();
+      picture = p.toString();
+    } catch {
+      throw new ActionError(400, `"${title.slice(0, 40)}" has a bad picture address`);
+    }
+  }
+  if (needsPicture && !picture) throw new ActionError(400, `"${title.slice(0, 40)}" has no picture: a carousel card needs one`);
+  return { link: link.toString(), title, source, picture, ...(c.sourceId && { sourceId: String(c.sourceId).slice(0, 60) }), ...(c.section && { section: String(c.section).slice(0, 30) }), ...(c.key && { key: String(c.key).slice(0, 80) }) };
+}
+
+export interface NewItemPost {
+  /** The headline or video, as a card (see checkCard). */
+  card: Card;
+  content: "news" | "video";
+  /** The post's text; default: the title, then its outlet or channel. */
+  message?: string;
+  /** ISO; default: in 5 minutes. */
+  scheduledAt?: string;
+}
+
+/** One headline or video from the site, chosen by a person, as its own post at its time (approved). */
+export async function createFromItem(ctx: ActionContext, p: NewItemPost) {
+  if (p.content !== "news" && p.content !== "video") throw new ActionError(400, "an item is a headline or a video");
+  const card = checkCard(p.card, false);
+  const message = (p.message?.trim() || `${card.title}\n\n${card.source}`).slice(0, 5000);
+  const at = p.scheduledAt ? Date.parse(p.scheduledAt) : Date.now() + 5 * 60_000;
+  if (Number.isNaN(at) || at < Date.now() - 5 * 60_000 || at > Date.now() + 14 * DAY_MS) throw new ActionError(400, "the time must be from now to two weeks ahead");
+  const scheduledAt = new Date(at).toISOString();
+  const post = await insertPost(ctx.db, {
+    kind: "manual",
+    content: p.content,
+    status: "approved",
+    policy: "auto",
+    scheduledAt,
+    message,
+    link: card.link,
+    params: { message, link: card.link },
+    cards: [card],
+    record: {
+      kind: "slot",
+      content: p.content,
+      at: scheduledAt,
+      title: card.title,
+      link: card.link,
+      sourceId: card.sourceId ?? "bartaboard",
+      category: (p.content === "news" ? (card.section ?? "other") : "other") as PostRecordCategory,
+      keys: card.key ? [card.key] : [],
+      words: [],
+      mode: "on",
+    },
+    locked: true,
+    edited: true,
+    decidedBy: ctx.actor,
+    decidedAt: nowIso(),
+  });
+  if (!post) throw new ActionError(500, "not saved");
+  return post;
 }
 
 export interface NewManualPost {

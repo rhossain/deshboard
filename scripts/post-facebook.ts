@@ -762,12 +762,17 @@ async function queueMain(db: Db, dryRun: boolean) {
     // changed: it fails, and they are told.
     const content = post.content === "custom" ? null : (post.content as PostContent);
     const fields: Fields = { kind: post.kind === "slot" ? "slot" : "breaking", at: iso(sendAt), mode: postMode, ...(post.slot && { slot: post.slot }) };
-    const problem = await planProblem(plan);
+    // A person's cards (edited, or a post of their own) weren't checked as the picker's were: each link must answer
+    // and each picture load before it goes out.
+    const minCards = post.edited ? 2 : undefined;
+    const asQueued = plan;
+    const problem = (await planProblem(plan, minCards)) ?? (post.edited ? await cardsProblem(post) : null);
     if (problem && !post.locked && content) {
       const fresh = await compose(picking, post.kind === "breaking" ? null : content, at, fields, counted());
       plan = fresh.plan && !(await planProblem(fresh.plan)) ? fresh.plan : plan;
     }
-    const still = await planProblem(plan);
+    // The queued plan's problem stands; a fresh pick (the picker's own) is checked as one.
+    const still = plan === asQueued ? problem : await planProblem(plan);
     if (!still && !post.locked && plan.params.child_attachments) {
       const single: PostContent = content === "roundup" ? "video" : "news";
       plan.fallback = async () => (await compose(picking, single, at, fields, counted())).plan;
@@ -946,12 +951,13 @@ function roundupPlan(cards: VideoChoice[], fields: Fields, fallback: () => Promi
  * The last look at a post as a whole before it goes out (its cards and links were checked as they were picked): its
  * text, every card's title, outlet and picture there, and the page the post itself links to answering.
  */
-async function planProblem(plan: Plan): Promise<string | null> {
+async function planProblem(plan: Plan, minCards?: number): Promise<string | null> {
   const text = textProblem("the post's text", plan.params.message);
   if (text) return text;
   if (plan.params.child_attachments) {
     const children = JSON.parse(plan.params.child_attachments) as Record<"link" | "name" | "description" | "picture", string>[];
-    const least = plan.record.content === "headlines" ? CAROUSEL_CARDS : 3;
+    // A carousel a person edited may be smaller: Facebook takes from two cards.
+    const least = minCards ?? (plan.record.content === "headlines" ? CAROUSEL_CARDS : 3);
     if (children.length < least) return `the carousel has ${children.length} cards, not ${least}`;
     for (const [i, c] of children.entries()) {
       const gap = (["link", "name", "description", "picture"] as const).map((f) => textProblem(`card ${i + 1}'s ${f}`, c[f])).find(Boolean);
@@ -959,6 +965,19 @@ async function planProblem(plan: Plan): Promise<string | null> {
     }
     const page = await crawl(plan.params.link);
     if (page.status !== 200) return `${plan.params.link} answers ${page.status || `nothing (${page.error})`}`;
+  }
+  return null;
+}
+
+/** The first card of a person's post whose link doesn't answer or whose picture doesn't load. */
+async function cardsProblem(post: SocialPost): Promise<string | null> {
+  const carousel = !!post.params.child_attachments;
+  for (const c of post.cards) {
+    const problem = await firstProblem(
+      linkProblem(c.link, c.title, !carousel),
+      carousel ? pictureProblem(c.picture) : Promise.resolve(null),
+    );
+    if (problem) return `"${c.title.slice(0, 60)}": ${problem}`;
   }
   return null;
 }
