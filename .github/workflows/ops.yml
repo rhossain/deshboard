@@ -49,7 +49,7 @@ jobs:
       D1_NAME: bartaboard-social
       SITE: https://bartaboard.com
       # What each task found, for the run's summary page and (the laptop can't read run logs) a notice annotation.
-      REPORT: ${{ runner.temp }}/report.md
+      REPORT: /tmp/ops-report.md
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
