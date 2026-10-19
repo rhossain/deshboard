@@ -2,7 +2,7 @@
  * The admin's settings for the Page's queue, as stored in the settings table (social-store.ts readSettings) and
  * changed in the admin; whatever is missing or malformed falls back to the defaults below.
  */
-import type { Slot } from "./page-posts";
+import type { Slot } from "./slot-table";
 import type { Policy } from "./social-store";
 
 export interface QueueSettings {

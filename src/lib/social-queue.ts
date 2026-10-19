@@ -7,7 +7,7 @@
  * unless it waits for approval (policy manual) or posting is paused. A post still not out MISSED_MS after its time is
  * skipped: news an hour late is not worth posting.
  */
-import { slotTimes, type Slot } from "./page-posts";
+import { slotTimes, type Slot } from "./slot-table";
 import type { Block } from "./social-store";
 import type { SocialPost } from "./social-store";
 
