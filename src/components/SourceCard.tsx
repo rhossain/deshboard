@@ -18,14 +18,15 @@ const COMPACT_PER_CARD = 5;
 
 /**
  * One source's headlines. With `collapsible` (phones), tapping the header folds the card down to
- * just its header; unavailable sources start folded. A search or category filter opens every card
- * so matches are never hidden. Memoized: the board re-renders for every filter and panel change.
+ * just its header; unavailable sources start folded. A search (or "new" only) opens every card so
+ * matches are never hidden; a category keeps the cards foldable, as on the unfiltered board. Memoized: the board re-renders for every filter and panel change.
  */
 export const SourceCard = memo(function SourceCard({
   source,
   status,
   items,
   filtering,
+  foldable = !filtering,
   now,
   collapsible = false,
   savedCollapsed,
@@ -44,6 +45,8 @@ export const SourceCard = memo(function SourceCard({
   status?: SourceStatus;
   items: NewsItem[];
   filtering: boolean;
+  /** False when the reader's matches must all show (a search): no card folds. Defaults to `!filtering`. */
+  foldable?: boolean;
   now: number;
   collapsible?: boolean;
   /** The reader's saved choice for this card; undefined means the default. */
@@ -78,14 +81,15 @@ export const SourceCard = memo(function SourceCard({
   const pending = !problem && !status;
   // Folded on phones. Until the board knows it's on one (the prerendered page, and hydration), CSS
   // folds the card at phone widths instead, so nothing folds, moves or animates when the board starts.
-  const foldsOnPhone = !filtering && (savedCollapsed ?? (!!problem && !stale));
+  const foldsOnPhone = foldable && (savedCollapsed ?? (!!problem && !stale));
   const collapsed = collapsible && foldsOnPhone;
   const phoneFolded = !collapsible && foldsOnPhone;
   const [lead, ...rest] = showAll ? items : items.slice(0, PER_CARD);
   const count = total ?? items.length;
   // Rows for the headlines still to come, so the card is already the size it will be.
   const placeholders = showAll ? 0 : Math.max(0, Math.min(count, PER_CARD) - Math.min(items.length, PER_CARD));
-  const hasNew = collapsed && !!lead && !!seenLead && seenLead !== lead.link;
+  // The saved lead is the unfiltered card's, so a filtered card (a category) can't compare its own to it.
+  const hasNew = collapsed && !filtering && !!lead && !!seenLead && seenLead !== lead.link;
 
   const toggle = () => {
     // Folding a card whose header has scrolled under the toolbar would leave the reader further down
@@ -113,8 +117,8 @@ export const SourceCard = memo(function SourceCard({
           collapsed ? "pb-4" : phoneFolded ? "pb-3 max-md:pb-4" : "pb-3"
         }`}
       >
-        {/* A filtered card never folds, so its header doesn't offer to. */}
-        {collapsible && !filtering && (
+        {/* A card that can't fold (during a search) doesn't offer to. */}
+        {collapsible && foldable && (
           <button
             type="button"
             onClick={toggle}
@@ -172,7 +176,7 @@ export const SourceCard = memo(function SourceCard({
           )}
           {/* Shown at phone widths even before the board knows it's on a phone (see phoneFolded). */}
           <ChevronIcon
-            className={`h-5 w-5 text-muted transition duration-300 ${filtering ? "hidden" : collapsible ? "" : "hidden max-md:block"} ${
+            className={`h-5 w-5 text-muted transition duration-300 ${!foldable ? "hidden" : collapsible ? "" : "hidden max-md:block"} ${
               collapsed || phoneFolded ? "" : "rotate-180"
             }`}
           />

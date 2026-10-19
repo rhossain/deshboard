@@ -641,6 +641,8 @@ export function NewsBoard({
   const searchQuery = useDeferredValue(query);
   const search = useSearch(searchQuery);
   const filtering = !!search || !!category || onlyNew;
+  // Cards fold under a category, as on the whole board; a search or "new" opens them so no match hides.
+  const foldable = !search && !onlyNew;
   // The board wants every headline but still has only the head file: a search, another section or Top
   // may not have found everything yet, so the board says it is still loading rather than "Nothing found".
   // A failed load ends the wait.
@@ -1447,6 +1449,7 @@ export function NewsBoard({
                         status={statusById.get(s.id)}
                         items={itemsBySource.get(s.id) ?? []}
                         filtering={filtering}
+                        foldable={foldable}
                         now={now}
                         collapsible={isPhone}
                         savedCollapsed={cardPrefs.collapsed[s.id]}
