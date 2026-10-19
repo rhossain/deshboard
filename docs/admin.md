@@ -31,7 +31,14 @@ window.
 A draft a person approved or edited is **locked**: it goes out exactly as they left it, and the picker no longer
 refreshes it. One nobody touched is the picker's: if it no longer passes the checks at its time, a fresh pick replaces
 it. **Rejecting** a draft leaves its story out for a day (and, if asked, its outlet or section), so the next run drafts
-something else for the slot. **Skipping** leaves the slot empty. **Pause** stops everything going out; drafts are still
+something else for the slot. **Skipping** leaves the slot empty.
+
+**Editing a post's items.** Edit lists the post's cards: reorder them, remove one (a carousel keeps at least two;
+Facebook takes 2 to 10), or add one from a search over the board's headlines and videos right now. A single post's
+item can be replaced. The text follows the cards (heading, numbered list) until you type in it. Cards a person added
+are checked just before the post goes out (each link answers, each picture loads); one that fails stops the post, and
+Telegram says which. **Add a post** takes one headline or video from the board as a post of its own, or text and a
+link you write. **Pause** stops everything going out; drafts are still
 made, and those whose time passes are skipped.
 
 **FB_QUEUE** (repository variable) chooses the path:
