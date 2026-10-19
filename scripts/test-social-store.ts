@@ -23,7 +23,7 @@ import {
 } from "../src/lib/social-store";
 import type { PostRecord } from "../src/lib/page-posts";
 import { blockSets, MISSED_MS, queueAction, sameStories, slotsToDraft } from "../src/lib/social-queue";
-import { DEFAULT_SETTINGS, queueSettings } from "../src/lib/social-settings";
+import { DEFAULT_SETTINGS, editable, queueSettings } from "../src/lib/social-settings";
 import { ActionError, approve, createFromItem, createManual, edit, postNow, reject, reopen, skip } from "../src/lib/social-actions";
 import { getPost, recordRun } from "../src/lib/social-store";
 import { reviewButtons, reviewText } from "../src/lib/telegram-review";
@@ -230,7 +230,8 @@ async function main() {
 
   // What a person can do (src/lib/social-actions.ts).
   const ctx = { db, actor: "panel:a@b", fb: null };
-  const slot2 = "2026-10-19T13:00:00.000Z";
+  const ahead = (h: number) => new Date(Math.ceil(Date.now() / 900_000) * 900_000 + h * 3600_000).toISOString();
+  const slot2 = ahead(3);
   const carousel = await insertPost(db, {
     kind: "slot",
     content: "headlines",
@@ -309,7 +310,7 @@ async function main() {
   await test("a carousel's cards can be removed, added and swapped; Facebook's payload follows", async () => {
     const pic = (n: number) => `https://img.example/${n}.jpg`;
     const c = (n: number) => ({ link: `https://bartaboard.com/s/261019-${n}`, title: `শিরোনাম ${n}`, source: `উৎস ${n}`, picture: pic(n), key: `key${n}`, sourceId: `src${n}` });
-    const slot3 = "2026-10-19T16:30:00.000Z";
+    const slot3 = ahead(4);
     const p = await insertPost(db, {
       kind: "slot", content: "headlines", status: "draft", slot: slot3, scheduledAt: slot3, message: "x",
       params: { message: "x", link: "https://bartaboard.com/bn/", child_attachments: JSON.stringify([1, 2, 3, 4, 5].map((n) => ({ link: c(n).link }))) },
@@ -341,6 +342,25 @@ async function main() {
     assert.deepEqual(p.record?.keys, ["abc123"]);
     assert.ok(p.record?.slot === undefined);
     await assert.rejects(createFromItem(ctx, { card: { ...card, link: "https://youtube.com/watch?v=x" }, content: "video" }), ActionError);
+  });
+
+  await test("edits close 5 minutes before a post goes out; approving and skipping don't", async () => {
+    const soon = new Date(Date.now() + 4 * 60_000).toISOString();
+    const later = new Date(Date.now() + 6 * 60_000).toISOString();
+    assert.ok(!editable(soon, 5) && editable(later, 5) && editable(soon, 0));
+    const p = await createManual(ctx, { message: "x", scheduledAt: later });
+    const e = await edit(ctx, p.id, p.version, { message: "y" });
+    assert.equal(e.message, "y");
+    await assert.rejects(edit(ctx, p.id, e.version, { scheduledAt: soon }), /at least 5 minutes from now/);
+    const q = await createManual(ctx, { message: "x", scheduledAt: soon });
+    await assert.rejects(edit(ctx, q.id, q.version, { message: "too late" }), (err: ActionError) => err.status === 409 && /editing closed/.test(err.message));
+    assert.equal((await skip(ctx, q.id, q.version)).status, "skipped");
+    // A longer or no lock, from the settings.
+    await writeSetting(db, "editLockMinutes", 0, "panel:a@b");
+    const r = await createManual(ctx, { message: "x", scheduledAt: soon });
+    assert.equal((await edit(ctx, r.id, r.version, { message: "fine" })).message, "fine");
+    await writeSetting(db, "editLockMinutes", 5, "panel:a@b");
+    assert.equal(queueSettings({ editLockMinutes: 99 }).editLockMinutes, 5);
   });
 
   console.log(`\n${passed} passed`);

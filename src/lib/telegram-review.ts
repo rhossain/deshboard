@@ -58,6 +58,17 @@ export interface ReviewOptions {
   trial: boolean;
   /** "Draft updated" rather than "Draft". */
   refreshed?: boolean;
+  /** Edits close this long before the post goes out (settings: editLockMinutes). */
+  lockMinutes?: number;
+}
+
+/** "Editable until 17:25" while edits are open, "Locked" after. */
+function lockLine(post: SocialPost, lockMinutes: number | undefined, now: number): string | null {
+  if (lockMinutes === undefined || !["draft", "approved"].includes(post.status)) return null;
+  const until = Date.parse(post.scheduledAt) - lockMinutes * 60_000;
+  return now < until
+    ? `✏️ Editable until ${dhakaClock(until)} (in the admin).`
+    : `🔒 Locked for editing since ${dhakaClock(until)}; you can still reject or skip it.`;
 }
 
 export function reviewText(post: SocialPost, o: ReviewOptions): string {
@@ -67,6 +78,7 @@ export function reviewText(post: SocialPost, o: ReviewOptions): string {
   return [
     `${head} · ${dhakaClock(post.scheduledAt)} · ${CONTENT_LABEL[post.content] ?? post.content}${post.kind === "breaking" ? " · breaking" : ""}`,
     statusLine(post),
+    ...[lockLine(post, o.lockMinutes, Date.now())].filter((l): l is string => !!l),
     ...(o.trial && open ? ["(Trial run: the Page still posts the old way; this queue posts nothing yet.)"] : []),
     "",
     post.message,

@@ -99,7 +99,7 @@ import {
   updatePost,
 } from "../src/lib/social-store";
 import { blockSets, BREAKING_REVIEW_MS, MISSED_MS, queueAction, REVIEW_PUBLISH_LEAD_MS, sameStories, slotsToDraft } from "../src/lib/social-queue";
-import { queueSettings } from "../src/lib/social-settings";
+import { editable, queueSettings } from "../src/lib/social-settings";
 import { editMessage, sendMessage, telegramFromEnv } from "../src/lib/telegram";
 import { CONTENT_LABEL, reviewButtons, reviewText } from "../src/lib/telegram-review";
 
@@ -642,7 +642,7 @@ async function queueMain(db: Db, dryRun: boolean) {
    */
   const show = async (post: SocialPost, o: { refreshed?: boolean; existingOnly?: boolean; silent?: boolean } = {}): Promise<SocialPost> => {
     if (!tg) return post;
-    const opts = { site: SITE, trial: shadow, refreshed: o.refreshed };
+    const opts = { site: SITE, trial: shadow, refreshed: o.refreshed, lockMinutes: settings.editLockMinutes };
     const send = { buttons: reviewButtons(post, opts), previewUrl: post.cards.length === 1 ? post.link : undefined };
     if (post.telegramMessageId && (await editMessage(tg, post.telegramMessageId, reviewText(post, opts), send))) return post;
     if (o.existingOnly) return post;
@@ -709,6 +709,8 @@ async function queueMain(db: Db, dryRun: boolean) {
     const slot = iso(s.at);
     const current = rows.find((r) => r.slot === slot && HOLDING.includes(r.status));
     if (current && (current.status !== "draft" || current.locked)) continue;
+    // Within the edit lock the draft stays as it was last shown: what the admin saw is what goes out.
+    if (current && !editable(current.scheduledAt, settings.editLockMinutes, now)) continue;
     // Other open drafts count as posted, so two drafts never pick the same story.
     const others = rows.filter((r) => r !== current && ["draft", "approved"].includes(r.status) && r.record).map((r) => r.record!);
     const fields: Fields = { kind: "slot", at: slot, mode: postMode, slot };

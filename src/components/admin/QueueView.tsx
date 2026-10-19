@@ -120,6 +120,7 @@ export function QueueView({ data, now, onChange, onError, onReload, onPause }: P
                       post={r.post}
                       now={now}
                       live={data.live}
+                      lockMinutes={data.settings.editLockMinutes}
                       selected={selected.has(r.post.id)}
                       onSelect={(on) => setSelected((s) => (on ? new Set(s).add(r.post.id) : new Set([...s].filter((x) => x !== r.post.id))))}
                       onChange={onChange}

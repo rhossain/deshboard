@@ -150,6 +150,21 @@ export function SettingsView({
             </select>
             <span className="text-xs text-muted">Headlines are only picked while still being reported, so earlier drafts change more before their time.</span>
           </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-semibold">Lock edits before a post goes out</span>
+            <select
+              value={draft.editLockMinutes}
+              onChange={(e) => setDraft({ ...draft, editLockMinutes: Number(e.target.value) })}
+              className="h-9 rounded-lg border border-line bg-surface-2 px-2"
+            >
+              {[0, 5, 10, 15].map((m) => (
+                <option key={m} value={m}>
+                  {m === 0 ? "No lock (until it goes)" : `${m} minutes before`}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-muted">From then the picker stops refreshing it too: what you see is what goes out. Reject and skip stay open.</span>
+          </label>
           <label className="flex items-center gap-2 self-start pt-6">
             <input type="checkbox" checked={draft.paused} onChange={(e) => setDraft({ ...draft, paused: e.target.checked })} />
             <span className="font-semibold">Posting paused</span>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api, ApiError, atDhakaTime, type Card, CONTENT_LABEL, dhakaTime, POLICY_LABEL, relative, type Policy, type SocialPost } from "./api";
 import { ItemPicker } from "./ItemPicker";
+import { editable, editDeadline } from "@/lib/social-settings";
 import { carouselMessage, singleMessage } from "./items";
 
 const STATUS: Record<string, [string, string]> = {
@@ -31,6 +32,8 @@ interface Props {
   post: SocialPost;
   now: number;
   live: boolean;
+  /** Edits close this long before the post goes out (settings: editLockMinutes). */
+  lockMinutes: number;
   selected?: boolean;
   onSelect?: (on: boolean) => void;
   /** The post as it now is, after an action (or as the server has it, after a conflict). */
@@ -40,10 +43,12 @@ interface Props {
 
 type Mode = "view" | "edit" | "reject";
 
-export function PostCard({ post, now, live, selected, onSelect, onChange, onError }: Props) {
+export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onChange, onError }: Props) {
   const [mode, setMode] = useState<Mode>("view");
   const [busy, setBusy] = useState(false);
   const open = OPEN.includes(post.status);
+  const canEdit = open && editable(post.scheduledAt, lockMinutes, now);
+  const deadline = dhakaTime(editDeadline(post.scheduledAt, lockMinutes));
   const faded = ["rejected", "skipped", "dry"].includes(post.status) || !!post.removedAt;
 
   async function run(fn: () => Promise<SocialPost>, done?: () => void) {
@@ -83,6 +88,11 @@ export function PostCard({ post, now, live, selected, onSelect, onChange, onErro
         {post.status === "approved" && <span className="text-xs text-muted">Goes out at its time</span>}
         {post.edited && <span className="text-xs text-muted">· edited</span>}
       </header>
+      {open && (
+        <p className={`mt-1.5 text-xs ${canEdit ? "text-muted" : "font-semibold text-gold"}`}>
+          {canEdit ? `Editable until ${deadline}` : `Locked for editing since ${deadline}: it goes out as shown. You can still reject or skip it.`}
+        </p>
+      )}
 
       {mode === "edit" ? (
         <EditForm post={post} busy={busy} onCancel={() => setMode("view")} onSave={(e) => run(() => api.edit(post, e), () => setMode("view"))} />
@@ -108,7 +118,12 @@ export function PostCard({ post, now, live, selected, onSelect, onChange, onErro
             </button>
           )}
           {open && (
-            <button className={btn} disabled={busy} onClick={() => setMode("edit")}>
+            <button
+              className={btn}
+              disabled={busy || !canEdit}
+              title={canEdit ? undefined : `Editing closed at ${deadline}, ${lockMinutes} minutes before it goes out`}
+              onClick={() => setMode("edit")}
+            >
               Edit
             </button>
           )}

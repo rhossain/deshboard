@@ -33,6 +33,14 @@ refreshes it. One nobody touched is the picker's: if it no longer passes the che
 it. **Rejecting** a draft leaves its story out for a day (and, if asked, its outlet or section), so the next run drafts
 something else for the slot. **Skipping** leaves the slot empty.
 
+**The edit lock.** A post can be edited until 5 minutes before its time (Settings: "Lock edits before a post goes
+out", 0–15 minutes). From then on the picker stops refreshing its draft too, so what the admin and Telegram show at
+that moment is exactly what goes out; approve, reject and skip stay open until it goes. A post's new time must be at
+least the lock ahead. The deploy runs at :00, :15, :30 and :45 and posts about 2–3 minutes into the run, so a 17:30
+post goes out around 17:32, and one set for 17:23 goes with the 17:30 run. With FB_POSTING=review the queue hands
+each post to Facebook 20 minutes ahead (as a scheduled post), which closes editing earlier than the lock: once the
+queue is live, FB_POSTING=on keeps the 5-minute window.
+
 **Editing a post's items.** Edit lists the post's cards: reorder them, remove one (a carousel keeps at least two;
 Facebook takes 2 to 10), or add one from a search over the board's headlines and videos right now. A single post's
 item can be replaced. The text follows the cards (heading, numbered list) until you type in it. Cards a person added

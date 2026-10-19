@@ -9,8 +9,10 @@ import type { PostRecord } from "./page-posts";
 
 type PostRecordCategory = PostRecord["category"];
 import { deletePost, type GraphAccess, postToFeed, rescrape } from "./facebook-graph";
+import { editable, editDeadline, queueSettings } from "./social-settings";
 import {
   addBlock,
+  readSettings,
   canMove,
   type Card,
   getPost,
@@ -129,6 +131,12 @@ export interface Edit {
 export async function edit(ctx: ActionContext, id: string, version: number, e: Edit) {
   const post = await load(ctx, id, version);
   if (!OPEN.includes(post.status)) throw new ActionError(409, `a ${post.status} post can't be edited`, post);
+  // Edits close shortly before the post's time (settings: editLockMinutes): what is seen then is what goes out.
+  const { editLockMinutes } = queueSettings(await readSettings(ctx.db));
+  if (!editable(post.scheduledAt, editLockMinutes)) {
+    const closed = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", hour: "2-digit", minute: "2-digit" }).format(editDeadline(post.scheduledAt, editLockMinutes));
+    throw new ActionError(409, `editing closed at ${closed}, ${editLockMinutes} minutes before it goes out; it can still be rejected or skipped`, post);
+  }
   const params = { ...post.params };
   let cards: Card[] = post.cards;
   if (e.message !== undefined) {
@@ -164,7 +172,9 @@ export async function edit(ctx: ActionContext, id: string, version: number, e: E
   if (e.scheduledAt !== undefined) {
     const t = Date.parse(e.scheduledAt);
     if (Number.isNaN(t)) throw new ActionError(400, "not a time");
-    if (t < Date.now() - 5 * 60_000 || t > Date.now() + 7 * DAY_MS) throw new ActionError(400, "the time must be from now to a week ahead");
+    if (t < Date.now() + editLockMinutes * 60_000 || t > Date.now() + 7 * DAY_MS) {
+      throw new ActionError(400, `the new time must be at least ${editLockMinutes} minutes from now, and within a week`);
+    }
   }
   if (e.policy && !["manual", "auto_unless_rejected", "auto"].includes(e.policy)) throw new ActionError(400, "unknown policy");
   return change(

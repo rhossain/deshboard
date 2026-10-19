@@ -124,7 +124,6 @@ export type PostingMode = "dry" | "review" | "on";
 export const contentOf = (p: PostRecord): PostContent => p.content ?? "news";
 
 const DHAKA_OFFSET_MS = 6 * 3600_000;
-const DAY_MS = 86_400_000;
 
 /**
  * The next post due, if any: a slot whose window has begun and that has no post yet. `lead` is how long before its
