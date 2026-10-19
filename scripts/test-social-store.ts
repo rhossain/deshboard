@@ -26,6 +26,7 @@ import { blockSets, MISSED_MS, queueAction, sameStories, slotsToDraft } from "..
 import { DEFAULT_SETTINGS, queueSettings } from "../src/lib/social-settings";
 import { ActionError, approve, createManual, edit, postNow, reject, reopen, skip } from "../src/lib/social-actions";
 import { getPost, recordRun } from "../src/lib/social-store";
+import { reviewButtons, reviewText } from "../src/lib/telegram-review";
 
 type Sqlite = {
   DatabaseSync: new (file: string) => {
@@ -290,6 +291,19 @@ async function main() {
     await recordRun(db, "shadow", true, []);
     await assert.rejects(postNow({ ...ctx, fb: { token: "t", pageId: "1" } }, m.id, 1), (err: ActionError) => err.status === 409);
     assert.equal((await getPost(db, m.id))!.status, "approved");
+  });
+
+  await test("a draft's Telegram message has its buttons, each within Telegram's 64 bytes, and says what was done", async () => {
+    const d = await insertPost(db, { kind: "slot", content: "video", status: "draft", slot: "2026-10-19T11:30:00.000Z", scheduledAt: "2026-10-19T11:30:00.000Z", message: "ভিডিও", link: "https://bartaboard.com/s/v1", cards: [{ link: "https://bartaboard.com/s/v1", title: "ভিডিও", source: "সময় টিভি" }] });
+    const o = { site: "https://bartaboard.com", trial: true };
+    const data = reviewButtons(d!, o).flat().map((b) => b.callback_data).filter(Boolean) as string[];
+    assert.deepEqual(data.map((x) => x.split(":")[0]), ["approve", "reject", "skip"]);
+    assert.ok(data.every((x) => new TextEncoder().encode(x).length <= 64));
+    assert.match(reviewText(d!, o), /17:30 · a video/);
+    assert.match(reviewText(d!, o), /Trial run/);
+    const a = await approve({ db, actor: "telegram", fb: null }, d!.id, d!.version);
+    assert.match(reviewText(a, { ...o, trial: false }), /Approved here: goes out at 17:30/);
+    assert.deepEqual(reviewButtons(a, o).flat().map((b) => b.callback_data?.split(":")[0] ?? "url"), ["reopen", "reject", "url"]);
   });
 
   console.log(`\n${passed} passed`);

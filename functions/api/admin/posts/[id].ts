@@ -5,6 +5,7 @@
 import { actionContext, answer, readJson, version } from "../../../../src/lib/admin-api";
 import { ActionError, edit, type Edit } from "../../../../src/lib/social-actions";
 import { auditLog, getPost } from "../../../../src/lib/social-store";
+import { syncTelegram } from "../../../../src/lib/telegram-sync";
 import type { Handler } from "../_middleware";
 
 export const onRequestGet: Handler = ({ params, env, data }) =>
@@ -15,8 +16,11 @@ export const onRequestGet: Handler = ({ params, env, data }) =>
     return { post, audit: await auditLog(db, { postId: post.id, limit: 50 }) };
   });
 
-export const onRequestPatch: Handler = ({ request, params, env, data }) =>
+export const onRequestPatch: Handler = ({ request, params, env, data, waitUntil }) =>
   answer(async () => {
     const body = await readJson<Edit & { version?: number }>(request);
-    return edit(actionContext(env, `panel:${data.admin.email}`), String(params.id), version(body), body);
+    const ctx = actionContext(env, `panel:${data.admin.email}`);
+    const post = await edit(ctx, String(params.id), version(body), body);
+    waitUntil(syncTelegram(env as unknown as Record<string, unknown>, ctx.db, post));
+    return post;
   });

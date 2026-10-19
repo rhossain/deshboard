@@ -4,6 +4,7 @@
  */
 import { actionContext, answer, readJson } from "../../../src/lib/admin-api";
 import { ActionError, approve, type BlockScope, reject, reopen, skip } from "../../../src/lib/social-actions";
+import { syncTelegram } from "../../../src/lib/telegram-sync";
 import type { Handler } from "./_middleware";
 
 interface Body {
@@ -13,7 +14,7 @@ interface Body {
   scopes?: BlockScope[];
 }
 
-export const onRequestPost: Handler = ({ request, env, data }) =>
+export const onRequestPost: Handler = ({ request, env, data, waitUntil }) =>
   answer(async () => {
     const ctx = actionContext(env, `panel:${data.admin.email}`);
     const body = await readJson<Body>(request);
@@ -25,7 +26,9 @@ export const onRequestPost: Handler = ({ request, env, data }) =>
     const results = [];
     for (const it of items) {
       try {
-        results.push({ id: it.id, ok: true, post: await act(ctx, it.id, Number(it.version)) });
+        const post = await act(ctx, it.id, Number(it.version));
+        waitUntil(syncTelegram(env as unknown as Record<string, unknown>, ctx.db, post));
+        results.push({ id: it.id, ok: true, post });
       } catch (err) {
         results.push({ id: it.id, ok: false, error: (err as Error).message });
       }

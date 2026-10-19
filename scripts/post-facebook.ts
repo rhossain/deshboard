@@ -84,7 +84,6 @@ import {
   videoProblem,
 } from "../src/lib/post-checks";
 import type { NewsItem, Video, VideoFeed } from "../src/lib/types";
-import { localDigits } from "../src/lib/i18n";
 import { apiAccessFromEnv, type Db, fromApi, type SqlValue } from "../src/lib/social-db";
 import {
   activeBlocks,
@@ -92,7 +91,6 @@ import {
   type Card,
   insertPost,
   listPosts,
-  type Policy,
   type PostStatus,
   readSettings,
   recordRun,
@@ -103,6 +101,7 @@ import {
 import { blockSets, BREAKING_REVIEW_MS, MISSED_MS, queueAction, REVIEW_PUBLISH_LEAD_MS, sameStories, slotsToDraft } from "../src/lib/social-queue";
 import { queueSettings } from "../src/lib/social-settings";
 import { editMessage, sendMessage, telegramFromEnv } from "../src/lib/telegram";
+import { CONTENT_LABEL, reviewButtons, reviewText } from "../src/lib/telegram-review";
 
 /** Facebook's Graph API (FB_GRAPH_URL replaces it, for trying the script against a stand-in). */
 const GRAPH = process.env.FB_GRAPH_URL ?? "https://graph.facebook.com/v23.0";
@@ -610,35 +609,6 @@ function planFromRow(row: SocialPost, postMode: PostingMode, at: number): Plan {
   };
 }
 
-const CONTENT_LABEL: Record<string, string> = {
-  headlines: "5 headlines",
-  news: "one headline",
-  video: "a video",
-  roundup: "5 videos",
-  custom: "your post",
-};
-const POLICY_LINE: Record<Policy, string> = {
-  auto_unless_rejected: "Posts by itself at its time unless you reject it.",
-  auto: "Posts by itself at its time.",
-  manual: "Waits for your approval: not posted unless you approve it.",
-};
-
-/** The Telegram note for a draft (new or refreshed). */
-function draftText(post: SocialPost, shadow: boolean, refreshed = false): string {
-  const when = dhakaTime(Date.parse(post.scheduledAt));
-  const cards = post.cards.length > 1 ? post.cards.map((c, i) => `${localDigits(String(i + 1), "bn")}. ${c.title} — ${c.source}`) : [];
-  return [
-    `${refreshed ? "🔄 Draft updated" : "📝 Draft"} · ${when} · ${CONTENT_LABEL[post.content] ?? post.content}${post.kind === "breaking" ? " · breaking" : ""}`,
-    POLICY_LINE[post.policy],
-    ...(shadow ? ["(Trial run: the queue posts nothing yet; the Page still posts the old way.)"] : []),
-    "",
-    post.message,
-    ...(cards.length ? ["", ...cards] : [post.link]),
-    "",
-    `Review: ${SITE}/admin/`,
-  ].join("\n");
-}
-
 /**
  * The queue (FB_QUEUE shadow or on): records each step in the admin's database.
  *   1. the Page's posts the history file has and the database lacks are copied in (the old path's, in shadow)
@@ -666,6 +636,24 @@ async function queueMain(db: Db, dryRun: boolean) {
   let rows = await listPosts(db, { from: iso(now - HISTORY_MS), limit: 2000 });
   const replace = (post: SocialPost) => (rows = rows.map((r) => (r.id === post.id ? post : r)));
 
+  /**
+   * The post's Telegram message, as the post now stands: rewritten when there is one, else (for an open post, unless
+   * `existingOnly`) sent, and its id kept.
+   */
+  const show = async (post: SocialPost, o: { refreshed?: boolean; existingOnly?: boolean; silent?: boolean } = {}): Promise<SocialPost> => {
+    if (!tg) return post;
+    const opts = { site: SITE, trial: shadow, refreshed: o.refreshed };
+    const send = { buttons: reviewButtons(post, opts), previewUrl: post.cards.length === 1 ? post.link : undefined };
+    if (post.telegramMessageId && (await editMessage(tg, post.telegramMessageId, reviewText(post, opts), send))) return post;
+    if (o.existingOnly) return post;
+    const id = await sendMessage(tg, reviewText(post, opts), { ...send, silent: o.silent });
+    if (!id) return post;
+    const kept = await updatePost(db, post.id, post.version, { telegramMessageId: id }, "deploy", "telegram");
+    replace(kept);
+    return kept;
+  };
+
+  const supersededLater: SocialPost[] = [];
   // 1. The history file's posts the database doesn't have yet (in shadow, the old path posts; before the switch, the
   // last ones it made). A draft or approved post holding the same slot gives way, marked dry.
   const known = new Set(rows.map((r) => r.fbPostId).filter(Boolean));
@@ -673,7 +661,9 @@ async function queueMain(db: Db, dryRun: boolean) {
     if (!r.id || r.mode === "dry" || known.has(r.id)) continue;
     const holder = r.slot ? rows.find((x) => x.slot === r.slot && HOLDING.includes(x.status) && x.status !== "posted") : undefined;
     if (holder && ["draft", "approved", "skipped"].includes(holder.status)) {
-      replace(await updatePost(db, holder.id, holder.version, { status: "dry", note: `${holder.note ?? ""} · the old path posted this slot` }, "deploy", "superseded"));
+      const superseded = await updatePost(db, holder.id, holder.version, { status: "dry", note: `${holder.note ?? ""} · the old path posted this slot` }, "deploy", "superseded");
+      replace(superseded);
+      supersededLater.push(superseded);
     }
     const post = await insertPost(db, {
       kind: r.kind,
@@ -693,6 +683,8 @@ async function queueMain(db: Db, dryRun: boolean) {
     });
     if (post) rows.push(post);
   }
+
+  for (const p of supersededLater) await show(p, { existingOnly: true });
 
   const countsDry = postMode === "dry" && !shadow;
   const counted = () =>
@@ -736,20 +728,12 @@ async function queueMain(db: Db, dryRun: boolean) {
       if (!post) continue;
       rows.push(post);
       report.push(`${dhakaTime(s.at)} ${s.content}: draft made (${post.id})`);
-      const id = tg && (await sendMessage(tg, draftText(post, shadow), { previewUrl: post.cards.length === 1 ? post.link : undefined }));
-      if (id) replace(await updatePost(db, post.id, post.version, { telegramMessageId: id }, "deploy", "telegram"));
+      await show(post);
     } else if (!sameStories(current.record, values.record) || current.message !== values.message) {
       const post = await updatePost(db, current.id, current.version, values, "deploy", "refresh");
       replace(post);
       report.push(`${dhakaTime(s.at)} ${s.content}: draft refreshed (${post.id})`);
-      if (tg) {
-        const text = draftText(post, shadow, true);
-        const edited = post.telegramMessageId && (await editMessage(tg, post.telegramMessageId, text));
-        if (!edited) {
-          const id = await sendMessage(tg, text, { silent: true });
-          if (id) replace(await updatePost(db, post.id, post.version, { telegramMessageId: id }, "deploy", "telegram"));
-        }
-      }
+      await show(post, { refreshed: true, silent: true });
     }
   }
 
@@ -768,7 +752,9 @@ async function queueMain(db: Db, dryRun: boolean) {
     const sendAt = postMode === "review" ? Math.max(at, now + MIN_SCHEDULE_MS) : now;
     let plan = planFromRow(post, postMode, sendAt);
     if (postMode === "dry") {
-      replace(await updatePost(db, post.id, post.version, { status: "dry", record: plan.record, decidedBy: post.decidedBy ?? "auto" }, "deploy", "dry"));
+      const dry = await updatePost(db, post.id, post.version, { status: "dry", record: plan.record, decidedBy: post.decidedBy ?? "auto" }, "deploy", "dry");
+      replace(dry);
+      await show(dry, { existingOnly: true });
       planSummary(plan, "dry", sendAt, now, post.kind, label);
       return true;
     }
@@ -791,6 +777,7 @@ async function queueMain(db: Db, dryRun: boolean) {
     if (!sent) {
       const failed = await updatePost(db, post.id, post.version, { status: "failed", error: lastError || "not posted" }, "deploy", "failed");
       replace(failed);
+      await show(failed, { existingOnly: true });
       report.push(`${dhakaTime(at)}: not posted — ${lastError}`);
       if (tg) await sendMessage(tg, `⚠️ Not posted (${dhakaTime(at)}, ${CONTENT_LABEL[post.content] ?? post.content}): ${lastError}\nThe next run tries again until ${dhakaTime(at + MISSED_MS)}.\n${SITE}/admin/`);
       return false;
@@ -812,6 +799,7 @@ async function queueMain(db: Db, dryRun: boolean) {
       "posted",
     );
     replace(done);
+    await show(done, { existingOnly: true });
     planSummary(sent, postMode, sendAt, now, post.kind, label);
     if (tg && post.kind === "breaking") await sendMessage(tg, `⚡ Breaking news posted (${dhakaTime(sendAt)}):\n${done.message}\n${done.link}\nTo take it down: ${SITE}/admin/`, { previewUrl: done.link });
     return true;
@@ -820,7 +808,9 @@ async function queueMain(db: Db, dryRun: boolean) {
   for (const row of rows.filter((r) => ["draft", "approved", "failed"].includes(r.status)).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))) {
     const action = queueAction(row, now, { publishLead, paused: settings.paused });
     if (action === "miss") {
-      replace(await updatePost(db, row.id, row.version, { status: "skipped", note: `${row.note ?? ""} · missed: not out ${MISSED_MS / 60_000} minutes after its time${settings.paused ? " (paused)" : ""}` }, "deploy", "missed"));
+      const missed = await updatePost(db, row.id, row.version, { status: "skipped", note: `${row.note ?? ""} · missed: not out ${MISSED_MS / 60_000} minutes after its time${settings.paused ? " (paused)" : ""}` }, "deploy", "missed");
+      replace(missed);
+      await show(missed, { existingOnly: true });
       report.push(`${dhakaTime(Date.parse(row.scheduledAt))}: skipped, missed`);
     } else if (action === "hold") {
       report.push(`${dhakaTime(Date.parse(row.scheduledAt))}: held (${settings.paused ? "posting paused" : "waits for approval"})`);
@@ -842,10 +832,7 @@ async function queueMain(db: Db, dryRun: boolean) {
         rows.push(post);
         report.push(`breaking: ${post.message.split("\n")[0]} (${post.id})`);
         if (policy === "auto") await publishRow(post);
-        else if (tg) {
-          const id = await sendMessage(tg, draftText(post, shadow), { previewUrl: post.link });
-          if (id) replace(await updatePost(db, post.id, post.version, { telegramMessageId: id }, "deploy", "telegram"));
-        }
+        else await show(post);
       }
     }
   }
