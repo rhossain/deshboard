@@ -22,6 +22,7 @@ on:
           - d1-query          # runs one SQL statement (arg) on the remote database and reports the rows
           - d1-import-history # copies the Page's posting history (.social/facebook.json, from the deploy's cache) into D1
           - access-setup      # the Zero Trust organisation (arg: team name), the /admin application and its policy
+          - access-login-page # the sign-in page's look and its notice that only the owner is authorized
           - pages-secrets     # copies FB_PAGE_TOKEN, FB_APP_SECRET, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET to the Pages project
           - telegram-chat-id  # who has messaged the bot (their chat ids), to set TELEGRAM_ADMIN_CHAT_ID
           - telegram-webhook  # points the bot at https://bartaboard.com/api/telegram
@@ -202,6 +203,21 @@ jobs:
             echo "CF_ACCESS_AUD = \"$aud\""
             echo '```'
           } | tee -a "$REPORT"
+
+      # The sign-in page everyone reaching /admin sees (Zero Trust → Settings → Custom pages → Login page). A code is
+      # only ever sent to the address the policy allows; the page says so, so nobody else waits for one.
+      - name: access-login-page
+        if: inputs.task == 'access-login-page'
+        run: |
+          org=$(cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/organizations")
+          body=$(echo "$org" | jq -c '{name, auth_domain, is_ui_read_only, ui_read_only_toggle_reason, user_seat_expiration_inactive_time, auto_redirect_to_identity, session_duration, warp_auth_session_duration, allow_authenticate_via_warp, custom_pages} + {login_design: {
+            background_color: "#f6f4ef",
+            text_color: "#17191c",
+            logo_path: "https://bartaboard.com/brand/bartaboard-icon-512.png",
+            header_text: "Bartaboard admin · Authorized access only",
+            footer_text: "This area is restricted to Bartaboard'"'"'s owner. If you are not authorized, no code will be sent to your email and you cannot sign in. Readers: bartaboard.com"
+          }} | with_entries(select(.value != null))')
+          cf PUT "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/organizations" "$body" | jq -c '.login_design' | tee -a "$REPORT"
 
       - name: pages-secrets
         if: inputs.task == 'pages-secrets'
