@@ -27,6 +27,7 @@ on:
           - telegram-webhook  # points the bot at https://bartaboard.com/api/telegram
           - telegram-test     # the bot sends TELEGRAM_ADMIN_CHAT_ID a test message
           - d1-token-check    # SOCIAL_DB_TOKEN (the deploy's D1-only token) can read the database through the API
+          - d1-backup         # exports the database with SOCIAL_DB_TOKEN, as the deploy's daily backup does, as this run's artifact
           - fb-token-check    # whose token FB_PAGE_TOKEN is, its scopes and expiry
       arg:
         description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard; d1-query: the SQL)"
@@ -263,6 +264,20 @@ jobs:
           curl -sS -X POST "$CF_API/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$db/query" -H "Authorization: Bearer $SOCIAL_DB_TOKEN" \
             -H 'Content-Type: application/json' --data '{"sql": "SELECT count(*) AS posts FROM posts"}' \
             | jq -c '{success, rows: .result[0].results, errors}' | tee -a "$REPORT"
+
+      - name: d1-backup
+        if: inputs.task == 'd1-backup'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
+        run: |
+          $WRANGLER d1 export "$D1_NAME" --remote --output social-db.sql
+          echo "exported: $(wc -l < social-db.sql) lines, $(grep -c '^INSERT INTO \"posts\"\|^INSERT INTO posts' social-db.sql) posts" | tee -a "$REPORT"
+      - if: inputs.task == 'd1-backup'
+        uses: actions/upload-artifact@v4
+        with:
+          name: social-db
+          path: social-db.sql
+          retention-days: 7
 
       - name: fb-token-check
         if: inputs.task == 'fb-token-check'
