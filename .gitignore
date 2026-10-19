@@ -55,3 +55,7 @@ next-env.d.ts
 
 # what the Facebook Page posted, carried between deploys by the Actions cache (scripts/post-facebook.ts)
 /.social/
+
+# local secrets for the Pages Functions and the admin setup (never commit)
+.dev.vars
+.env.ops
