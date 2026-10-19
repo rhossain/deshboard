@@ -129,6 +129,16 @@ jobs:
           fi
           echo "team domain: $domain" | tee -a "$REPORT"
 
+          # How the admin signs in: a one-time code sent to the address (what the dashboard turns on by itself; an
+          # organisation made through the API starts with no login method at all). Google can be added later.
+          idps=$(cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/identity_providers")
+          if [ "$(echo "$idps" | jq 'length')" = "0" ]; then
+            cf POST "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/identity_providers" '{"name": "Email code", "type": "onetimepin", "config": {}}' > /dev/null
+            echo "login method: created (one-time code by email)" | tee -a "$REPORT"
+          else
+            echo "login methods: $(echo "$idps" | jq -c '[.[] | {name, type}]')" | tee -a "$REPORT"
+          fi
+
           apps=$(cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/apps?per_page=100")
           app=$(echo "$apps" | jq -c '.[] | select(.name == "Bartaboard admin")')
           if [ -z "$app" ]; then
