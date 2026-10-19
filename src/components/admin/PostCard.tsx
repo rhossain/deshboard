@@ -77,7 +77,8 @@ export function PostCard({ post, now, live, selected, onSelect, onChange, onErro
         {post.kind === "breaking" && <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">Breaking</span>}
         <StatusBadge status={post.status} />
         {post.removedAt && <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">Taken down</span>}
-        {open && <span className="text-xs text-muted">{POLICY_LABEL[post.policy]}</span>}
+        {post.status === "draft" && <span className="text-xs text-muted">{POLICY_LABEL[post.policy]}</span>}
+        {post.status === "approved" && <span className="text-xs text-muted">Goes out at its time</span>}
         {post.edited && <span className="text-xs text-muted">· edited</span>}
       </header>
 
@@ -87,7 +88,7 @@ export function PostCard({ post, now, live, selected, onSelect, onChange, onErro
         <Preview post={post} />
       )}
 
-      {post.error && <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">Facebook: {post.error}</p>}
+      {post.error && <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">Not posted: {post.error}</p>}
       {post.note && mode === "view" && <p className="mt-2 text-xs text-muted">{post.note.replace(/^ · /, "")}</p>}
 
       {mode === "reject" && <RejectForm busy={busy} onCancel={() => setMode("view")} onReject={(opts) => act("reject", opts)} />}
