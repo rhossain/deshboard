@@ -19,13 +19,15 @@ on:
           - whoami            # the token's account, KV namespaces, Pages projects and the bartaboard project's bindings
           - d1-create         # the D1 database bartaboard-social (prints its id for wrangler.toml); does nothing if it exists
           - d1-migrate        # applies migrations/ to the remote database (wrangler.toml)
+          - d1-query          # runs one SQL statement (arg) on the remote database and reports the rows
+          - d1-import-history # copies the Page's posting history (.social/facebook.json, from the deploy's cache) into D1
           - access-setup      # the Zero Trust organisation (arg: team name), the /admin application and its policy
           - pages-secrets     # copies FB_PAGE_TOKEN, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET to the Pages project
           - telegram-chat-id  # who has messaged the bot (their chat ids), to set TELEGRAM_ADMIN_CHAT_ID
           - telegram-webhook  # points the bot at https://bartaboard.com/api/telegram
           - fb-token-check    # whose token FB_PAGE_TOKEN is, its scopes and expiry
       arg:
-        description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard)"
+        description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard; d1-query: the SQL)"
         required: false
         type: string
 
@@ -106,6 +108,28 @@ jobs:
         run: |
           $WRANGLER d1 migrations list "$D1_NAME" --remote
           $WRANGLER d1 migrations apply "$D1_NAME" --remote | tee -a "$REPORT"
+
+      - name: d1-query
+        if: inputs.task == 'd1-query'
+        env:
+          SQL: ${{ inputs.arg }}
+        run: |
+          $WRANGLER d1 execute "$D1_NAME" --remote --json --command "$SQL" > /tmp/out.json
+          { echo '```'; jq -c '.[] | .results[]' /tmp/out.json | head -100; echo '```'; } | tee -a "$REPORT"
+
+      # The history the deploy's Facebook step keeps in its own cache (deploy.yml, facebook-posts-*): a cache made on
+      # main can be restored from any branch.
+      - if: inputs.task == 'd1-import-history'
+        uses: actions/cache/restore@v4
+        with:
+          path: .social
+          key: facebook-posts-import-${{ github.run_id }}
+          restore-keys: facebook-posts-
+      - name: d1-import-history
+        if: inputs.task == 'd1-import-history'
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsx scripts/social-import-history.ts
 
       # The Zero Trust organisation (team) is created once, named by `arg`, with the one-time-PIN login Cloudflare
       # turns on by default: the admin signs in with a code sent to ADMIN_EMAIL. The application covers /admin and
