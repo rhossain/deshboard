@@ -58,7 +58,8 @@ export function QueueView({ data, now, onChange, onError, onReload, onPause }: P
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const days = useMemo(() => rowsFor(data, now), [data, now]);
-  const lead = data.settings.draftLeadMinutes * 60_000;
+  // The run nearest before the lead makes the draft (src/lib/social-queue.ts RUN_SLACK_MS).
+  const lead = data.settings.draftLeadMinutes * 60_000 + 5 * 60_000;
   const chosen = data.posts.filter((p) => selected.has(p.id));
 
   async function bulk(action: string, extra?: Record<string, unknown>) {

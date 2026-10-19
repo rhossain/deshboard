@@ -142,7 +142,7 @@ export function SettingsView({
               onChange={(e) => setDraft({ ...draft, draftLeadMinutes: Number(e.target.value) })}
               className="h-9 rounded-lg border border-line bg-surface-2 px-2"
             >
-              {[30, 45, 60, 90, 120].map((m) => (
+              {[30, 40, 45, 60, 90, 120].map((m) => (
                 <option key={m} value={m}>
                   {m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? "s" : ""}`}
                 </option>

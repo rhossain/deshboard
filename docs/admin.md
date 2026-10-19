@@ -10,15 +10,15 @@ it. Set up 19 October 2026.
 ```
 every 15 minutes (deploy.yml → scripts/post-facebook.ts)
   1. the Page's posts made the old way are copied in (shadow; before the switch)
-  2. drafts: each slot gets one an hour ahead (settings: draftLeadMinutes), refreshed every run until someone
+  2. drafts: each slot gets one about 40 minutes ahead (settings: draftLeadMinutes; the 16:45 run for a 17:30 slot),
+     refreshed every run until someone
      touches it, and sent to Telegram with buttons
   3. what is due goes out: approved posts, and drafts whose policy lets them; an hour late, skipped
   4. breaking news between the slots, by its own policy
 ```
 
-A draft is made an hour ahead, not a day: a story is only posted while it is still being reported (its newest headline
-under two hours old, see facebook-posting.md), so an earlier pick would be stale by its time. That hour is the review
-window.
+A draft is made about 40 minutes ahead (until 19 October an hour), not a day: a story is only posted while it is still being reported (its newest headline
+under two hours old, see facebook-posting.md), so an earlier pick would be stale by its time. Those 40 minutes, less the edit lock, are the review window: for a 17:30 post, from about 16:47 to 17:25.
 
 **Policies.** What happens to a draft nobody touched by its time:
 

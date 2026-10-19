@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS: QueueSettings = {
   paused: false,
   slotPolicy: "auto_unless_rejected",
   breakingPolicy: "auto",
-  draftLeadMinutes: 60,
+  draftLeadMinutes: 40,
   slots: null,
   editLockMinutes: 5,
 };

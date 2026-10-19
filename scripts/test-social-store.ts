@@ -200,10 +200,13 @@ async function main() {
 
   await test("a slot's draft is due from the lead before it until it is missed", async () => {
     const slots = [{ time: "16:00", content: "headlines" as const }, { time: "17:30", content: "video" as const }];
-    const lead = 60 * 60_000;
-    assert.deepEqual(slotsToDraft(t - 61 * 60_000, slots, lead), []);
-    assert.deepEqual(slotsToDraft(t - 60 * 60_000, slots, lead).map((s) => s.time), ["16:00"]);
-    assert.deepEqual(slotsToDraft(t + 31 * 60_000, slots, lead).map((s) => s.time), ["16:00", "17:30"]);
+    const lead = 40 * 60_000;
+    // The run nearest before the lead: a run at 15:15 (45 minutes ahead, drafting at about 15:17) makes 16:00's draft;
+    // one at 15:00 doesn't.
+    assert.deepEqual(slotsToDraft(t - 46 * 60_000, slots, lead), []);
+    assert.deepEqual(slotsToDraft(t - 43 * 60_000, slots, lead).map((s) => s.time), ["16:00"]);
+    // 16:00's window runs until it is missed (16:45); 17:30's opens with the 16:45 run.
+    assert.deepEqual(slotsToDraft(t + 44 * 60_000, slots, lead).map((s) => s.time), ["16:00"]);
     assert.deepEqual(slotsToDraft(t + MISSED_MS + 60_000, slots, lead).map((s) => s.time), ["17:30"]);
   });
 
@@ -224,7 +227,7 @@ async function main() {
     const s = queueSettings({ paused: true, slotPolicy: "manual", draftLeadMinutes: 5, slots: [{ time: "08:00", content: "video" }, { time: "25:00", content: "video" }] });
     assert.equal(s.paused, true);
     assert.equal(s.slotPolicy, "manual");
-    assert.equal(s.draftLeadMinutes, 60);
+    assert.equal(s.draftLeadMinutes, 40);
     assert.deepEqual(s.slots, [{ time: "08:00", content: "video" }]);
   });
 

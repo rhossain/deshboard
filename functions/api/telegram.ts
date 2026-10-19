@@ -112,7 +112,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         [`${live ? "🟢 Live" : "🧪 Trial"}${settings.paused ? " · ⏸ paused" : ""}`, "", ...(lines.length ? lines : ["Nothing queued in the next 24 hours yet."]), "", "https://bartaboard.com/admin/"].join("\n"),
       );
     } else {
-      await sendMessage(tg, "Drafts arrive here about an hour before each slot, with buttons to approve, reject or skip.\n\n/status — what's coming\n/pause — stop posting\n/resume — start again\n\nhttps://bartaboard.com/admin/");
+      await sendMessage(tg, "Drafts arrive here about 40 minutes before each slot, with buttons to approve, reject or skip.\n\n/status — what's coming\n/pause — stop posting\n/resume — start again\n\nhttps://bartaboard.com/admin/");
     }
   }
   return ok();

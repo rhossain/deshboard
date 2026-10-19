@@ -33,9 +33,16 @@ export function queueAction(
   return "publish";
 }
 
-/** The slots whose draft is due now: from `draftLead` before their time until they are missed. */
+/**
+ * The deploy runs every 15 minutes (:00, :15, :30, :45) and drafts a few minutes into each run. A slot's draft comes
+ * from the run nearest before its lead time, not the first one after it: with a 40-minute lead, a 17:30 slot's draft
+ * comes from the 16:45 run (about 43 minutes ahead) rather than the 17:00 one (28).
+ */
+export const RUN_SLACK_MS = 5 * 60_000;
+
+/** The slots whose draft is due now: from about `draftLead` before their time until they are missed. */
 export function slotsToDraft(now: number, slots: Slot[], draftLead: number): (Slot & { at: number })[] {
-  return slotTimes(now, slots).filter((s) => now >= s.at - draftLead && now < s.at + MISSED_MS);
+  return slotTimes(now, slots).filter((s) => now >= s.at - draftLead - RUN_SLACK_MS && now < s.at + MISSED_MS);
 }
 
 /** Blocks as sets, for leaving stories, outlets, sections, channels and words out of a pick. */
