@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { api, ApiError, CONTENT_LABEL, dhakaTime, atDhakaTime, POLICY_LABEL, relative, type Policy, type SocialPost } from "./api";
+import { api, ApiError, atDhakaTime, type Card, CONTENT_LABEL, dhakaTime, POLICY_LABEL, relative, type Policy, type SocialPost } from "./api";
+import { ItemPicker } from "./ItemPicker";
+import { carouselMessage, singleMessage } from "./items";
 
 const STATUS: Record<string, [string, string]> = {
   draft: ["Draft", "bg-gold/15 text-gold"],
@@ -221,28 +223,40 @@ function EditForm({
   post: SocialPost;
   busy: boolean;
   onCancel: () => void;
-  onSave: (e: { message?: string; scheduledAt?: string; order?: number[]; policy?: Policy }) => void;
+  onSave: (e: { message?: string; scheduledAt?: string; cards?: Card[]; policy?: Policy }) => void;
 }) {
   const [message, setMessage] = useState(post.message);
+  // The text follows the cards (numbered list, heading) until the person types in it.
+  const [typed, setTyped] = useState(false);
   const [time, setTime] = useState(dhakaTime(post.scheduledAt));
   const [policy, setPolicy] = useState<Policy>(post.policy);
-  const [order, setOrder] = useState(post.cards.map((_, i) => i));
-  const carousel = post.cards.length > 1;
+  const [cards, setCards] = useState<Card[]>(post.cards);
+  const [picking, setPicking] = useState(false);
+  const carousel = !!post.params.child_attachments;
+  const videos = post.content === "video" || post.content === "roundup";
+  const changedCards = JSON.stringify(cards) !== JSON.stringify(post.cards);
+
+  function update(next: Card[]) {
+    setCards(next);
+    if (typed) return;
+    if (carousel) setMessage(carouselMessage(post.content, next, Date.parse(post.scheduledAt)));
+    else if (next[0]) setMessage(singleMessage(next[0]));
+  }
 
   const move = (pos: number, by: number) => {
-    const next = [...order];
     const to = pos + by;
-    if (to < 0 || to >= next.length) return;
+    if (to < 0 || to >= cards.length) return;
+    const next = [...cards];
     [next[pos], next[to]] = [next[to], next[pos]];
-    setOrder(next);
+    update(next);
   };
 
   function save() {
-    const e: { message?: string; scheduledAt?: string; order?: number[]; policy?: Policy } = {};
+    const e: { message?: string; scheduledAt?: string; cards?: Card[]; policy?: Policy } = {};
     if (message !== post.message) e.message = message;
     if (time !== dhakaTime(post.scheduledAt)) e.scheduledAt = atDhakaTime(post.scheduledAt, time);
     if (policy !== post.policy) e.policy = policy;
-    if (order.some((v, i) => v !== i)) e.order = order;
+    if (changedCards) e.cards = cards;
     if (Object.keys(e).length) onSave(e);
     else onCancel();
   }
@@ -252,33 +266,78 @@ function EditForm({
       <textarea
         lang="bn"
         value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        onChange={(e) => {
+          setMessage(e.target.value);
+          setTyped(true);
+        }}
         rows={Math.min(12, Math.max(4, message.split("\n").length + 1))}
         className="w-full rounded-xl border border-line bg-surface-2 p-3 text-[15px] leading-relaxed outline-none focus:border-accent"
       />
-      {carousel && (
+      {!typed && changedCards && <p className="-mt-1 text-xs text-muted">The text was rewritten to match the cards; edit it if you like.</p>}
+
+      {cards.length > 0 && (
         <ol className="space-y-1.5">
-          {order.map((idx, pos) => (
-            <li key={idx} className="flex items-center gap-2 rounded-xl border border-line px-3 py-2">
-              <span className="w-5 text-xs tabular-nums text-muted">{pos + 1}</span>
-              <span lang="bn" className="min-w-0 flex-1 truncate text-sm">
-                {post.cards[idx].title} <span className="text-muted">— {post.cards[idx].source}</span>
+          {cards.map((c, pos) => (
+            <li key={`${c.link}-${pos}`} className="flex items-center gap-2 rounded-xl border border-line px-2 py-1.5">
+              {c.picture ? (
+                // An outlet's or YouTube's picture, at its own address.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.picture} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-10 w-16 shrink-0 rounded-md object-cover" />
+              ) : (
+                <span className="h-10 w-16 shrink-0 rounded-md bg-line/40" />
+              )}
+              <span lang="bn" className="min-w-0 flex-1 text-[13px] leading-snug">
+                <span className="line-clamp-2">{c.title}</span>
+                <span className="text-[11px] text-muted">{c.source}</span>
               </span>
-              <button className="h-8 w-8 rounded-full border border-line text-sm disabled:opacity-30" disabled={pos === 0} onClick={() => move(pos, -1)} aria-label="Move up">
-                ↑
-              </button>
-              <button
-                className="h-8 w-8 rounded-full border border-line text-sm disabled:opacity-30"
-                disabled={pos === order.length - 1}
-                onClick={() => move(pos, 1)}
-                aria-label="Move down"
-              >
-                ↓
-              </button>
+              {carousel && (
+                <>
+                  <button className="h-8 w-8 shrink-0 rounded-full border border-line text-sm disabled:opacity-30" disabled={pos === 0} onClick={() => move(pos, -1)} aria-label="Move up">
+                    ↑
+                  </button>
+                  <button
+                    className="h-8 w-8 shrink-0 rounded-full border border-line text-sm disabled:opacity-30"
+                    disabled={pos === cards.length - 1}
+                    onClick={() => move(pos, 1)}
+                    aria-label="Move down"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="h-8 w-8 shrink-0 rounded-full border border-danger/40 text-sm text-danger disabled:opacity-30"
+                    disabled={cards.length <= 2}
+                    onClick={() => update(cards.filter((_, i) => i !== pos))}
+                    aria-label="Remove this card"
+                    title={cards.length <= 2 ? "A carousel needs at least two cards" : "Remove"}
+                  >
+                    ✕
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ol>
       )}
+
+      {post.content !== "custom" &&
+        (picking ? (
+          <ItemPicker
+            kind={videos ? "video" : "headline"}
+            exclude={cards.map((c) => c.key ?? "")}
+            needsPicture={carousel}
+            label={carousel ? "Add" : "Use this"}
+            onPick={(card) => {
+              update(carousel ? [...cards, card] : [card]);
+              setPicking(false);
+            }}
+            onClose={() => setPicking(false)}
+          />
+        ) : (
+          <button className={btn} disabled={carousel && cards.length >= 10} onClick={() => setPicking(true)}>
+            {carousel ? `Add a ${videos ? "video" : "headline"}` : `Replace with another ${videos ? "video" : "headline"}`}
+          </button>
+        ))}
+
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <label className="flex items-center gap-2">
           Time (Dhaka)
@@ -294,7 +353,10 @@ function EditForm({
           </select>
         </label>
       </div>
-      <p className="text-xs text-muted">Saving locks this post: the picker won&rsquo;t replace it, and it goes out as you leave it.</p>
+      <p className="text-xs text-muted">
+        Saving locks this post: the picker won&rsquo;t replace it, and it goes out as you leave it. Cards you add are checked (link and picture) just
+        before it goes out.
+      </p>
       <div className="flex gap-2">
         <button className={btnPrimary} disabled={busy} onClick={save}>
           Save

@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { api, atDhakaTime, CONTENT_LABEL, dhakaDate, dhakaDay, dhakaTime, type QueueData, type SocialPost } from "./api";
+import { api, atDhakaTime, type Card, CONTENT_LABEL, dhakaDate, dhakaDay, dhakaTime, type QueueData, type SocialPost } from "./api";
+import { ItemPicker } from "./ItemPicker";
+import { singleMessage } from "./items";
 import { PostCard } from "./PostCard";
 
 const btn = "h-9 rounded-full border border-line px-3.5 text-[13px] font-semibold transition hover:bg-surface-2 active:scale-95 disabled:opacity-50";
@@ -176,49 +178,108 @@ function EmptySlot({ at, now, lead, content }: { at: number; now: number; lead: 
 }
 
 function AddPost({ onDone, onError }: { onDone: (p: SocialPost) => void; onError: (m: string) => void }) {
+  const [mode, setMode] = useState<"pick" | "write">("pick");
   const [message, setMessage] = useState("");
   const [link, setLink] = useState("");
   const [time, setTime] = useState(() => dhakaTime(Date.now() + 30 * 60_000));
+  const [chosen, setChosen] = useState<{ card: Card; content: "news" | "video" } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function when(): string {
+    const at = Date.parse(atDhakaTime(Date.now(), time));
+    // A time earlier than now means tomorrow at that time.
+    return new Date(at < Date.now() - 5 * 60_000 ? at + 86_400_000 : at).toISOString();
+  }
+
   async function save() {
     setBusy(true);
     try {
-      const at = Date.parse(atDhakaTime(Date.now(), time));
-      // A time earlier than now means tomorrow at that time.
-      const scheduledAt = new Date(at < Date.now() - 5 * 60_000 ? at + 86_400_000 : at).toISOString();
-      onDone(await api.create({ message, link: link || undefined, scheduledAt }));
+      const scheduledAt = when();
+      onDone(
+        mode === "pick" && chosen
+          ? await api.createFromItem({ card: chosen.card, content: chosen.content, message, scheduledAt })
+          : await api.create({ message, link: link || undefined, scheduledAt }),
+      );
     } catch (err) {
       onError((err as Error).message);
     } finally {
       setBusy(false);
     }
   }
+
+  const tab = (m: "pick" | "write", label: string) => (
+    <button
+      onClick={() => setMode(m)}
+      className={`h-8 rounded-full border px-3 text-[12px] font-semibold ${mode === m ? "border-accent bg-accent-soft text-accent" : "border-line"}`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="space-y-3 rounded-2xl border border-line bg-surface p-4 shadow-card">
-      <p className="text-sm font-semibold">Your own post: text, and a link Facebook will preview. It goes out at its time, as written.</p>
-      <textarea
-        lang="bn"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        rows={4}
-        placeholder="What to say"
-        className="w-full rounded-xl border border-line bg-surface-2 p-3 text-[15px] outline-none focus:border-accent"
-      />
-      <input
-        value={link}
-        onChange={(e) => setLink(e.target.value)}
-        placeholder="https://bartaboard.com/… (optional)"
-        className="h-10 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm outline-none focus:border-accent"
-      />
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          At (Dhaka)
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="h-9 rounded-lg border border-line bg-surface-2 px-2" />
-        </label>
-        <button className={btnPrimary} disabled={busy || !message.trim()} onClick={save}>
-          Add to the queue
-        </button>
+      <div className="flex gap-2">
+        {tab("pick", "From the board")}
+        {tab("write", "Write your own")}
       </div>
+
+      {mode === "pick" && !chosen && (
+        <ItemPicker
+          kind="any"
+          label="Choose"
+          onPick={(card, item) => {
+            setChosen({ card, content: item.kind === "video" ? "video" : "news" });
+            setMessage(singleMessage(card));
+          }}
+          onClose={() => setMode("write")}
+        />
+      )}
+      {mode === "pick" && chosen && (
+        <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-2 p-2">
+          {chosen.card.picture && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={chosen.card.picture} alt="" referrerPolicy="no-referrer" className="h-12 w-20 shrink-0 rounded-md object-cover" />
+          )}
+          <span lang="bn" className="min-w-0 flex-1 text-sm">
+            <span className="line-clamp-2 font-semibold">{chosen.card.title}</span>
+            <span className="text-xs text-muted">{chosen.card.source}</span>
+          </span>
+          <button className={btn} onClick={() => setChosen(null)}>
+            Change
+          </button>
+        </div>
+      )}
+
+      {(mode === "write" || chosen) && (
+        <>
+          <textarea
+            lang="bn"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={4}
+            placeholder="What to say"
+            className="w-full rounded-xl border border-line bg-surface-2 p-3 text-[15px] outline-none focus:border-accent"
+          />
+          {mode === "write" && (
+            <input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://bartaboard.com/… (optional)"
+              className="h-10 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm outline-none focus:border-accent"
+            />
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              At (Dhaka)
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="h-9 rounded-lg border border-line bg-surface-2 px-2" />
+            </label>
+            <button className={btnPrimary} disabled={busy || !message.trim()} onClick={save}>
+              Add to the queue
+            </button>
+          </div>
+          <p className="text-xs text-muted">It goes out at its time, as written; its link is checked just before.</p>
+        </>
+      )}
     </div>
   );
 }

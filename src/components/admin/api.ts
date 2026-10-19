@@ -1,9 +1,9 @@
 /** The admin page's calls to /api/admin (functions/api/admin), and the shapes they answer with. */
-import type { Block, Policy, SocialPost } from "@/lib/social-store";
+import type { Block, Card, Policy, SocialPost } from "@/lib/social-store";
 import type { QueueSettings } from "@/lib/social-settings";
 import type { Slot } from "@/lib/slot-table";
 
-export type { Block, Policy, QueueSettings, Slot, SocialPost };
+export type { Block, Card, Policy, QueueSettings, Slot, SocialPost };
 
 export interface Run {
   at: string;
@@ -64,9 +64,11 @@ export const api = {
   settings: (s: Partial<QueueSettings>) => call<QueueSettings>("/settings", { method: "PUT", json: s }),
   action: (post: SocialPost, action: string, extra: Record<string, unknown> = {}) =>
     call<SocialPost>(`/posts/${post.id}/${action}`, { method: "POST", json: { version: post.version, ...extra } }),
-  edit: (post: SocialPost, e: { message?: string; scheduledAt?: string; order?: number[]; policy?: Policy }) =>
+  edit: (post: SocialPost, e: { message?: string; scheduledAt?: string; order?: number[]; cards?: Card[]; policy?: Policy }) =>
     call<SocialPost>(`/posts/${post.id}`, { method: "PATCH", json: { version: post.version, ...e } }),
   create: (p: { message: string; link?: string; scheduledAt?: string }) => call<SocialPost>("/posts", { method: "POST", json: p }),
+  createFromItem: (p: { card: Card; content: "news" | "video"; message?: string; scheduledAt?: string }) =>
+    call<SocialPost>("/posts", { method: "POST", json: p }),
   bulk: (action: string, posts: SocialPost[], extra: Record<string, unknown> = {}) =>
     call<{ results: { id: string; ok: boolean; error?: string }[] }>("/bulk", {
       method: "POST",
