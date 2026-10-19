@@ -159,7 +159,7 @@ const DHAKA_OFFSET_MS = 6 * 3600_000;
 const DAY_MS = 86_400_000;
 
 /** The slots of the Dhaka days around `now`, with their times (ms). */
-function slotTimes(now: number, slots: Slot[]): (Slot & { at: number })[] {
+export function slotTimes(now: number, slots: Slot[]): (Slot & { at: number })[] {
   const midnight = Math.floor((now + DHAKA_OFFSET_MS) / DAY_MS) * DAY_MS - DHAKA_OFFSET_MS;
   return [-1, 0, 1].flatMap((d) => slots.map((s) => ({ ...s, at: midnight + d * DAY_MS + minutes(s.time) * 60_000 })));
 }

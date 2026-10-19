@@ -60,9 +60,9 @@ export interface SocialPost {
 /** A post's state can only move along these. */
 const MOVES: Record<PostStatus, PostStatus[]> = {
   draft: ["draft", "approved", "rejected", "skipped", "posting", "dry"],
-  approved: ["approved", "draft", "rejected", "skipped", "posting"],
+  approved: ["approved", "draft", "rejected", "skipped", "posting", "dry"],
   rejected: ["draft"],
-  skipped: ["draft"],
+  skipped: ["draft", "dry"],
   posting: ["posted", "failed", "approved"],
   posted: ["posted"],
   failed: ["failed", "draft", "approved", "posting", "skipped"],

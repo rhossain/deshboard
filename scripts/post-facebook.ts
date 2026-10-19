@@ -23,10 +23,12 @@
  *
  * Never fails the deploy: a Facebook error is reported as a warning, and the next run tries again.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
   CAROUSEL_CARDS,
+  HISTORY_MS,
+  contentOf,
   dueSlot,
   headlinesMessage,
   headlinesRecord,
@@ -46,6 +48,7 @@ import {
   storyTitles,
   withFeedTitles,
   shareDay,
+  slotTimes,
   storySection,
 } from "../src/lib/page-posts";
 import {
@@ -81,6 +84,25 @@ import {
   videoProblem,
 } from "../src/lib/post-checks";
 import type { NewsItem, Video, VideoFeed } from "../src/lib/types";
+import { localDigits } from "../src/lib/i18n";
+import { apiAccessFromEnv, type Db, fromApi, type SqlValue } from "../src/lib/social-db";
+import {
+  activeBlocks,
+  type Block,
+  type Card,
+  insertPost,
+  listPosts,
+  type Policy,
+  type PostStatus,
+  readSettings,
+  recordRun,
+  type SocialPost,
+  StaleError,
+  updatePost,
+} from "../src/lib/social-store";
+import { blockSets, BREAKING_REVIEW_MS, MISSED_MS, queueAction, REVIEW_PUBLISH_LEAD_MS, sameStories, slotsToDraft } from "../src/lib/social-queue";
+import { queueSettings } from "../src/lib/social-settings";
+import { editMessage, sendMessage, telegramFromEnv } from "../src/lib/telegram";
 
 /** Facebook's Graph API (FB_GRAPH_URL replaces it, for trying the script against a stand-in). */
 const GRAPH = process.env.FB_GRAPH_URL ?? "https://graph.facebook.com/v23.0";
@@ -285,7 +307,7 @@ async function repairPreviews(history: PostRecord[], now: number): Promise<void>
   }
 }
 
-async function main() {
+async function legacyMain() {
   if (mode === "off") {
     console.log("Facebook posting is off (set the FB_POSTING repository variable to dry, review or on).");
     return;
@@ -319,13 +341,70 @@ async function main() {
   const asked = local ? { slot: now, at: now, content: (contentArg ?? "headlines") as PostContent } : null;
   const due = (contentArg && asked) || dueSlot(now, history, slots, lead) || asked;
   const at = due ? due.at : mode === "review" ? now + MIN_SCHEDULE_MS : now;
-  const fields = {
-    kind: (due ? "slot" : "breaking") as PostRecord["kind"],
+  const fields: Fields = {
+    kind: due ? "slot" : "breaking",
     at: new Date(at).toISOString(),
     mode,
     ...(due && { slot: new Date(due.slot).toISOString() }),
   };
 
+  const picking = await loadPicking(now);
+  const composed = await compose(picking, due?.content ?? null, at, fields, history);
+  let plan = composed.plan;
+  if (!plan) {
+    if (composed.missing) warn(composed.missing);
+    else if (due) console.log(`Slot ${fields.slot} (${due.content}): nothing passes the rules and checks yet; the next run looks again.`);
+    else console.log(composed.why);
+    return;
+  }
+  const problem = await planProblem(plan);
+  if (problem) {
+    warn(`Not posted: ${problem}; the next run tries again.`);
+    return;
+  }
+
+  if (mode !== "dry") {
+    const posted = await publish(plan, pageId, at, now);
+    if (!posted) return;
+    plan = posted;
+  }
+  writeHistory([...history, plan.record]);
+  planSummary(plan, mode, at, now, fields.kind);
+}
+
+/** The run's summary page (and a notice) for a post made, scheduled or, in a dry run, picked. */
+function planSummary(plan: Plan, postMode: PostingMode, at: number, now: number, kind: string, prefix = "Facebook") {
+  const when = dhakaTime(at);
+  const verb = postMode === "dry" ? "Would post" : at > now + 60_000 ? "Scheduled" : "Posted";
+  const followUp = plan.record.followUpOf ? ` (a follow-up: the story was posted ${dhakaTime(Date.parse(plan.record.followUpOf))} Dhaka, more reports since)` : "";
+  if (postMode !== "dry") notice(`${prefix}: ${verb.toLowerCase()} ${plan.record.content}${followUp} for ${when} Dhaka (post ${plan.record.id}): ${plan.record.title} ${plan.record.link}`);
+  summary(
+    [
+      `### ${prefix}: ${verb} ${plan.record.content} (${kind}, ${when} Dhaka)`,
+      "",
+      "```",
+      plan.params.message,
+      plan.params.link,
+      ...plan.cards.map((c) => `  ▸ ${c}`),
+      "```",
+      "",
+      plan.note + followUp + (plan.record.id ? ` · post ${plan.record.id}` : ""),
+      "",
+    ].join("\n"),
+  );
+}
+
+/** What the picks are made from: the board's headlines and videos, the titles each story has had, and the blocks. */
+interface Picking {
+  now: number;
+  feed: VideoFeed | null;
+  packed: PackedFeed | null;
+  items: NewsItem[];
+  titles: Map<string, string[]>;
+  blocks: ReturnType<typeof blockSets>;
+}
+
+async function loadPicking(now: number, blocks: Block[] = []): Promise<Picking> {
   // Both feeds: what is picked from, and the titles every story posted lately has now (withFeedTitles), so a story
   // told another way, as a headline or a video, is known as posted.
   const feed = await load<VideoFeed>("/data/videos.json");
@@ -342,15 +421,29 @@ async function main() {
     ),
     ...videoGroups.values(),
   ]);
-  const posted = withFeedTitles(history, (key) => titles.get(key));
+  return { now, feed, packed, items, titles, blocks: blockSets(blocks) };
+}
 
-  let plan: Plan | null;
-  if (due && (due.content === "video" || due.content === "roundup")) {
-    if (!feed) {
-      warn("No videos to choose from (public/data/videos.json is missing).");
-      return;
-    }
-    const stories = videoStories(feed.videos, now);
+interface Composed {
+  plan: Plan | null;
+  /** A feed is missing: nothing could be picked at all. */
+  missing?: string;
+  /** Why nothing was picked otherwise. */
+  why?: string;
+}
+
+/**
+ * The post for a slot of `content` going out at `at` (null content: breaking news between the slots), by the picking
+ * rules (page-posts.ts, page-video-posts.ts) against `history`, leaving out what the admin's blocks say. Each pick is
+ * checked (its texts, its links and pictures answering) and made again without what failed.
+ */
+async function compose(p: Picking, content: PostContent | null, at: number, fields: Fields, history: PostRecord[]): Promise<Composed> {
+  const { now, blocks } = p;
+  const posted = withFeedTitles(history, (key) => p.titles.get(key));
+  if (content === "video" || content === "roundup") {
+    if (!p.feed) return { plan: null, missing: "No videos to choose from (public/data/videos.json is missing)." };
+    const videos = p.feed.videos.filter((v) => !blocks.channels.has(v.channel) && !blocks.hasWord(unmaskTitle(v.title)));
+    const stories = videoStories(videos, now).filter((s) => !s.videos.some((v) => blocks.keys.has(v.id)));
     // Videos that failed a check are left out, and the pick made again.
     const failed = new Set<string>();
     const options = { now, at, history: posted, skip: (v: Video) => failed.has(v.id) };
@@ -369,81 +462,398 @@ async function main() {
       const [choice] = await pick("video post", () => [pickVideo(stories, options)].filter((c) => !!c), false);
       return choice ? videoPlan(choice, fields) : null;
     };
-    const cards = due.content === "roundup" ? await pick("roundup", () => pickRoundup(stories, options), true) : [];
+    const cards = content === "roundup" ? await pick("roundup", () => pickRoundup(stories, options), true) : [];
     // A roundup with too few stories that pass, or one Facebook won't take, goes out as a video post instead.
-    plan = cards.length ? roundupPlan(cards, fields, single) : await single();
-  } else {
-    if (!packed) {
-      warn("No headlines to choose from (public/data/v2/news.json is missing).");
-      return;
-    }
-    const stories = pageStories(items, now);
-    const withPicture = await picturesFor(
-      stories.flatMap((s) => s.items),
-      now,
-    );
-    // Headlines that failed a check are left out (as if they had no picture), and the pick made again.
-    const failed = new Set<NewsItem>();
-    const options = { now, at, history: posted, hasPicture: (it: NewsItem) => withPicture.has(it) && !failed.has(it) };
-    const check = (card: boolean) => (c: PostChoice) =>
-      firstProblem(
-        Promise.resolve(textProblem("headline", c.item.title)),
-        Promise.resolve(textProblem("outlet name", sourceName(c.item.sourceId, c.item.sourceName, "bn"))),
-        articleProblem(c.item),
-        // A card shows the picture it is given; a single post, the one its link's page names.
-        linkProblem(postLink(SITE, c.item, now), c.item.title, !card),
-        card ? pictureProblem(withPicture.get(c.item)) : Promise.resolve(null),
-      );
-    const pick = (label: string, cards: () => PostChoice[], card: boolean) =>
-      checkedPick(label, cards, (c) => c.item, check(card), (c) => failed.add(c.item), warn);
-    const single = async () => {
-      // Nothing to check (no breaking story, the usual case between slots) makes no requests.
-      const [choice] = await pick("headline post", () => [pickStory(stories, { ...options, breaking: !due })].filter((c) => !!c), false);
-      return choice ? newsPlan(choice, fields, now) : null;
-    };
-    const cards = due?.content === "headlines" ? await pick("headlines carousel", () => pickHeadlines(stories, options), true) : [];
-    // Too few stories that pass for five, or a carousel Facebook won't take: one headline instead.
-    plan = cards.length ? headlinesPlan(cards, withPicture, fields, now, single) : await single();
-    if (!plan && !due) {
-      console.log(`No slot due and no breaking story (${stories.length} stories from ${items.length} headlines).`);
-      return;
-    }
+    const plan = cards.length ? roundupPlan(cards, fields, single) : await single();
+    return { plan, why: plan ? undefined : `${stories.length} video stories, none passes` };
   }
-  if (!plan) {
-    console.log(`Slot ${fields.slot} (${due?.content}): nothing passes the rules and checks yet; the next run looks again.`);
-    return;
-  }
-  const problem = await planProblem(plan);
-  if (problem) {
-    warn(`Not posted: ${problem}; the next run tries again.`);
-    return;
-  }
-
-  if (mode !== "dry") {
-    const posted = await publish(plan, pageId, at, now);
-    if (!posted) return;
-    plan = posted;
-  }
-  writeHistory([...history, plan.record]);
-
-  const when = dhakaTime(at);
-  const verb = mode === "dry" ? "Would post" : at > now + 60_000 ? "Scheduled" : "Posted";
-  const followUp = plan.record.followUpOf ? ` (a follow-up: the story was posted ${dhakaTime(Date.parse(plan.record.followUpOf))} Dhaka, more reports since)` : "";
-  if (mode !== "dry") notice(`Facebook: ${verb.toLowerCase()} ${plan.record.content}${followUp} for ${when} Dhaka (post ${plan.record.id}): ${plan.record.title} ${plan.record.link}`);
-  summary(
-    [
-      `### Facebook: ${verb} ${plan.record.content} (${fields.kind}, ${when} Dhaka)`,
-      "",
-      "```",
-      plan.params.message,
-      plan.params.link,
-      ...plan.cards.map((c) => `  ▸ ${c}`),
-      "```",
-      "",
-      plan.note + followUp + (plan.record.id ? ` · post ${plan.record.id}` : ""),
-      "",
-    ].join("\n"),
+  if (!p.packed) return { plan: null, missing: "No headlines to choose from (public/data/v2/news.json is missing)." };
+  const items = p.items.filter((it) => !blocks.outlets.has(it.sourceId) && !blocks.hasWord(it.title));
+  const stories = pageStories(items, now).filter(
+    (s) => !blocks.sections.has(storySection(s)) && !s.items.some((it) => blocks.keys.has(shareKey(it.link))),
   );
+  const withPicture = await picturesFor(
+    stories.flatMap((s) => s.items),
+    now,
+  );
+  // Headlines that failed a check are left out (as if they had no picture), and the pick made again.
+  const failed = new Set<NewsItem>();
+  const options = { now, at, history: posted, hasPicture: (it: NewsItem) => withPicture.has(it) && !failed.has(it) };
+  const check = (card: boolean) => (c: PostChoice) =>
+    firstProblem(
+      Promise.resolve(textProblem("headline", c.item.title)),
+      Promise.resolve(textProblem("outlet name", sourceName(c.item.sourceId, c.item.sourceName, "bn"))),
+      articleProblem(c.item),
+      // A card shows the picture it is given; a single post, the one its link's page names.
+      linkProblem(postLink(SITE, c.item, now), c.item.title, !card),
+      card ? pictureProblem(withPicture.get(c.item)) : Promise.resolve(null),
+    );
+  const pick = (label: string, cards: () => PostChoice[], card: boolean) =>
+    checkedPick(label, cards, (c) => c.item, check(card), (c) => failed.add(c.item), warn);
+  const single = async () => {
+    // Nothing to check (no breaking story, the usual case between slots) makes no requests.
+    const [choice] = await pick("headline post", () => [pickStory(stories, { ...options, breaking: !content })].filter((c) => !!c), false);
+    return choice ? newsPlan(choice, fields, now) : null;
+  };
+  const cards = content === "headlines" ? await pick("headlines carousel", () => pickHeadlines(stories, options), true) : [];
+  // Too few stories that pass for five, or a carousel Facebook won't take: one headline instead.
+  const plan = cards.length ? headlinesPlan(cards, withPicture, fields, now, single) : await single();
+  return { plan, why: plan ? undefined : `No slot due and no breaking story (${stories.length} stories from ${items.length} headlines).` };
+}
+
+/**
+ * FB_QUEUE (repository variable) says how posts are made:
+ *   off (or unset)  as before: each run picks and posts what is due (legacyMain)
+ *   shadow          as before, and then the queue runs too, in dry mode: drafts, Telegram notes and "would post" picks
+ *                   in the admin's database, nothing sent to Facebook — to compare before switching
+ *   on              through the queue (queueMain): drafts ahead of each slot, reviewed in the admin or on Telegram,
+ *                   posted on time unless rejected (docs/admin.md)
+ * The queue needs the admin's database: CLOUDFLARE_ACCOUNT_ID and SOCIAL_DB_TOKEN (Account › D1 › Edit).
+ */
+const queueSetting = (process.env.FB_QUEUE ?? "").trim().toLowerCase();
+
+async function main() {
+  const queueLocal = local && args.includes("--queue");
+  if ((local && !queueLocal) || (!["shadow", "on"].includes(queueSetting) && !queueLocal)) return legacyMain();
+  if (mode === "off") return legacyMain();
+  const db = await queueDb();
+  if (!db) {
+    warn("FB_QUEUE is set, but the admin's database can't be reached (CLOUDFLARE_ACCOUNT_ID, SOCIAL_DB_TOKEN): posting the old way.");
+    return legacyMain();
+  }
+  if (queueSetting === "shadow" && !local) {
+    await legacyMain();
+    return queueMain(db, true);
+  }
+  return queueMain(db, local);
+}
+
+/** The admin's database: through Cloudflare's API, or locally a SQLite file (--db path, for trying the queue). */
+async function queueDb(): Promise<Db | null> {
+  const file = args.includes("--db") ? args[args.indexOf("--db") + 1] : undefined;
+  if (file) return sqliteDb(file);
+  const access = apiAccessFromEnv(process.env, existsSync("wrangler.toml") ? readFileSync("wrangler.toml", "utf8") : undefined);
+  return access ? fromApi(access) : null;
+}
+
+async function sqliteDb(file: string): Promise<Db> {
+  const { DatabaseSync } = (await import("node:sqlite" as string)) as {
+    DatabaseSync: new (f: string) => {
+      exec(sql: string): void;
+      prepare(sql: string): { all(...p: SqlValue[]): unknown[]; get(...p: SqlValue[]): unknown; run(...p: SqlValue[]): { changes: number | bigint } };
+    };
+  };
+  const fresh = !existsSync(file);
+  const sqlite = new DatabaseSync(file);
+  if (fresh) {
+    const dir = path.join(process.cwd(), "migrations");
+    for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) sqlite.exec(readFileSync(path.join(dir, f), "utf8"));
+  }
+  return {
+    all: async <T>(sql: string, p: SqlValue[] = []) => sqlite.prepare(sql).all(...p) as T[],
+    first: async <T>(sql: string, p: SqlValue[] = []) => (sqlite.prepare(sql).get(...p) as T | undefined) ?? null,
+    run: async (sql: string, p: SqlValue[] = []) => ({ changes: Number(sqlite.prepare(sql).run(...p).changes) }),
+  };
+}
+
+const iso = (ms: number) => new Date(ms).toISOString();
+/** Posts that count for the picking rules: out, or on their way. */
+const COUNTED: PostStatus[] = ["approved", "posting", "posted"];
+/** A slot's post that holds it: a new draft isn't made for it. */
+const HOLDING: PostStatus[] = ["draft", "approved", "posting", "posted", "skipped"];
+
+/** A plan as the queue keeps it: what is sent, and what the admin shows. */
+function rowValues(plan: Plan) {
+  const children = plan.params.child_attachments
+    ? (JSON.parse(plan.params.child_attachments) as Record<"link" | "name" | "description" | "picture", string>[])
+    : null;
+  const record = plan.record;
+  const source = contentOf(record) === "video" ? channelBn(record.sourceId) : sourceName(record.sourceId, record.sourceId, "bn");
+  const cards: Card[] = children
+    ? children.map((c) => ({ link: c.link, title: c.name, source: c.description, picture: c.picture }))
+    : [{ link: plan.params.link, title: record.title, source, sourceId: record.sourceId, section: record.category }];
+  return {
+    content: contentOf(record),
+    message: plan.params.message,
+    link: plan.params.link,
+    params: plan.params,
+    cards,
+    record,
+    note: plan.note,
+  };
+}
+
+/** A queued post as a plan to send, going out at `at`. */
+function planFromRow(row: SocialPost, postMode: PostingMode, at: number): Plan {
+  const params = { ...row.params } as Plan["params"];
+  params.message = params.message ?? row.message;
+  params.link = params.link ?? row.link;
+  const links = params.child_attachments ? (JSON.parse(params.child_attachments) as { link: string }[]).map((c) => c.link) : [params.link];
+  const base: PostRecord = row.record ?? {
+    kind: row.kind === "slot" ? "slot" : "breaking",
+    content: "news",
+    at: row.scheduledAt,
+    title: row.message.split("\n")[0].slice(0, 200),
+    link: params.link,
+    sourceId: "bartaboard",
+    category: "other",
+    keys: [],
+    words: [],
+    mode: postMode,
+  };
+  return {
+    params,
+    links,
+    record: { ...base, at: iso(at), mode: postMode },
+    cards: params.child_attachments ? links : [],
+    note: row.note ?? "",
+  };
+}
+
+const CONTENT_LABEL: Record<string, string> = {
+  headlines: "5 headlines",
+  news: "one headline",
+  video: "a video",
+  roundup: "5 videos",
+  custom: "your post",
+};
+const POLICY_LINE: Record<Policy, string> = {
+  auto_unless_rejected: "Posts by itself at its time unless you reject it.",
+  auto: "Posts by itself at its time.",
+  manual: "Waits for your approval: not posted unless you approve it.",
+};
+
+/** The Telegram note for a draft (new or refreshed). */
+function draftText(post: SocialPost, shadow: boolean, refreshed = false): string {
+  const when = dhakaTime(Date.parse(post.scheduledAt));
+  const cards = post.cards.length > 1 ? post.cards.map((c, i) => `${localDigits(String(i + 1), "bn")}. ${c.title} — ${c.source}`) : [];
+  return [
+    `${refreshed ? "🔄 Draft updated" : "📝 Draft"} · ${when} · ${CONTENT_LABEL[post.content] ?? post.content}${post.kind === "breaking" ? " · breaking" : ""}`,
+    POLICY_LINE[post.policy],
+    ...(shadow ? ["(Trial run: the queue posts nothing yet; the Page still posts the old way.)"] : []),
+    "",
+    post.message,
+    ...(cards.length ? ["", ...cards] : [post.link]),
+    "",
+    `Review: ${SITE}/admin/`,
+  ].join("\n");
+}
+
+/**
+ * The queue (FB_QUEUE shadow or on): records each step in the admin's database.
+ *   1. the Page's posts the history file has and the database lacks are copied in (the old path's, in shadow)
+ *   2. each slot gets a draft `draftLeadMinutes` ahead (settings), refreshed every run until someone touches it
+ *   3. what is due goes out: approved posts, and drafts whose policy lets them; missed ones are skipped
+ *   4. between the slots, breaking news, by its own policy
+ * In shadow (and locally) it runs dry: nothing is sent to Facebook, and its posts are marked dry.
+ */
+async function queueMain(db: Db, dryRun: boolean) {
+  const shadow = dryRun && !local;
+  const postMode: PostingMode = dryRun ? "dry" : (mode as PostingMode);
+  const pageId = process.env.FB_PAGE_ID ?? "";
+  if (postMode !== "dry" && (!pageId || !process.env.FB_PAGE_TOKEN)) {
+    warn(`FB_POSTING is ${postMode}, but FB_PAGE_ID or FB_PAGE_TOKEN is missing: nothing posted.`);
+    return;
+  }
+  const now = Date.now();
+  const label = shadow ? "Queue (trial)" : "Queue";
+  const tg = telegramFromEnv(process.env);
+  const report: string[] = [];
+  const settings = queueSettings(await readSettings(db));
+  const slots = settings.slots ?? parseSlots(process.env.FB_SLOTS);
+  const publishLead = postMode === "review" ? REVIEW_PUBLISH_LEAD_MS : 0;
+
+  let rows = await listPosts(db, { from: iso(now - HISTORY_MS), limit: 2000 });
+  const replace = (post: SocialPost) => (rows = rows.map((r) => (r.id === post.id ? post : r)));
+
+  // 1. The history file's posts the database doesn't have yet (in shadow, the old path posts; before the switch, the
+  // last ones it made). A draft or approved post holding the same slot gives way, marked dry.
+  const known = new Set(rows.map((r) => r.fbPostId).filter(Boolean));
+  for (const r of recentHistory(readHistory(), now)) {
+    if (!r.id || r.mode === "dry" || known.has(r.id)) continue;
+    const holder = r.slot ? rows.find((x) => x.slot === r.slot && HOLDING.includes(x.status) && x.status !== "posted") : undefined;
+    if (holder && ["draft", "approved", "skipped"].includes(holder.status)) {
+      replace(await updatePost(db, holder.id, holder.version, { status: "dry", note: `${holder.note ?? ""} · the old path posted this slot` }, "deploy", "superseded"));
+    }
+    const post = await insertPost(db, {
+      kind: r.kind,
+      content: contentOf(r),
+      status: "posted",
+      policy: "auto",
+      slot: r.slot ?? null,
+      scheduledAt: r.at,
+      link: r.link,
+      cards: [{ link: r.link, title: r.title, source: r.sourceId, sourceId: r.sourceId, section: r.category }],
+      record: r,
+      fbPostId: r.id,
+      decidedBy: "legacy",
+      decidedAt: r.at,
+      postedAt: r.at,
+      note: `posted the old way (${r.mode})`,
+    });
+    if (post) rows.push(post);
+  }
+
+  const countsDry = postMode === "dry" && !shadow;
+  const counted = () =>
+    rows.filter((r) => r.record && (COUNTED.includes(r.status) || (countsDry && r.status === "dry"))).map((r) => r.record!);
+  if (postMode !== "dry" && APP_TOKEN) {
+    await pageToken(pageId);
+    const records = counted();
+    const before = new Map(records.map((r) => [r, r.previewOk]));
+    await repairPreviews(records, now);
+    for (const row of rows) {
+      if (row.record && before.has(row.record) && row.record.previewOk !== before.get(row.record)) {
+        replace(await updatePost(db, row.id, row.version, { record: row.record }, "deploy", "preview"));
+      }
+    }
+  }
+
+  const picking = await loadPicking(now, await activeBlocks(db));
+  if (picking.blocks.keys.size || picking.blocks.outlets.size) report.push(`Blocks in force: ${picking.blocks.keys.size} story keys, ${picking.blocks.outlets.size} outlets`);
+
+  // 2. Drafts for the slots coming up.
+  for (const s of slotsToDraft(now, slots, settings.draftLeadMinutes * 60_000)) {
+    const slot = iso(s.at);
+    const current = rows.find((r) => r.slot === slot && HOLDING.includes(r.status));
+    if (current && (current.status !== "draft" || current.locked)) continue;
+    // Other open drafts count as posted, so two drafts never pick the same story.
+    const others = rows.filter((r) => r !== current && ["draft", "approved"].includes(r.status) && r.record).map((r) => r.record!);
+    const fields: Fields = { kind: "slot", at: slot, mode: postMode, slot };
+    const { plan, missing, why } = await compose(picking, s.content, s.at, fields, [...counted(), ...others]);
+    if (!plan) {
+      report.push(`${dhakaTime(s.at)} ${s.content}: ${missing ?? why ?? "nothing passes"}${current ? " (the draft stays)" : ""}`);
+      continue;
+    }
+    const problem = await planProblem(plan);
+    if (problem) {
+      report.push(`${dhakaTime(s.at)} ${s.content}: ${problem}${current ? " (the draft stays)" : ""}`);
+      continue;
+    }
+    const values = rowValues(plan);
+    if (!current) {
+      const post = await insertPost(db, { kind: "slot", status: "draft", policy: settings.slotPolicy, slot, scheduledAt: slot, ...values });
+      if (!post) continue;
+      rows.push(post);
+      report.push(`${dhakaTime(s.at)} ${s.content}: draft made (${post.id})`);
+      const id = tg && (await sendMessage(tg, draftText(post, shadow), { previewUrl: post.cards.length === 1 ? post.link : undefined }));
+      if (id) replace(await updatePost(db, post.id, post.version, { telegramMessageId: id }, "deploy", "telegram"));
+    } else if (!sameStories(current.record, values.record) || current.message !== values.message) {
+      const post = await updatePost(db, current.id, current.version, values, "deploy", "refresh");
+      replace(post);
+      report.push(`${dhakaTime(s.at)} ${s.content}: draft refreshed (${post.id})`);
+      if (tg) {
+        const text = draftText(post, shadow, true);
+        const edited = post.telegramMessageId && (await editMessage(tg, post.telegramMessageId, text));
+        if (!edited) {
+          const id = await sendMessage(tg, text, { silent: true });
+          if (id) replace(await updatePost(db, post.id, post.version, { telegramMessageId: id }, "deploy", "telegram"));
+        }
+      }
+    }
+  }
+
+  // 3. What is due goes out.
+  let published = false;
+  const publishRow = async (row: SocialPost): Promise<boolean> => {
+    let post: SocialPost;
+    try {
+      post = await updatePost(db, row.id, row.version, { status: "posting" }, "deploy", "claim");
+    } catch (err) {
+      if (err instanceof StaleError) return false; // changed in the admin meanwhile: the next run looks again
+      throw err;
+    }
+    replace(post);
+    const at = Date.parse(post.scheduledAt);
+    const sendAt = postMode === "review" ? Math.max(at, now + MIN_SCHEDULE_MS) : now;
+    let plan = planFromRow(post, postMode, sendAt);
+    if (postMode === "dry") {
+      replace(await updatePost(db, post.id, post.version, { status: "dry", record: plan.record, decidedBy: post.decidedBy ?? "auto" }, "deploy", "dry"));
+      planSummary(plan, "dry", sendAt, now, post.kind, label);
+      return true;
+    }
+    // A draft nobody touched is the picker's: if it no longer passes, a fresh pick replaces it. A person's isn't
+    // changed: it fails, and they are told.
+    const content = post.content === "custom" ? null : (post.content as PostContent);
+    const fields: Fields = { kind: post.kind === "slot" ? "slot" : "breaking", at: iso(sendAt), mode: postMode, ...(post.slot && { slot: post.slot }) };
+    const problem = await planProblem(plan);
+    if (problem && !post.locked && content) {
+      const fresh = await compose(picking, post.kind === "breaking" ? null : content, at, fields, counted());
+      plan = fresh.plan && !(await planProblem(fresh.plan)) ? fresh.plan : plan;
+    }
+    const still = await planProblem(plan);
+    if (!still && !post.locked && plan.params.child_attachments) {
+      const single: PostContent = content === "roundup" ? "video" : "news";
+      plan.fallback = async () => (await compose(picking, single, at, fields, counted())).plan;
+    }
+    lastError = still ?? "";
+    const sent = still ? null : await publish(plan, pageId, sendAt, now);
+    if (!sent) {
+      const failed = await updatePost(db, post.id, post.version, { status: "failed", error: lastError || "not posted" }, "deploy", "failed");
+      replace(failed);
+      report.push(`${dhakaTime(at)}: not posted — ${lastError}`);
+      if (tg) await sendMessage(tg, `⚠️ Not posted (${dhakaTime(at)}, ${CONTENT_LABEL[post.content] ?? post.content}): ${lastError}\nThe next run tries again until ${dhakaTime(at + MISSED_MS)}.\n${SITE}/admin/`);
+      return false;
+    }
+    const done = await updatePost(
+      db,
+      post.id,
+      post.version,
+      {
+        status: "posted",
+        ...rowValues(sent),
+        fbPostId: sent.record.id ?? null,
+        postedAt: iso(sendAt),
+        error: null,
+        decidedBy: post.decidedBy ?? "auto",
+        decidedAt: post.decidedAt ?? iso(now),
+      },
+      "deploy",
+      "posted",
+    );
+    replace(done);
+    planSummary(sent, postMode, sendAt, now, post.kind, label);
+    if (tg && post.kind === "breaking") await sendMessage(tg, `⚡ Breaking news posted (${dhakaTime(sendAt)}):\n${done.message}\n${done.link}\nTo take it down: ${SITE}/admin/`, { previewUrl: done.link });
+    return true;
+  };
+
+  for (const row of rows.filter((r) => ["draft", "approved", "failed"].includes(r.status)).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))) {
+    const action = queueAction(row, now, { publishLead, paused: settings.paused });
+    if (action === "miss") {
+      replace(await updatePost(db, row.id, row.version, { status: "skipped", note: `${row.note ?? ""} · missed: not out ${MISSED_MS / 60_000} minutes after its time${settings.paused ? " (paused)" : ""}` }, "deploy", "missed"));
+      report.push(`${dhakaTime(Date.parse(row.scheduledAt))}: skipped, missed`);
+    } else if (action === "hold") {
+      report.push(`${dhakaTime(Date.parse(row.scheduledAt))}: held (${settings.paused ? "posting paused" : "waits for approval"})`);
+    } else if (action === "publish") {
+      published = (await publishRow(row)) || published;
+    }
+  }
+
+  // 4. Breaking news, between the slots.
+  const slotSoon = slotTimes(now, slots).some((s) => Math.abs(s.at - now) < 45 * 60_000);
+  if (!published && !settings.paused && !slotSoon) {
+    const fields: Fields = { kind: "breaking", at: iso(now), mode: postMode };
+    const { plan } = await compose(picking, null, now, fields, counted());
+    if (plan && !(await planProblem(plan))) {
+      const policy = settings.breakingPolicy;
+      const scheduledAt = iso(policy === "auto" ? now : now + BREAKING_REVIEW_MS);
+      const post = await insertPost(db, { kind: "breaking", status: "draft", policy, scheduledAt, ...rowValues(plan) });
+      if (post) {
+        rows.push(post);
+        report.push(`breaking: ${post.message.split("\n")[0]} (${post.id})`);
+        if (policy === "auto") await publishRow(post);
+        else if (tg) {
+          const id = await sendMessage(tg, draftText(post, shadow), { previewUrl: post.link });
+          if (id) replace(await updatePost(db, post.id, post.version, { telegramMessageId: id }, "deploy", "telegram"));
+        }
+      }
+    }
+  }
+
+  // The old path's history file, kept in step from the database: switching FB_QUEUE off again loses nothing.
+  if (!dryRun) writeHistory(counted());
+  await recordRun(db, shadow ? "shadow" : postMode === "dry" ? "queue-dry" : "queue", true, report);
+  summary([`### ${label}`, "", ...(report.length ? report.map((l) => `- ${l}`) : ["- nothing to do"]), ""].join("\n"));
 }
 
 /** A time as Dhaka's clock reads it: "17:30". */
@@ -566,6 +976,9 @@ async function planProblem(plan: Plan): Promise<string | null> {
   return null;
 }
 
+/** Why the last post publish() tried wasn't made (for the queue's record of it). */
+let lastError = "";
+
 /** Makes the post (scheduled for `at` when that is ahead); its fallback if Facebook refuses it. Null: not posted. */
 async function publish(plan: Plan, pageId: string, at: number, now: number, fallingBack = false): Promise<Plan | null> {
   if (!fallingBack) await pageToken(pageId);
@@ -576,7 +989,8 @@ async function publish(plan: Plan, pageId: string, at: number, now: number, fall
     for (const link of plan.links) {
       const ok = await rescrape(link, single ? PREVIEW_TRIES : 1);
       if (single && ok === false) {
-        warn(`Not posted: ${link} would show the site's fallback card; the next run tries again.`);
+        lastError = `${link} would show the site's fallback card`;
+        warn(`Not posted: ${lastError}; the next run tries again.`);
         return null;
       }
       if (single && ok) plan.record.previewOk = true;
@@ -599,9 +1013,11 @@ async function publish(plan: Plan, pageId: string, at: number, now: number, fall
         warn(`Carousel not posted (${message}); posting a single ${plan.record.content === "headlines" ? "headline" : "video"} instead.`);
         return publish(fallback, pageId, at, now, true);
       }
+      lastError = `carousel refused (${message}), and no single post passes the checks${problem ? ` (${problem})` : ""}`;
       warn(`Carousel not posted (${message}), and no single post passes the checks${problem ? ` (${problem})` : ""}.`);
       return null;
     }
+    lastError = message;
     warn(`Not posted: ${message}`);
     return null;
   }

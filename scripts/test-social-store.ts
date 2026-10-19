@@ -22,6 +22,8 @@ import {
   writeSetting,
 } from "../src/lib/social-store";
 import type { PostRecord } from "../src/lib/page-posts";
+import { blockSets, MISSED_MS, queueAction, sameStories, slotsToDraft } from "../src/lib/social-queue";
+import { DEFAULT_SETTINGS, queueSettings } from "../src/lib/social-settings";
 
 type Sqlite = {
   DatabaseSync: new (file: string) => {
@@ -166,6 +168,61 @@ async function main() {
     assert.equal(before.length, 2);
     assert.deepEqual(before[0].value, story);
     assert.equal((await activeBlocks(db, "2026-10-21T00:00:00.000Z")).length, 1);
+  });
+
+  // The queue's rules (src/lib/social-queue.ts).
+  const t = Date.parse("2026-10-19T10:00:00.000Z"); // 16:00 Dhaka
+  const at = (min: number) => new Date(t + min * 60_000).toISOString();
+  const opts = { publishLead: 0, paused: false };
+
+  await test("a draft goes out at its time, not before; an hour late it is skipped", async () => {
+    const post = { status: "draft" as const, policy: "auto_unless_rejected" as const, scheduledAt: at(0) };
+    assert.equal(queueAction(post, t - 60_000, opts), "wait");
+    assert.equal(queueAction(post, t, opts), "publish");
+    assert.equal(queueAction(post, t + MISSED_MS - 60_000, opts), "publish");
+    assert.equal(queueAction(post, t + MISSED_MS + 60_000, opts), "miss");
+  });
+
+  await test("in review mode it goes 20 minutes ahead, scheduled", async () => {
+    const post = { status: "approved" as const, policy: "auto" as const, scheduledAt: at(0) };
+    assert.equal(queueAction(post, t - 25 * 60_000, { publishLead: 20 * 60_000, paused: false }), "wait");
+    assert.equal(queueAction(post, t - 20 * 60_000, { publishLead: 20 * 60_000, paused: false }), "publish");
+  });
+
+  await test("manual drafts and a paused queue hold; approval lets a manual one go", async () => {
+    assert.equal(queueAction({ status: "draft", policy: "manual", scheduledAt: at(0) }, t, opts), "hold");
+    assert.equal(queueAction({ status: "approved", policy: "manual", scheduledAt: at(0) }, t, opts), "publish");
+    assert.equal(queueAction({ status: "approved", policy: "auto", scheduledAt: at(0) }, t, { publishLead: 0, paused: true }), "hold");
+  });
+
+  await test("a slot's draft is due from the lead before it until it is missed", async () => {
+    const slots = [{ time: "16:00", content: "headlines" as const }, { time: "17:30", content: "video" as const }];
+    const lead = 60 * 60_000;
+    assert.deepEqual(slotsToDraft(t - 61 * 60_000, slots, lead), []);
+    assert.deepEqual(slotsToDraft(t - 60 * 60_000, slots, lead).map((s) => s.time), ["16:00"]);
+    assert.deepEqual(slotsToDraft(t + 31 * 60_000, slots, lead).map((s) => s.time), ["16:00", "17:30"]);
+    assert.deepEqual(slotsToDraft(t + MISSED_MS + 60_000, slots, lead).map((s) => s.time), ["17:30"]);
+  });
+
+  await test("blocks become sets; a story's keys decide sameness", async () => {
+    const b = blockSets([
+      { id: 1, type: "story", value: { keys: ["a", "b"], words: [] }, until: null, reason: null, postId: null },
+      { id: 2, type: "outlet", value: "jugantor", until: null, reason: null, postId: null },
+      { id: 3, type: "word", value: "রাশিফল", until: null, reason: null, postId: null },
+    ]);
+    assert.ok(b.keys.has("b") && b.outlets.has("jugantor"));
+    assert.ok(b.hasWord("আজকের রাশিফল") && !b.hasWord("বন্যা"));
+    assert.ok(sameStories({ keys: ["x", "y"] }, { keys: ["y", "x"] }));
+    assert.ok(!sameStories({ keys: ["x"] }, { keys: ["x", "y"] }));
+  });
+
+  await test("settings fall back to the defaults when missing or malformed", async () => {
+    assert.deepEqual(queueSettings({}), DEFAULT_SETTINGS);
+    const s = queueSettings({ paused: true, slotPolicy: "manual", draftLeadMinutes: 5, slots: [{ time: "08:00", content: "video" }, { time: "25:00", content: "video" }] });
+    assert.equal(s.paused, true);
+    assert.equal(s.slotPolicy, "manual");
+    assert.equal(s.draftLeadMinutes, 60);
+    assert.deepEqual(s.slots, [{ time: "08:00", content: "video" }]);
   });
 
   console.log(`\n${passed} passed`);
