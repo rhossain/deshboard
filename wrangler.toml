@@ -1,0 +1,27 @@
+# The Cloudflare Pages project (bartaboard.com), as `wrangler pages deploy out` in .github/workflows/deploy.yml
+# reads it: with this file present, the bindings below replace whatever the dashboard holds for production, so
+# every binding the Functions use must be listed here — SHARES (functions/s) included, not only the admin's.
+# Secrets (FB_PAGE_TOKEN, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET) are not in this file: `wrangler pages secret
+# put` sets them on the project (the ops workflow's pages-secrets task); .dev.vars holds them for `wrangler pages dev`.
+name = "bartaboard"
+pages_build_output_dir = "out"
+# The date the project ran on before this file existed; moving it forward is a deliberate change.
+compatibility_date = "2026-10-09"
+
+[vars]
+# The admin's door (functions/api/admin/_middleware.ts): the Zero Trust team and the Access application's
+# audience tag, as the ops workflow's access-setup task printed them.
+CF_ACCESS_TEAM_DOMAIN = "bartaboard.cloudflareaccess.com"
+CF_ACCESS_AUD = "8e122ca7cbfff74a112d350d65d71d88895ef7798db72221b36a42c91a64bf9b"
+
+# Shared links resolved before, kept for good (functions/s/[[path]].ts, docs/services.md).
+[[kv_namespaces]]
+binding = "SHARES"
+id = "e1855050cd614d5f96c4ef2b4f26663d"
+
+# The social posting queue, settings, audit log and insights (docs/admin.md). Schema: migrations/.
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "bartaboard-social"
+database_id = "58d9cd98-4f59-4182-8ceb-ca0e12536145"
+migrations_dir = "migrations"
