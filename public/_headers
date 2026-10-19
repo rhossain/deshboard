@@ -35,3 +35,11 @@
 # search to read, not pages for search engines.
 /data/*
   X-Robots-Tag: noindex
+
+# The admin (src/app/admin, functions/api/admin) sits behind Cloudflare Access: never indexed, never cached.
+/admin/*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+/api/admin/*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
