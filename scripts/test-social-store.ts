@@ -24,6 +24,8 @@ import {
 import type { PostRecord } from "../src/lib/page-posts";
 import { blockSets, MISSED_MS, queueAction, sameStories, slotsToDraft } from "../src/lib/social-queue";
 import { DEFAULT_SETTINGS, queueSettings } from "../src/lib/social-settings";
+import { ActionError, approve, createManual, edit, postNow, reject, reopen, skip } from "../src/lib/social-actions";
+import { getPost, recordRun } from "../src/lib/social-store";
 
 type Sqlite = {
   DatabaseSync: new (file: string) => {
@@ -223,6 +225,71 @@ async function main() {
     assert.equal(s.slotPolicy, "manual");
     assert.equal(s.draftLeadMinutes, 60);
     assert.deepEqual(s.slots, [{ time: "08:00", content: "video" }]);
+  });
+
+  // What a person can do (src/lib/social-actions.ts).
+  const ctx = { db, actor: "panel:a@b", fb: null };
+  const slot2 = "2026-10-19T13:00:00.000Z";
+  const carousel = await insertPost(db, {
+    kind: "slot",
+    content: "headlines",
+    status: "draft",
+    slot: slot2,
+    scheduledAt: slot2,
+    message: "রাতের শীর্ষ ৫ খবর",
+    params: { message: "রাতের শীর্ষ ৫ খবর", link: "https://bartaboard.com/bn/", child_attachments: JSON.stringify([{ link: "a" }, { link: "b" }, { link: "c" }]) },
+    cards: [{ link: "a", title: "A", source: "x" }, { link: "b", title: "B", source: "y" }, { link: "c", title: "C", source: "z" }],
+    record: { ...record, slot: slot2, at: slot2, keys: ["s1", "s2"], words: ["নির্বাচন"], sourceId: "jugantor", category: "politics" },
+  });
+
+  await test("an edit changes the text and the order, and locks the draft", async () => {
+    const e = await edit(ctx, carousel!.id, 1, { message: "  নতুন লেখা  ", order: [2, 0, 1] });
+    assert.equal(e.message, "নতুন লেখা");
+    assert.equal(e.params.message, "নতুন লেখা");
+    assert.deepEqual(e.cards.map((c) => c.title), ["C", "A", "B"]);
+    assert.deepEqual(JSON.parse(e.params.child_attachments).map((c: { link: string }) => c.link), ["c", "a", "b"]);
+    assert.ok(e.locked && e.edited);
+    await assert.rejects(edit(ctx, carousel!.id, e.version, { order: [0, 0, 1] }), ActionError);
+    await assert.rejects(edit(ctx, carousel!.id, e.version, { message: "   " }), ActionError);
+  });
+
+  await test("an action against an old version is refused with the post as it is now", async () => {
+    await assert.rejects(approve(ctx, carousel!.id, 1), (err: ActionError) => err.status === 409 && err.post?.version === 2);
+  });
+
+  await test("a rejection blocks the story (and the outlet and section when asked) for a while", async () => {
+    const r = await reject(ctx, carousel!.id, 2, { reason: "not today", scopes: ["story", "outlet", "section"], hours: 6 });
+    assert.equal(r.status, "rejected");
+    const now = new Date().toISOString();
+    const blocks = (await activeBlocks(db, now)).filter((b) => b.postId === carousel!.id);
+    assert.deepEqual(blocks.map((b) => b.type).sort(), ["outlet", "section", "story"]);
+    assert.deepEqual(blocks.find((b) => b.type === "story")!.value, { keys: ["s1", "s2"], words: ["নির্বাচন"] });
+    assert.equal((await activeBlocks(db, new Date(Date.now() + 7 * 3600_000).toISOString())).filter((b) => b.postId === carousel!.id).length, 0);
+  });
+
+  await test("reopen undoes a rejection, and the picker may refresh it again", async () => {
+    const o = await reopen(ctx, carousel!.id, 3);
+    assert.equal(o.status, "draft");
+    assert.equal(o.locked, false);
+    const sk = await skip(ctx, carousel!.id, o.version);
+    assert.equal(sk.status, "skipped");
+  });
+
+  await test("a post of one's own is approved for its time; a bad link or empty text is refused", async () => {
+    const m = await createManual(ctx, { message: "Bartaboard-এ এখন ভিডিও", link: "https://bartaboard.com/bn/videos/" });
+    assert.equal(m.status, "approved");
+    assert.equal(m.content, "custom");
+    assert.equal(m.params.link, "https://bartaboard.com/bn/videos/");
+    await assert.rejects(createManual(ctx, { message: "x", link: "javascript:alert(1)" }), ActionError);
+    await assert.rejects(createManual(ctx, { message: " " }), ActionError);
+  });
+
+  await test("posting now is refused while the queue is on trial, and without Facebook", async () => {
+    const m = await createManual(ctx, { message: "test" });
+    await assert.rejects(postNow(ctx, m.id, 1), (err: ActionError) => err.status === 503);
+    await recordRun(db, "shadow", true, []);
+    await assert.rejects(postNow({ ...ctx, fb: { token: "t", pageId: "1" } }, m.id, 1), (err: ActionError) => err.status === 409);
+    assert.equal((await getPost(db, m.id))!.status, "approved");
   });
 
   console.log(`\n${passed} passed`);

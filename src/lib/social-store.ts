@@ -52,6 +52,8 @@ export interface SocialPost {
   decidedBy: string | null;
   decidedAt: string | null;
   postedAt: string | null;
+  /** Taken down from the Page from the admin. */
+  removedAt: string | null;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -119,6 +121,7 @@ interface PostRow {
   decided_by: string | null;
   decided_at: string | null;
   posted_at: string | null;
+  removed_at: string | null;
   created_at: string;
   updated_at: string;
   version: number;
@@ -158,6 +161,7 @@ function fromRow(r: PostRow): SocialPost {
     decidedBy: r.decided_by,
     decidedAt: r.decided_at,
     postedAt: r.posted_at,
+    removedAt: r.removed_at ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     version: r.version,
@@ -188,6 +192,7 @@ const COLUMNS: Record<keyof Omit<SocialPost, "id" | "version" | "createdAt" | "u
   decidedBy: ["decided_by", (v: string | null) => v],
   decidedAt: ["decided_at", (v: string | null) => v],
   postedAt: ["posted_at", (v: string | null) => v],
+  removedAt: ["removed_at", (v: string | null) => v],
 };
 
 type Fields = Partial<Omit<SocialPost, "id" | "version" | "createdAt" | "updatedAt">>;

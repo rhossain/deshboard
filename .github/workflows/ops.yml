@@ -22,7 +22,7 @@ on:
           - d1-query          # runs one SQL statement (arg) on the remote database and reports the rows
           - d1-import-history # copies the Page's posting history (.social/facebook.json, from the deploy's cache) into D1
           - access-setup      # the Zero Trust organisation (arg: team name), the /admin application and its policy
-          - pages-secrets     # copies FB_PAGE_TOKEN, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET to the Pages project
+          - pages-secrets     # copies FB_PAGE_TOKEN, FB_APP_SECRET, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET to the Pages project
           - telegram-chat-id  # who has messaged the bot (their chat ids), to set TELEGRAM_ADMIN_CHAT_ID
           - telegram-webhook  # points the bot at https://bartaboard.com/api/telegram
           - telegram-test     # the bot sends TELEGRAM_ADMIN_CHAT_ID a test message
@@ -206,10 +206,11 @@ jobs:
         if: inputs.task == 'pages-secrets'
         env:
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
         run: |
-          for name in FB_PAGE_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET; do
+          for name in FB_PAGE_TOKEN FB_APP_SECRET TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET; do
             value=${!name}
             if [ -z "$value" ]; then echo "::warning::$name is not set as a repository secret; skipped"; continue; fi
             printf '%s' "$value" | $WRANGLER pages secret put "$name" --project-name "$PROJECT"

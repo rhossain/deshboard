@@ -13,6 +13,7 @@
  *
  * CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD come from wrangler.toml ([vars]); without them every request is refused.
  */
+import type { AdminBindings } from "../../../src/lib/admin-api";
 
 export interface AdminEnv {
   /** The Zero Trust team domain, e.g. bartaboard.cloudflareaccess.com. */
@@ -26,6 +27,10 @@ export interface AdminEnv {
 export type AdminData = Record<string, unknown> & {
   admin: { email: string; sub: string };
 };
+
+/** The admin API's whole environment (the door's, the database's, Facebook's, Telegram's), and its handlers' type. */
+export type Env = AdminEnv & AdminBindings & { SOCIAL_DB: D1Database };
+export type Handler = PagesFunction<Env, string, AdminData>;
 
 interface Jwk extends JsonWebKey {
   kid: string;
@@ -123,6 +128,12 @@ function tokenFrom(request: Request): string | null {
 
 export const onRequest: PagesFunction<AdminEnv, string, AdminData> = async (context) => {
   const { request, env } = context;
+  // Changes only from the admin's own pages: another site can't have a signed-in browser send them.
+  if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+    const origin = request.headers.get("origin");
+    if (origin !== new URL(request.url).origin) return json({ error: "changes are accepted from the admin's own pages only" }, 403);
+  }
+
   const team = env.CF_ACCESS_TEAM_DOMAIN?.trim();
   const aud = env.CF_ACCESS_AUD?.trim();
   if (!team || !aud) return json({ error: "admin not configured" }, 503);

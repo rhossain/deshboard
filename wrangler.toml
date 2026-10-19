@@ -13,6 +13,11 @@ compatibility_date = "2026-10-09"
 # audience tag, as the ops workflow's access-setup task printed them.
 CF_ACCESS_TEAM_DOMAIN = "bartaboard.cloudflareaccess.com"
 CF_ACCESS_AUD = "8e122ca7cbfff74a112d350d65d71d88895ef7798db72221b36a42c91a64bf9b"
+# The Page and app the admin posts with (public ids; the token and app secret are Pages secrets), and the admin's
+# Telegram chat (src/lib/telegram.ts).
+FB_PAGE_ID = "1414747398381291"
+FB_APP_ID = "1100272322867711"
+TELEGRAM_ADMIN_CHAT_ID = "8965352716"
 
 # Shared links resolved before, kept for good (functions/s/[[path]].ts, docs/services.md).
 [[kv_namespaces]]
