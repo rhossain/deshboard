@@ -14,7 +14,8 @@ Anyone can read, clone and fork the code. Nobody but the owner can change it:
 | Do pull requests from forks see secrets? | No. CI (`ci.yml`) runs on them without secrets, and a first-time contributor's run waits for approval |
 | Can a stranger start the deploy? | No. `deploy.yml` starts only by `workflow_dispatch`, which needs write access |
 | What can the workflow token do? | Read only (default workflow permissions: read) |
-| Where do the keys live? | In GitHub's encrypted secrets (`CLOUDFLARE_API_TOKEN`, `YOUTUBE_API_KEY`), never in the code |
+| Where do the keys live? | In GitHub's encrypted secrets (`CLOUDFLARE_API_TOKEN`, `YOUTUBE_API_KEY`, and the admin's: see [admin.md](admin.md#secrets-and-settings)) and Cloudflare Pages secrets, never in the code |
+| Can a stranger use the admin? | No. Cloudflare Access lets one address in; the API checks Access's token itself; the Telegram webhook needs its secret and the owner's chat |
 
 ### Secret check (14 October 2026)
 

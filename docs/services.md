@@ -15,6 +15,9 @@ those stay in the dashboards and in GitHub's encrypted secrets. Last checked 10 
 | Hostinger | — | Domain registrar; serves the old deshboard.rshossain.me address, which redirects here |
 | Google Search Console | rshossain.bd@gmail.com | Indexing, sitemap, search queries |
 | Bing Webmaster Tools | rshossain.bd@gmail.com (signed in with Google) | Indexing on Bing, DuckDuckGo and the AI assistants' search |
+| Cloudflare Zero Trust | rshossain.bd@gmail.com (team `bartaboard`) | The sign-in in front of the admin ([admin.md](admin.md)) |
+| Cloudflare D1 | rshossain.bd@gmail.com | The admin's database: the Page's post queue and history |
+| Telegram | @bartaboard_bot (BotFather, on the owner's phone) | Drafts to review, alerts, /status, /pause |
 
 ## Cloudflare
 
@@ -33,6 +36,14 @@ and styloviz project; leave them alone.
     remembered for good on its first open (a preview crawler opens it within seconds of sharing), so it keeps its
     preview after it leaves the 30-day share index. Without it, the function remembers links in the edge cache for
     a day. Free plan: 100,000 reads and 1,000 writes a day; one write per newly shared headline.
+- **D1 database `bartaboard-social`** (id `58d9cd98-…`, APAC), bound as `SOCIAL_DB` in `wrangler.toml`: the admin's
+  posts, blocks, settings, audit log and runs ([admin.md](admin.md)). Schema in `migrations/`, applied with the ops
+  workflow's `d1-migrate`. Free plan: 5 GB, 5 million reads and 100,000 writes a day; the queue uses a few hundred.
+  With `wrangler.toml` in the repo, `wrangler pages deploy` sets the project's production bindings and plain
+  variables from it: every binding the Functions use (SHARES included) must be listed there.
+- **Zero Trust** (team `bartaboard.cloudflareaccess.com`, Free plan up to 50 users): one Access application,
+  "Bartaboard admin", on `bartaboard.com/admin` and `bartaboard.com/api/admin`, policy "Owner only" (one email),
+  login by one-time email code, 24-hour sessions. Set up by the ops workflow's `access-setup`.
 - **Web Analytics** (Analytics & Logs → Web Analytics): site `bartaboard.com`, no cookies. The beacon is in the
   page itself (`ANALYTICS_TOKEN` in `src/lib/site.ts`, loaded only when `SITE_URL` is `https://bartaboard.com`);
   Manage site is set to **Enable with JS Snippet installation**: "Disable" refuses the beacon's reports (CORS errors in
@@ -143,7 +154,16 @@ See `docs/seo.md` for the plan these belong to.
   includeSubDomains off (the DNS-only Resend and Hostinger mail records are other services), preload off, No-Sniff left
   to `public/_headers`. Turning HSTS off only takes effect once browsers' 6 months run out.
 
+## Telegram
+
+The bot @bartaboard_bot was made with BotFather on the owner's phone; its token is the `TELEGRAM_BOT_TOKEN` secret (GitHub
+and Pages). Its webhook is `https://bartaboard.com/api/telegram` with a secret header (`TELEGRAM_WEBHOOK_SECRET`), set
+by the ops workflow's `telegram-webhook`; it answers only the owner's chat (`TELEGRAM_ADMIN_CHAT_ID`). To replace the
+token: BotFather → /revoke, then update both secrets (`pages-secrets`) and rerun `telegram-webhook`.
+
 ## When something breaks
+
+- **The admin or its Telegram bot**: see [admin.md](admin.md#when-something-breaks).
 
 - **Sign-in code email doesn't arrive**: Resend → Emails (delivered or bounced?), then the spam folder, then Supabase →
   Logs → Auth (rate limit hit?).

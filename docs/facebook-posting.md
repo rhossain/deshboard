@@ -7,6 +7,7 @@ works. Paid ads are a different plan: [promotion.md](promotion.md).
 
 - What to post: `src/lib/page-posts.ts` (headlines, and when), `src/lib/page-video-posts.ts` (videos)
 - Posting it: `scripts/post-facebook.ts`, run by `.github/workflows/deploy.yml` (step "Post to the Facebook Page")
+- Reviewing it first: the admin and its Telegram bot, [admin.md](admin.md) (`FB_QUEUE`)
 
 ## What gets posted
 
