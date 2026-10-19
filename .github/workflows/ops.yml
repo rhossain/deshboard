@@ -25,6 +25,8 @@ on:
           - pages-secrets     # copies FB_PAGE_TOKEN, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET to the Pages project
           - telegram-chat-id  # who has messaged the bot (their chat ids), to set TELEGRAM_ADMIN_CHAT_ID
           - telegram-webhook  # points the bot at https://bartaboard.com/api/telegram
+          - telegram-test     # the bot sends TELEGRAM_ADMIN_CHAT_ID a test message
+          - d1-token-check    # SOCIAL_DB_TOKEN (the deploy's D1-only token) can read the database through the API
           - fb-token-check    # whose token FB_PAGE_TOKEN is, its scopes and expiry
       arg:
         description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard; d1-query: the SQL)"
@@ -240,6 +242,26 @@ jobs:
             --data-urlencode "drop_pending_updates=true" | jq '{ok, description}'
           curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo" \
             | jq '.result | {url, pending_update_count, last_error_date, last_error_message}' | tee -a "$REPORT"
+
+      - name: telegram-test
+        if: inputs.task == 'telegram-test'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
+          TEXT: ${{ inputs.arg || 'Bartaboard admin: the bot can reach you. Drafts to review will arrive here.' }}
+        run: |
+          curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$CHAT" --data-urlencode "text=$TEXT" \
+            | jq -c '{ok, message_id: .result.message_id, error: .description}' | tee -a "$REPORT"
+
+      - name: d1-token-check
+        if: inputs.task == 'd1-token-check'
+        env:
+          SOCIAL_DB_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
+        run: |
+          db=$(grep -A3 'binding = "SOCIAL_DB"' wrangler.toml | sed -n 's/.*database_id = "\(.*\)"/\1/p')
+          curl -sS -X POST "$CF_API/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$db/query" -H "Authorization: Bearer $SOCIAL_DB_TOKEN" \
+            -H 'Content-Type: application/json' --data '{"sql": "SELECT count(*) AS posts FROM posts"}' \
+            | jq -c '{success, rows: .result[0].results, errors}' | tee -a "$REPORT"
 
       - name: fb-token-check
         if: inputs.task == 'fb-token-check'
