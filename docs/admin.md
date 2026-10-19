@@ -85,7 +85,12 @@ Cloudflare Access (Zero Trust team `bartaboard.cloudflareaccess.com`, applicatio
 `bartaboard.com/admin` and `bartaboard.com/api/admin`. Its policy allows one address, `rshossain.bd@gmail.com`, which
 signs in with a one-time code sent by email; the session lasts 24 hours. To let someone else in, add their address to
 the policy (Zero Trust → Access → Applications → Bartaboard admin → Policies), or set `ADMIN_EMAIL` and rerun
-`access-setup`. The API checks the Access token itself as well, so it stays closed even if the application were removed.
+`access-setup`. The API checks the Access token itself as well, and admits only the addresses in `ADMIN_EMAILS` (`wrangler.toml`),
+so it stays closed even if the application or its policy were changed by mistake.
+
+The sign-in page takes any address but sends a code only to an allowed one; for any other it looks the same and sends
+nothing, so the page never reveals which address is the owner's. Its header and footer say that only the owner is
+authorized (ops task `access-login-page`; Zero Trust → Settings → Custom pages → Login page).
 
 `/api/telegram` is outside Access: it accepts only requests carrying the webhook's secret
 (`X-Telegram-Bot-Api-Secret-Token`), and acts only for the admin's own chat (`TELEGRAM_ADMIN_CHAT_ID`).
