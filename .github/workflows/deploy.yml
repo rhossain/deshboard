@@ -123,3 +123,22 @@ jobs:
         with:
           path: .social
           key: facebook-posts-${{ github.run_id }}
+      # The admin's database (docs/admin.md), exported once a day (the run between 03:00 and 03:15 Dhaka) and kept 30
+      # days as this run's artifact "social-db": rows a bad change lost can be read back from it.
+      - name: Back up the admin's database
+        id: backup
+        if: vars.FB_QUEUE != ''
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ "$(TZ=Asia/Dhaka date +%H)" != "03" ] || [ "$(TZ=Asia/Dhaka date +%M)" -ge 15 ]; then echo "not the backup run"; exit 0; fi
+          npx --yes wrangler@4.20.0 d1 export bartaboard-social --remote --output "social-db-$(date -u +%Y%m%d).sql"
+          echo "made=true" >> "$GITHUB_OUTPUT"
+      - if: steps.backup.outputs.made == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: social-db
+          path: social-db-*.sql
+          retention-days: 30
