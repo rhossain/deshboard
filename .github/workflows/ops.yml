@@ -1,0 +1,221 @@
+name: Ops
+
+# One-off setup and maintenance steps for the admin (docs/admin.md), run by hand from GitHub's API or the Actions
+# tab. They run here, not on a laptop, because the laptop's shells can't reach Cloudflare, Telegram or Facebook:
+#   gh workflow run ops.yml --ref static-export -f task=whoami
+# Each task is one step below. Secrets never reach the log: wrangler and curl print ids and names only.
+#
+# Secrets: CLOUDFLARE_OPS_TOKEN (D1 Edit, Pages Edit, Access: Apps and Policies Edit, Access: Organizations Edit,
+# Workers KV Read, Account Settings Read, Zone Read), FB_PAGE_TOKEN, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET.
+# Variables: CLOUDFLARE_ACCOUNT_ID (shared with deploy.yml), ADMIN_EMAIL (who may open /admin).
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: What to do
+        required: true
+        type: choice
+        options:
+          - whoami            # the token's account, KV namespaces, Pages projects and the bartaboard project's bindings
+          - d1-create         # the D1 database bartaboard-social (prints its id for wrangler.toml); does nothing if it exists
+          - d1-migrate        # applies migrations/ to the remote database (wrangler.toml)
+          - access-setup      # the Zero Trust organisation (arg: team name), the /admin application and its policy
+          - pages-secrets     # copies FB_PAGE_TOKEN, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET to the Pages project
+          - telegram-chat-id  # who has messaged the bot (their chat ids), to set TELEGRAM_ADMIN_CHAT_ID
+          - telegram-webhook  # points the bot at https://bartaboard.com/api/telegram
+          - fb-token-check    # whose token FB_PAGE_TOKEN is, its scopes and expiry
+      arg:
+        description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard)"
+        required: false
+        type: string
+
+concurrency:
+  group: ops
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ops:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_OPS_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CF_API: https://api.cloudflare.com/client/v4
+      WRANGLER: npx --yes wrangler@4.20.0
+      PROJECT: bartaboard
+      D1_NAME: bartaboard-social
+      SITE: https://bartaboard.com
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      # curl against Cloudflare's API, failing the step on an API error (and printing the errors, never the token).
+      - name: Prepare
+        run: |
+          cat > "$RUNNER_TEMP/cf" <<'SH'
+          #!/usr/bin/env bash
+          # cf METHOD PATH [JSON]   → prints the "result" of the response
+          set -euo pipefail
+          method=$1; path=$2; body=${3:-}
+          if [ -n "$body" ]; then
+            out=$(curl -sS -X "$method" "$CF_API$path" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' --data "$body")
+          else
+            out=$(curl -sS -X "$method" "$CF_API$path" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+          fi
+          if [ "$(echo "$out" | jq -r '.success')" != "true" ]; then
+            echo "::error::$method $path failed: $(echo "$out" | jq -c '.errors')" >&2
+            exit 1
+          fi
+          echo "$out" | jq '.result'
+          SH
+          chmod +x "$RUNNER_TEMP/cf"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: whoami
+        if: inputs.task == 'whoami'
+        run: |
+          $WRANGLER whoami
+          echo "## KV namespaces" >> "$GITHUB_STEP_SUMMARY"
+          $WRANGLER kv namespace list | jq -r '.[] | "- \(.title): `\(.id)`"' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "## D1 databases" >> "$GITHUB_STEP_SUMMARY"
+          $WRANGLER d1 list --json | jq -r '.[] | "- \(.name): `\(.uuid)`"' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "## Pages project $PROJECT (production bindings)" >> "$GITHUB_STEP_SUMMARY"
+          cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT" \
+            | jq '{domains, production_branch, config: (.deployment_configs.production | {kv_namespaces, d1_databases, env_vars: ((.env_vars // {}) | with_entries(.value = (.value.type // "plain_text")))})}' \
+            | sed 's/^/    /' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: d1-create
+        if: inputs.task == 'd1-create'
+        run: |
+          existing=$($WRANGLER d1 list --json | jq -r --arg n "$D1_NAME" '.[] | select(.name == $n) | .uuid')
+          if [ -n "$existing" ]; then
+            echo "$D1_NAME exists: $existing" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            $WRANGLER d1 create "$D1_NAME" --location apac | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: d1-migrate
+        if: inputs.task == 'd1-migrate'
+        run: |
+          $WRANGLER d1 migrations list "$D1_NAME" --remote
+          $WRANGLER d1 migrations apply "$D1_NAME" --remote | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The Zero Trust organisation (team) is created once, named by `arg`, with the one-time-PIN login Cloudflare
+      # turns on by default: the admin signs in with a code sent to ADMIN_EMAIL. The application covers /admin and
+      # /api/admin; its policy allows that one address. Running again changes nothing that already exists, and
+      # prints the team domain and the application's audience tag for wrangler.toml ([vars] CF_ACCESS_TEAM_DOMAIN
+      # and CF_ACCESS_AUD): the middleware checks every request's token against them.
+      - name: access-setup
+        if: inputs.task == 'access-setup'
+        env:
+          ADMIN_EMAIL: ${{ vars.ADMIN_EMAIL }}
+          TEAM: ${{ inputs.arg }}
+        run: |
+          [ -n "$ADMIN_EMAIL" ] || { echo "::error::set the ADMIN_EMAIL repository variable first"; exit 1; }
+          org=$(cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/organizations" || true)
+          domain=$(echo "$org" | jq -r '.auth_domain // empty')
+          if [ -z "$domain" ]; then
+            [ -n "$TEAM" ] || { echo "::error::no Zero Trust organisation yet: run again with arg = the team name to create (e.g. bartaboard)"; exit 1; }
+            org=$(cf POST "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/organizations" \
+              "$(jq -nc --arg name "$TEAM" --arg d "$TEAM.cloudflareaccess.com" '{name: $name, auth_domain: $d, is_ui_read_only: false}')")
+            domain=$(echo "$org" | jq -r '.auth_domain')
+          fi
+          echo "team domain: $domain" | tee -a "$GITHUB_STEP_SUMMARY"
+
+          apps=$(cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/apps?per_page=100")
+          app=$(echo "$apps" | jq -c '.[] | select(.name == "Bartaboard admin")')
+          if [ -z "$app" ]; then
+            app=$(cf POST "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/apps" '{
+              "name": "Bartaboard admin",
+              "type": "self_hosted",
+              "domain": "bartaboard.com/admin",
+              "self_hosted_domains": ["bartaboard.com/admin", "bartaboard.com/api/admin"],
+              "session_duration": "24h",
+              "app_launcher_visible": false,
+              "auto_redirect_to_identity": false,
+              "http_only_cookie_attribute": true,
+              "same_site_cookie_attribute": "lax",
+              "enable_binding_cookie": false,
+              "skip_interstitial": true
+            }')
+            echo "created the application" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          app_id=$(echo "$app" | jq -r '.id'); aud=$(echo "$app" | jq -r '.aud')
+
+          policies=$(cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/apps/$app_id/policies")
+          if [ "$(echo "$policies" | jq 'length')" = "0" ]; then
+            cf POST "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/apps/$app_id/policies" \
+              "$(jq -nc --arg e "$ADMIN_EMAIL" '{name: "Owner only", decision: "allow", precedence: 1, include: [{email: {email: $e}}]}')" > /dev/null
+            echo "created the policy: allow $ADMIN_EMAIL" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "policies: $(echo "$policies" | jq -c '[.[] | {name, decision, include}]')" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          {
+            echo "## wrangler.toml"
+            echo '```toml'
+            echo '[vars]'
+            echo "CF_ACCESS_TEAM_DOMAIN = \"$domain\""
+            echo "CF_ACCESS_AUD = \"$aud\""
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: pages-secrets
+        if: inputs.task == 'pages-secrets'
+        env:
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+        run: |
+          for name in FB_PAGE_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET; do
+            value=${!name}
+            if [ -z "$value" ]; then echo "::warning::$name is not set as a repository secret; skipped"; continue; fi
+            printf '%s' "$value" | $WRANGLER pages secret put "$name" --project-name "$PROJECT"
+            echo "- $name set" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          $WRANGLER pages secret list --project-name "$PROJECT"
+
+      - name: telegram-chat-id
+        if: inputs.task == 'telegram-chat-id'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          me=$(curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getMe")
+          echo "bot: $(echo "$me" | jq -r '.result | "@\(.username) (\(.first_name))"')" | tee -a "$GITHUB_STEP_SUMMARY"
+          # getUpdates only answers while no webhook is set; the chats that wrote to the bot, newest last.
+          curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getUpdates" \
+            | jq -r '.result[] | .message // .my_chat_member // empty | .chat | "- chat id `\(.id)` (\(.type)): \(.first_name // .title // "") \(.last_name // "") @\(.username // "-")"' \
+            | sort -u | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: telegram-webhook
+        if: inputs.task == 'telegram-webhook'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+        run: |
+          curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+            --data-urlencode "url=$SITE/api/telegram" \
+            --data-urlencode "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
+            --data-urlencode 'allowed_updates=["message","callback_query"]' \
+            --data-urlencode "drop_pending_updates=true" | jq '{ok, description}'
+          curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo" \
+            | jq '.result | {url, pending_update_count, last_error_date, last_error_message}' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: fb-token-check
+        if: inputs.task == 'fb-token-check'
+        env:
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID }}
+        run: |
+          G=https://graph.facebook.com/v23.0
+          echo "token holder: $(curl -sS "$G/me?fields=id,name&access_token=$FB_PAGE_TOKEN" | jq -c '{id, name, error: .error.message}')" | tee -a "$GITHUB_STEP_SUMMARY"
+          curl -sS "$G/debug_token?input_token=$FB_PAGE_TOKEN&access_token=$FB_PAGE_TOKEN" \
+            | jq '.data | {type, app_id, is_valid, expires_at: (if .expires_at == 0 then "never" else (.expires_at | todate) end), data_access_expires_at: (.data_access_expires_at // 0 | if . == 0 then "never" else todate end), scopes, error: .error.message}' \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -n "$FB_PAGE_ID" ]; then
+            echo "page: $(curl -sS "$G/$FB_PAGE_ID?fields=id,name,fan_count&access_token=$FB_PAGE_TOKEN" | jq -c '{id, name, fan_count, error: .error.message}')" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
