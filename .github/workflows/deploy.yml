@@ -111,6 +111,13 @@ jobs:
           FB_APP_ID: ${{ vars.FB_APP_ID }}
           FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
           FB_SLOTS: ${{ vars.FB_SLOTS }}
+          # The review queue (docs/admin.md): FB_QUEUE off (or unset), shadow (the queue runs dry beside the old path) or
+          # on; it reaches the admin's database with the D1-only SOCIAL_DB_TOKEN, and sends drafts to the admin's Telegram.
+          FB_QUEUE: ${{ vars.FB_QUEUE }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          SOCIAL_DB_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
       - if: contains(fromJSON('["dry","review","on"]'), vars.FB_POSTING)
         uses: actions/cache/save@v4
         with:
