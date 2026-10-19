@@ -88,7 +88,7 @@ jobs:
           $WRANGLER d1 list --json | jq -r '.[] | "- \(.name): `\(.uuid)`"' | tee -a "$REPORT"
           echo "## Pages project $PROJECT (production bindings)" >> "$REPORT"
           cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT" \
-            | jq '{domains, production_branch, config: (.deployment_configs.production | {kv_namespaces, d1_databases, env_vars: ((.env_vars // {}) | with_entries(.value = (.value.type // "plain_text")))})}' \
+            | jq '{domains, production_branch, config: (.deployment_configs.production | {compatibility_date, compatibility_flags, kv_namespaces, d1_databases, env_vars: ((.env_vars // {}) | with_entries(.value = (.value.type // "plain_text")))})}' \
             | sed 's/^/    /' | tee -a "$REPORT"
 
       - name: d1-create
