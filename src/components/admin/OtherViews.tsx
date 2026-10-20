@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, CONTENT_LABEL, dhakaDate, dhakaTime, type Block, type Health, POLICY_LABEL, type Policy, type QueueSettings, type Slot, type SocialPost } from "./api";
+import { IG_DEFAULT_TIMES } from "@/lib/instagram-post";
 import { StatusBadge } from "./PostCard";
 
 const btn = "h-9 rounded-full border border-line px-3.5 text-[13px] font-semibold transition hover:bg-surface-2 active:scale-95 disabled:opacity-50";
@@ -60,16 +61,25 @@ export function HistoryView({ onError }: { onError: (m: string) => void }) {
             <span className="w-24 shrink-0 text-xs tabular-nums text-muted">
               {dhakaDate(p.scheduledAt)} {dhakaTime(p.scheduledAt)}
             </span>
-            <span className="w-20 shrink-0 text-xs font-semibold">{CONTENT_LABEL[p.content] ?? p.content}</span>
+            <span className="w-20 shrink-0 text-xs font-semibold">
+              {p.platform === "instagram" ? "IG · " : ""}
+              {CONTENT_LABEL[p.content] ?? p.content}
+            </span>
             <StatusBadge status={p.status} />
             <span lang="bn" className="min-w-0 flex-1 truncate text-sm">
               {p.cards[0]?.title || p.message.split("\n")[0]}
             </span>
-            {p.fbPostId && (
-              <a className="text-xs font-semibold text-accent hover:underline" href={`https://www.facebook.com/${p.fbPostId}`} target="_blank" rel="noreferrer">
-                {p.removedAt ? "taken down" : "on Facebook ↗"}
-              </a>
-            )}
+            {p.platform === "instagram"
+              ? p.permalink && (
+                  <a className="text-xs font-semibold text-accent hover:underline" href={p.permalink} target="_blank" rel="noreferrer">
+                    on Instagram ↗
+                  </a>
+                )
+              : p.fbPostId && (
+                  <a className="text-xs font-semibold text-accent hover:underline" href={`https://www.facebook.com/${p.fbPostId}`} target="_blank" rel="noreferrer">
+                    {p.removedAt ? "taken down" : "on Facebook ↗"}
+                  </a>
+                )}
           </li>
         ))}
       </ol>
@@ -97,6 +107,7 @@ export function SettingsView({
 }) {
   const [draft, setDraft] = useState<QueueSettings>(settings);
   const [table, setTable] = useState<Slot[]>(settings.slots ?? slots);
+  const [igTimes, setIgTimes] = useState<string[]>(settings.instagramTimes ?? IG_DEFAULT_TIMES);
   const [busy, setBusy] = useState(false);
 
   async function save() {
@@ -104,7 +115,9 @@ export function SettingsView({
     try {
       const sorted = [...table].filter((s) => /^\d\d:\d\d$/.test(s.time)).sort((a, b) => a.time.localeCompare(b.time));
       const sameAsDefault = JSON.stringify(sorted) === JSON.stringify(slots) && !settings.slots;
-      onSaved(await api.settings({ ...draft, slots: sameAsDefault ? null : sorted }));
+      const times = [...new Set(igTimes.filter((t) => /^\d\d:\d\d$/.test(t)))].sort();
+      const igDefault = JSON.stringify(times) === JSON.stringify(IG_DEFAULT_TIMES);
+      onSaved(await api.settings({ ...draft, slots: sameAsDefault ? null : sorted, instagramTimes: igDefault ? null : times }));
     } catch (err) {
       onError((err as Error).message);
     } finally {
@@ -210,6 +223,34 @@ export function SettingsView({
         </div>
       </section>
 
+      <section className={box}>
+        <h2 className="font-display text-lg font-semibold">Instagram&rsquo;s times (Dhaka time)</h2>
+        <p className="mt-1 text-sm text-muted">Each a carousel of headlines. By default the Page&rsquo;s headline times.</p>
+        <ol className="mt-4 flex flex-wrap gap-2">
+          {igTimes.map((t, i) => (
+            <li key={i} className="flex items-center gap-1">
+              <input
+                type="time"
+                value={t}
+                onChange={(e) => setIgTimes(igTimes.map((x, j) => (j === i ? e.target.value : x)))}
+                className="h-9 rounded-lg border border-line bg-surface-2 px-2 text-sm"
+              />
+              <button className="h-9 w-9 rounded-full border border-line text-sm" onClick={() => setIgTimes(igTimes.filter((_, j) => j !== i))} aria-label="Remove time">
+                ×
+              </button>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-3 flex gap-2">
+          <button className={btn} disabled={igTimes.length >= 12} onClick={() => setIgTimes([...igTimes, "12:00"])}>
+            Add a time
+          </button>
+          <button className={btn} onClick={() => setIgTimes(IG_DEFAULT_TIMES)}>
+            Back to the default
+          </button>
+        </div>
+      </section>
+
       <div className="flex items-center gap-3">
         <button className={btnPrimary} disabled={busy} onClick={save}>
           Save settings
@@ -271,8 +312,16 @@ export function HealthView({ onError }: { onError: (m: string) => void }) {
     <div className="mt-6 space-y-5">
       <ul className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
         {item(!stale, "The deploy's runs", health.lastRunMinutesAgo === null ? "No run recorded yet." : `Last run ${health.lastRunMinutesAgo} minutes ago (every 15 minutes).`)}
-        {item(true, "Mode", health.live ? "Live: the queue posts to the Page." : "Trial: the Page posts the old way; the queue runs beside it and posts nothing.")}
+        {item(true, "Facebook mode", health.live ? "Live: the queue posts to the Page." : "Trial: the Page posts the old way; the queue runs beside it and posts nothing.")}
         {item(health.facebook.ok, "Facebook", health.facebook.ok ? `The token can post to ${health.facebook.page}.` : `Not working: ${health.facebook.error}`)}
+        {item(true, "Instagram mode", health.instagramLive ? "Live: the queue posts to Instagram." : "Trial or off: drafts and pictures are made; nothing goes to Instagram (IG_POSTING).")}
+        {item(
+          health.instagram.ok,
+          "Instagram",
+          health.instagram.ok
+            ? `Connected: @${health.instagram.username ?? "?"}${health.instagram.used !== undefined ? ` · ${health.instagram.used} of ${health.instagram.limit ?? 100} posts used in the last 24 hours` : ""}.`
+            : `Not working: ${health.instagram.error}`,
+        )}
         {item(health.telegram, "Telegram", health.telegram ? "Drafts and alerts go to your Telegram (@bartaboard_bot)." : "Not set up.")}
       </ul>
       <section className={box}>

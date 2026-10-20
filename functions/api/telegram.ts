@@ -100,16 +100,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       await sendMessage(tg, command === "/pause" ? "⏸ Posting paused. Drafts are still made; nothing goes out. /resume to start again." : "▶️ Posting resumed.");
     } else if (command === "/status") {
       const settings = queueSettings(await readSettings(db));
-      const live = await queueLive(db);
+      const [live, igLive] = await Promise.all([queueLive(db, "facebook"), queueLive(db, "instagram")]);
       const now = Date.now();
-      const posts = await listPosts(db, { from: new Date(now - 30 * 60_000).toISOString(), to: new Date(now + 24 * 3600_000).toISOString() });
+      const posts = await listPosts(db, { platform: "any", from: new Date(now - 30 * 60_000).toISOString(), to: new Date(now + 24 * 3600_000).toISOString() });
       const lines = posts
         .filter((p) => ["draft", "approved", "failed", "posted"].includes(p.status))
-        .slice(0, 12)
-        .map((p) => `${dhakaClock(p.scheduledAt)} ${CONTENT_LABEL[p.content] ?? p.content} — ${p.status}`);
+        .slice(0, 16)
+        .map((p) => `${dhakaClock(p.scheduledAt)} ${p.platform === "instagram" ? "📸 " : ""}${CONTENT_LABEL[p.content] ?? p.content} — ${p.status}`);
       await sendMessage(
         tg,
-        [`${live ? "🟢 Live" : "🧪 Trial"}${settings.paused ? " · ⏸ paused" : ""}`, "", ...(lines.length ? lines : ["Nothing queued in the next 24 hours yet."]), "", "https://bartaboard.com/admin/"].join("\n"),
+        [
+          `Facebook: ${live ? "🟢 Live" : "🧪 Trial"} · Instagram: ${igLive ? "🟢 Live" : "🧪 Trial"}${settings.paused ? " · ⏸ paused" : ""}`,
+          "",
+          ...(lines.length ? lines : ["Nothing queued in the next 24 hours yet."]),
+          "",
+          "https://bartaboard.com/admin/",
+        ].join("\n"),
       );
     } else {
       await sendMessage(tg, "Drafts arrive here about 40 minutes before each slot, with buttons to approve, reject or skip.\n\n/status — what's coming\n/pause — stop posting\n/resume — start again\n\nhttps://bartaboard.com/admin/");

@@ -1,7 +1,8 @@
 /**
  * POST /api/admin/posts — a post of one's own, approved, posted at its time:
- *   {message, link?, scheduledAt?}                  text and a link
- *   {card, content: news|video, message?, scheduledAt?}  one headline or video from the site
+ *   {message, link?, scheduledAt?}                  text and a link (Facebook)
+ *   {card, content: news|video, message?, scheduledAt?, platform?}  one headline or video from the site (Instagram:
+ *                                                   a headline, drawn on its card by the next run)
  */
 import { actionContext, answer, readJson } from "../../../../src/lib/admin-api";
 import { createFromItem, createManual, type NewItemPost, type NewManualPost } from "../../../../src/lib/social-actions";

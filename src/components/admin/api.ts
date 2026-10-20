@@ -1,9 +1,9 @@
 /** The admin page's calls to /api/admin (functions/api/admin), and the shapes they answer with. */
-import type { Block, Card, Policy, SocialPost } from "@/lib/social-store";
+import type { Block, Card, Platform, Policy, SocialPost } from "@/lib/social-store";
 import type { QueueSettings } from "@/lib/social-settings";
 import type { Slot } from "@/lib/slot-table";
 
-export type { Block, Card, Policy, QueueSettings, Slot, SocialPost };
+export type { Block, Card, Platform, Policy, QueueSettings, Slot, SocialPost };
 
 export interface Run {
   at: string;
@@ -14,9 +14,14 @@ export interface Run {
 
 export interface QueueData {
   now: string;
+  platform: Platform;
+  /** Whether this platform posts for real (else a trial). */
   live: boolean;
   settings: QueueSettings;
+  /** This platform's slot table in effect. */
   slots: Slot[];
+  /** The Page's slot table in effect (Settings edits it). */
+  pageSlots: Slot[];
   blocks: Block[];
   runs: Run[];
   posts: SocialPost[];
@@ -25,9 +30,11 @@ export interface QueueData {
 export interface Health {
   now: string;
   live: boolean;
+  instagramLive: boolean;
   lastRunMinutesAgo: number | null;
   runs: Run[];
   facebook: { ok: boolean; page?: string; error?: string };
+  instagram: { ok: boolean; username?: string; used?: number; limit?: number; error?: string };
   telegram: boolean;
 }
 
@@ -58,7 +65,7 @@ async function call<T>(path: string, init?: RequestInit & { json?: unknown }): P
 }
 
 export const api = {
-  queue: () => call<QueueData>("/queue"),
+  queue: (platform: Platform = "facebook") => call<QueueData>(`/queue?platform=${platform}`),
   history: (days = 7) => call<{ days: number; posts: SocialPost[] }>(`/history?days=${days}`),
   health: () => call<Health>("/health"),
   settings: (s: Partial<QueueSettings>) => call<QueueSettings>("/settings", { method: "PUT", json: s }),
@@ -67,7 +74,7 @@ export const api = {
   edit: (post: SocialPost, e: { message?: string; scheduledAt?: string; order?: number[]; cards?: Card[]; policy?: Policy }) =>
     call<SocialPost>(`/posts/${post.id}`, { method: "PATCH", json: { version: post.version, ...e } }),
   create: (p: { message: string; link?: string; scheduledAt?: string }) => call<SocialPost>("/posts", { method: "POST", json: p }),
-  createFromItem: (p: { card: Card; content: "news" | "video"; message?: string; scheduledAt?: string }) =>
+  createFromItem: (p: { card: Card; content: "news" | "video"; message?: string; scheduledAt?: string; platform?: Platform }) =>
     call<SocialPost>("/posts", { method: "POST", json: p }),
   bulk: (action: string, posts: SocialPost[], extra: Record<string, unknown> = {}) =>
     call<{ results: { id: string; ok: boolean; error?: string }[] }>("/bulk", {
@@ -113,6 +120,8 @@ export const CONTENT_LABEL: Record<string, string> = {
   roundup: "5 videos",
   custom: "Your post",
 };
+
+export const PLATFORM_LABEL: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram" };
 
 export const POLICY_LABEL: Record<Policy, string> = {
   auto_unless_rejected: "Posts unless rejected",

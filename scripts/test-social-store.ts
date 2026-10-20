@@ -26,7 +26,12 @@ import { blockSets, MISSED_MS, queueAction, sameStories, slotsToDraft } from "..
 import { DEFAULT_SETTINGS, editable, queueSettings } from "../src/lib/social-settings";
 import { ActionError, approve, createFromItem, createManual, edit, postNow, reject, reopen, skip } from "../src/lib/social-actions";
 import { getPost, recordRun } from "../src/lib/social-store";
-import { reviewButtons, reviewText } from "../src/lib/telegram-review";
+import { previewOf, reviewButtons, reviewText } from "../src/lib/telegram-review";
+import { getMedia, hasMedia, MEDIA_PART, pruneMedia, putMedia } from "../src/lib/social-store";
+import { headlinesHeading as pageHeading } from "../src/lib/page-posts";
+import { headlinesHeading, IG_DEFAULT_TIMES, instagramCaption, instagramSlots, postImages, slideSetOf } from "../src/lib/instagram-post";
+import { queueLive, takeDown } from "../src/lib/social-actions";
+import { publishToInstagram } from "../src/lib/instagram-graph";
 
 type Sqlite = {
   DatabaseSync: new (file: string) => {
@@ -122,6 +127,7 @@ async function main() {
   await test("a status can only move along the allowed paths", async () => {
     assert.ok(canMove("draft", "approved"));
     assert.ok(!canMove("posted", "draft"));
+    assert.ok(canMove("posting", "dry"), "a trial run's claim ends as a trial pick");
     await assert.rejects(updatePost(db, draft!.id, 2, { status: "posted" }, "deploy"), MoveError);
   });
 
@@ -364,6 +370,143 @@ async function main() {
     assert.equal((await edit(ctx, r.id, r.version, { message: "fine" })).message, "fine");
     await writeSetting(db, "editLockMinutes", 5, "panel:a@b");
     assert.equal(queueSettings({ editLockMinutes: 99 }).editLockMinutes, 5);
+  });
+
+
+  // Instagram (docs/instagram.md).
+
+  await test("Instagram's heading is the Page's, at every hour", async () => {
+    for (let h = 0; h < 24; h++) {
+      const at = Date.parse(`2026-10-20T${String(h).padStart(2, "0")}:10:00Z`);
+      assert.equal(headlinesHeading(at, 5), pageHeading(at, 5));
+    }
+  });
+
+  await test("an Instagram caption lists the headlines, the site and the tags, within 2,200 characters", async () => {
+    const at = Date.parse("2026-10-20T07:00:00Z");
+    const cards = [1, 2, 3].map((n) => ({ link: `https://bartaboard.com/s/${n}`, title: `শিরোনাম ${n}`, source: `উৎস ${n}` }));
+    const caption = instagramCaption(cards, at);
+    assert.match(caption, /^দুপুরের শীর্ষ ৩ খবর\n\n১\. শিরোনাম 1 — উৎস 1/);
+    assert.match(caption, /bartaboard\.com \(লিংক বায়োতে\)/);
+    assert.match(caption, /#Bartaboard$/);
+    assert.match(instagramCaption([cards[0]], at), /^শিরোনাম 1\n\nউৎস 1\n/);
+    const long = instagramCaption(Array.from({ length: 9 }, (_, n) => ({ ...cards[0], title: "ক".repeat(400) + n })), at);
+    assert.ok(long.length <= 2200 && long.endsWith("#Bartaboard"));
+    const set = slideSetOf({ cards: [{ ...cards[0], section: "politics", outlets: 7 }, { ...cards[1], section: "other" }], scheduledAt: new Date(at).toISOString() });
+    assert.deepEqual(set.cards.map((c) => c.section), ["রাজনীতি", undefined]);
+    assert.equal(set.cards[0].outlets, 7);
+    assert.deepEqual(instagramSlots(null).map((s) => s.time), IG_DEFAULT_TIMES);
+    assert.ok(IG_DEFAULT_TIMES.length === 5 && instagramSlots(["09:00"]).every((s) => s.content === "headlines"));
+  });
+
+  await test("Instagram's times are a setting of their own: valid, sorted, without repeats", async () => {
+    assert.equal(queueSettings({}).instagramTimes, null);
+    assert.deepEqual(queueSettings({ instagramTimes: ["19:00", "08:30", "bad", "19:00", "25:00"] }).instagramTimes, ["08:30", "19:00"]);
+    assert.equal(queueSettings({ instagramTimes: [] }).instagramTimes, null);
+  });
+
+  await test("Facebook and Instagram each hold a slot; each platform is live or on trial by its own runs", async () => {
+    const at = ahead(9);
+    const fbPost = await insertPost(db, { kind: "slot", content: "headlines", status: "draft", slot: at, scheduledAt: at });
+    const igPost = await insertPost(db, { platform: "instagram", kind: "slot", content: "headlines", status: "draft", slot: at, scheduledAt: at });
+    assert.ok(fbPost && igPost);
+    assert.equal(await insertPost(db, { platform: "instagram", kind: "slot", content: "headlines", status: "draft", slot: at, scheduledAt: at }), null);
+    assert.equal((await postForSlot(db, at, "instagram"))?.id, igPost.id);
+    assert.ok(!(await listPosts(db, { from: at })).some((p) => p.platform === "instagram"));
+    assert.ok((await listPosts(db, { platform: "instagram", from: at })).every((p) => p.platform === "instagram"));
+    assert.ok((await listPosts(db, { platform: "any", from: at })).length >= 2);
+    await recordRun(db, "queue", true, []);
+    await recordRun(db, "instagram-dry", true, []);
+    assert.equal(await queueLive(db, "facebook"), true);
+    assert.equal(await queueLive(db, "instagram"), false);
+    await recordRun(db, "instagram", true, []);
+    assert.equal(await queueLive(db, "facebook"), true);
+    assert.equal(await queueLive(db, "instagram"), true);
+  });
+
+  await test("an Instagram post's cards need no picture, up to nine; a change of cards or time asks for new pictures", async () => {
+    const c = (n: number) => ({ link: `https://bartaboard.com/s/261020-${n}`, title: `শিরোনাম ${n}`, source: `উৎস ${n}`, key: `ig${n}` });
+    const at = ahead(10);
+    const images = JSON.stringify(["https://bartaboard.com/ig/abc-0.jpg", "https://bartaboard.com/ig/abc-1.jpg"]);
+    const p = await insertPost(db, {
+      platform: "instagram", kind: "slot", content: "headlines", status: "draft", slot: at, scheduledAt: at, message: "x",
+      params: { message: "x", link: "https://bartaboard.com/bn/", child_attachments: "[]", images, imagesKey: "abc" },
+      cards: [1, 2, 3].map(c), record: { ...record, slot: at, at },
+    });
+    const captioned = await edit(ctx, p!.id, p!.version, { message: "নতুন ক্যাপশন" });
+    assert.equal(postImages(captioned).length, 2, "a new caption keeps the pictures");
+    const e = await edit(ctx, p!.id, captioned.version, { cards: [c(1), c(3), c(4)] });
+    assert.deepEqual(postImages(e), []);
+    assert.equal(e.params.imagesKey, undefined);
+    await assert.rejects(edit(ctx, p!.id, e.version, { cards: Array.from({ length: 10 }, (_, n) => c(n)) }), /2 to 9/);
+    await assert.rejects(edit(ctx, p!.id, e.version, { message: "ক".repeat(2201) }), /2200/);
+    assert.match(reviewText(e, { site: "https://bartaboard.com", trial: true }), /📸 Instagram/);
+    assert.match(reviewText(e, { site: "https://bartaboard.com", trial: true }), /IG_POSTING=dry/);
+    assert.match(reviewText(e, { site: "https://bartaboard.com", trial: true }), /pictures are drawn by the next run/);
+    assert.equal(previewOf({ ...e, params: { ...e.params, images } }), "https://bartaboard.com/ig/abc-0.jpg");
+  });
+
+  await test("Instagram takes headlines from the board, not videos or text alone; its posts can't be taken down from here", async () => {
+    const card = { link: "https://bartaboard.com/s/261020-x1", title: "একটি শিরোনাম", source: "প্রথম আলো", key: "x1", sourceId: "prothomalo", section: "politics" };
+    const p = await createFromItem(ctx, { card, content: "news", platform: "instagram" });
+    assert.equal(p.platform, "instagram");
+    assert.match(p.message, /^একটি শিরোনাম\n\nপ্রথম আলো\n\n.*bartaboard\.com/);
+    assert.ok(Date.parse(p.scheduledAt) > Date.now() + 15 * 60_000, "time for its picture to be drawn");
+    await assert.rejects(createFromItem(ctx, { card, content: "video", platform: "instagram" }), /headlines only/);
+    await assert.rejects(createManual(ctx, { message: "x", platform: "instagram" }), /pictures/);
+    const posted = await updatePost(db, p.id, p.version, { status: "posting" }, "deploy");
+    const done = await updatePost(db, p.id, posted.version, { status: "posted", fbPostId: "1789", permalink: "https://www.instagram.com/p/abc/" }, "deploy");
+    assert.equal(done.permalink, "https://www.instagram.com/p/abc/");
+    await assert.rejects(takeDown({ ...ctx, fb: { token: "t", pageId: "1" } }, done.id, done.version), /delete it there/);
+  });
+
+  await test("a picture is stored in parts and read back whole; old ones are pruned", async () => {
+    const big = "A".repeat(MEDIA_PART * 2 + 17);
+    await putMedia(db, "k1-0", big);
+    assert.ok(await hasMedia(db, "k1-0"));
+    assert.equal((await getMedia(db, "k1-0"))?.base64, big);
+    await putMedia(db, "k1-0", "QUJD");
+    assert.equal((await getMedia(db, "k1-0"))?.base64, "QUJD");
+    assert.equal(await hasMedia(db, "nope"), false);
+    assert.equal(await getMedia(db, "nope"), null);
+    assert.equal(await pruneMedia(db, new Date(Date.now() + 1000).toISOString()), 1);
+    assert.equal(await hasMedia(db, "k1-0"), false);
+  });
+
+
+  await test("an Instagram carousel is made in Instagram's three steps: pictures, carousel with caption, publish", async () => {
+    const calls: { method: string; path: string; params: Record<string, string> }[] = [];
+    const real = globalThis.fetch;
+    let n = 0;
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      const u = new URL(String(url));
+      const params = Object.fromEntries(init?.body ? new URLSearchParams(String(init.body)) : u.searchParams);
+      const method = init?.method ?? "GET";
+      calls.push({ method, path: u.pathname.replace(/^\/v[\d.]+/, ""), params });
+      const body =
+        params.fields === "access_token" ? { access_token: "PAGE" }
+        : params.fields?.startsWith("instagram_business_account") ? { instagram_business_account: { id: "IG1", username: "bartaboard" } }
+        : params.fields === "status_code,status" ? { status_code: "FINISHED" }
+        : params.fields === "permalink" ? { permalink: "https://www.instagram.com/p/xyz/" }
+        : u.pathname.endsWith("/media_publish") ? { id: "M1" }
+        : { id: `C${++n}` };
+      return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+    try {
+      const made = await publishToInstagram({ token: "SYS", pageId: "P1" }, { images: ["https://bartaboard.com/ig/a-0.jpg", "https://bartaboard.com/ig/a-1.jpg"], caption: "ক্যাপশন" });
+      assert.equal(made.id, "M1");
+      assert.equal(made.permalink, "https://www.instagram.com/p/xyz/");
+      const posts = calls.filter((c) => c.method === "POST");
+      assert.deepEqual(posts.map((c) => c.path), ["/IG1/media", "/IG1/media", "/IG1/media", "/IG1/media_publish"]);
+      assert.deepEqual(posts[0].params, { access_token: "PAGE", image_url: "https://bartaboard.com/ig/a-0.jpg", is_carousel_item: "true" });
+      assert.equal(posts[2].params.media_type, "CAROUSEL");
+      assert.equal(posts[2].params.children, "C1,C2");
+      assert.equal(posts[2].params.caption, "ক্যাপশন");
+      assert.equal(posts[3].params.creation_id, "C3");
+      await assert.rejects(publishToInstagram({ token: "SYS", pageId: "P1" }, { images: [], caption: "x" }), /1 to 10/);
+    } finally {
+      globalThis.fetch = real;
+    }
   });
 
   console.log(`\n${passed} passed`);

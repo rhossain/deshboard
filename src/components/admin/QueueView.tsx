@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { api, atDhakaTime, type Card, CONTENT_LABEL, dhakaDate, dhakaDay, dhakaTime, type QueueData, type SocialPost } from "./api";
+import { instagramCaption } from "@/lib/instagram-post";
+import { api, atDhakaTime, type Card, CONTENT_LABEL, dhakaDate, dhakaDay, dhakaTime, type Platform, type QueueData, type SocialPost } from "./api";
 import { ItemPicker } from "./ItemPicker";
 import { singleMessage } from "./items";
 import { PostCard } from "./PostCard";
@@ -79,10 +80,22 @@ export function QueueView({ data, now, onChange, onError, onReload, onPause }: P
 
   return (
     <div className="mt-6 space-y-6">
-      {!data.live && (
-        <p className="rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm">
-          <strong>Trial run.</strong> The Page still posts the old way; the queue makes drafts and &ldquo;trial picks&rdquo; beside it, and posts nothing.
-          Approving and editing work, so you can try them; switching on is one setting (FB_QUEUE=on).
+      {!data.live &&
+        (data.platform === "instagram" ? (
+          <p className="rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm">
+            <strong>Trial run.</strong> Instagram gets nothing yet: drafts and their pictures are made, and posts that come due become &ldquo;trial
+            picks&rdquo;. Approving and editing work, so you can try them; switching on is one setting (IG_POSTING=on).
+          </p>
+        ) : (
+          <p className="rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm">
+            <strong>Trial run.</strong> The Page still posts the old way; the queue makes drafts and &ldquo;trial picks&rdquo; beside it, and posts nothing.
+            Approving and editing work, so you can try them; switching on is one setting (FB_QUEUE=on).
+          </p>
+        ))}
+      {data.platform === "instagram" && (
+        <p className="text-xs text-muted">
+          Instagram gets carousels of headlines, drawn as Bartaboard cards (the channels&rsquo; videos stay on Facebook). Pause, the draft lead, the edit
+          lock and the policy for untouched drafts are the same as Facebook&rsquo;s; Instagram&rsquo;s times are in Settings.
         </p>
       )}
       {data.settings.paused && (
@@ -106,7 +119,7 @@ export function QueueView({ data, now, onChange, onError, onReload, onPause }: P
         </button>
       </div>
 
-      {adding && <AddPost onDone={(p) => (onChange(p), setAdding(false))} onError={onError} />}
+      {adding && <AddPost platform={data.platform} onDone={(p) => (onChange(p), setAdding(false))} onError={onError} />}
 
       {[...days].map(([day, rows]) => (
         <section key={day}>
@@ -179,7 +192,8 @@ function EmptySlot({ at, now, lead, content }: { at: number; now: number; lead: 
   );
 }
 
-function AddPost({ onDone, onError }: { onDone: (p: SocialPost) => void; onError: (m: string) => void }) {
+function AddPost({ platform, onDone, onError }: { platform: Platform; onDone: (p: SocialPost) => void; onError: (m: string) => void }) {
+  const instagram = platform === "instagram";
   const [mode, setMode] = useState<"pick" | "write">("pick");
   const [message, setMessage] = useState("");
   const [link, setLink] = useState("");
@@ -199,7 +213,7 @@ function AddPost({ onDone, onError }: { onDone: (p: SocialPost) => void; onError
       const scheduledAt = when();
       onDone(
         mode === "pick" && chosen
-          ? await api.createFromItem({ card: chosen.card, content: chosen.content, message, scheduledAt })
+          ? await api.createFromItem({ card: chosen.card, content: chosen.content, message, scheduledAt, platform })
           : await api.create({ message, link: link || undefined, scheduledAt }),
       );
     } catch (err) {
@@ -220,20 +234,25 @@ function AddPost({ onDone, onError }: { onDone: (p: SocialPost) => void; onError
 
   return (
     <div className="space-y-3 rounded-2xl border border-line bg-surface p-4 shadow-card">
-      <div className="flex gap-2">
-        {tab("pick", "From the board")}
-        {tab("write", "Write your own")}
-      </div>
+      {instagram ? (
+        <p className="text-sm text-muted">One headline from the board, drawn on its own card by the next run (an Instagram post is pictures).</p>
+      ) : (
+        <div className="flex gap-2">
+          {tab("pick", "From the board")}
+          {tab("write", "Write your own")}
+        </div>
+      )}
 
       {mode === "pick" && !chosen && (
         <ItemPicker
-          kind="any"
+          kind={instagram ? "headline" : "any"}
+          needsPicture={false}
           label="Choose"
           onPick={(card, item) => {
             setChosen({ card, content: item.kind === "video" ? "video" : "news" });
-            setMessage(singleMessage(card));
+            setMessage(instagram ? instagramCaption([card], Date.parse(when())) : singleMessage(card));
           }}
-          onClose={() => setMode("write")}
+          onClose={() => (instagram ? setChosen(null) : setMode("write"))}
         />
       )}
       {mode === "pick" && chosen && (
@@ -279,7 +298,11 @@ function AddPost({ onDone, onError }: { onDone: (p: SocialPost) => void; onError
               Add to the queue
             </button>
           </div>
-          <p className="text-xs text-muted">It goes out at its time, as written; its link is checked just before.</p>
+          <p className="text-xs text-muted">
+            {instagram
+              ? "It goes out at its time, as written; give it 20 minutes or more, for its picture to be drawn first."
+              : "It goes out at its time, as written; its link is checked just before."}
+          </p>
         </>
       )}
     </div>

@@ -9,7 +9,8 @@
 import type { PostContent, PostRecord } from "./page-posts";
 import type { Db, SqlValue } from "./social-db";
 
-export type Platform = "facebook";
+export type Platform = "facebook" | "instagram";
+export const PLATFORMS: Platform[] = ["facebook", "instagram"];
 export type PostKind = "slot" | "breaking" | "manual";
 export type SocialContent = PostContent | "custom";
 export type PostStatus = "draft" | "approved" | "rejected" | "posting" | "posted" | "failed" | "skipped" | "dry";
@@ -26,6 +27,8 @@ export interface Card {
   section?: string;
   /** The headline's share key or the video's id: what the picking rules know it by. */
   key?: string;
+  /** How many outlets carry the story (an Instagram card says so). */
+  outlets?: number;
 }
 
 export interface SocialPost {
@@ -47,7 +50,10 @@ export interface SocialPost {
   edited: boolean;
   note: string | null;
   error: string | null;
+  /** The platform's id for the post (Facebook's, or Instagram's media id). */
   fbPostId: string | null;
+  /** Where the post is on the platform (Instagram's permalink). */
+  permalink: string | null;
   telegramMessageId: number | null;
   decidedBy: string | null;
   decidedAt: string | null;
@@ -65,7 +71,8 @@ const MOVES: Record<PostStatus, PostStatus[]> = {
   approved: ["approved", "draft", "rejected", "skipped", "posting", "dry"],
   rejected: ["draft"],
   skipped: ["draft", "dry"],
-  posting: ["posted", "failed", "approved"],
+  // A trial's claim ends as a trial pick (dry): nothing was sent.
+  posting: ["posted", "failed", "approved", "dry"],
   posted: ["posted"],
   failed: ["failed", "draft", "approved", "posting", "skipped"],
   dry: ["dry"],
@@ -117,6 +124,7 @@ interface PostRow {
   note: string | null;
   error: string | null;
   fb_post_id: string | null;
+  permalink?: string | null;
   telegram_message_id: number | null;
   decided_by: string | null;
   decided_at: string | null;
@@ -157,6 +165,7 @@ function fromRow(r: PostRow): SocialPost {
     note: r.note,
     error: r.error,
     fbPostId: r.fb_post_id,
+    permalink: r.permalink ?? null,
     telegramMessageId: r.telegram_message_id,
     decidedBy: r.decided_by,
     decidedAt: r.decided_at,
@@ -188,6 +197,7 @@ const COLUMNS: Record<keyof Omit<SocialPost, "id" | "version" | "createdAt" | "u
   note: ["note", (v: string | null) => v],
   error: ["error", (v: string | null) => v],
   fbPostId: ["fb_post_id", (v: string | null) => v],
+  permalink: ["permalink", (v: string | null) => v],
   telegramMessageId: ["telegram_message_id", (v: number | null) => v],
   decidedBy: ["decided_by", (v: string | null) => v],
   decidedAt: ["decided_at", (v: string | null) => v],
@@ -231,7 +241,8 @@ export async function getPost(db: Db, id: string): Promise<SocialPost | null> {
 }
 
 export interface PostQuery {
-  platform?: Platform;
+  /** Default facebook; "any" for every platform's. */
+  platform?: Platform | "any";
   /** scheduled_at from (inclusive) and to (exclusive), ISO. */
   from?: string;
   to?: string;
@@ -242,8 +253,12 @@ export interface PostQuery {
 }
 
 export async function listPosts(db: Db, q: PostQuery = {}): Promise<SocialPost[]> {
-  const where: string[] = ["platform = ?"];
-  const params: SqlValue[] = [q.platform ?? "facebook"];
+  const where: string[] = [];
+  const params: SqlValue[] = [];
+  if (q.platform !== "any") {
+    where.push("platform = ?");
+    params.push(q.platform ?? "facebook");
+  }
   const add = (clause: string, ...values: SqlValue[]) => {
     where.push(clause);
     params.push(...values);
@@ -252,7 +267,7 @@ export async function listPosts(db: Db, q: PostQuery = {}): Promise<SocialPost[]
   if (q.to) add("scheduled_at < ?", q.to);
   if (q.statuses?.length) add(`status IN (${q.statuses.map(() => "?").join(", ")})`, ...q.statuses);
   const rows = await db.all<PostRow>(
-    `SELECT * FROM posts WHERE ${where.join(" AND ")} ORDER BY scheduled_at ${q.desc ? "DESC" : "ASC"}, created_at LIMIT ?`,
+    `SELECT * FROM posts ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY scheduled_at ${q.desc ? "DESC" : "ASC"}, created_at LIMIT ?`,
     [...params, q.limit ?? 500],
   );
   return rows.map(fromRow);
@@ -405,4 +420,52 @@ export async function recordRun(db: Db, step: string, ok: boolean, summary: unkn
 export async function lastRuns(db: Db, limit = 20): Promise<{ at: string; step: string; ok: boolean; summary: unknown }[]> {
   const rows = await db.all<{ at: string; step: string; ok: number; summary: string }>("SELECT at, step, ok, summary FROM runs ORDER BY id DESC LIMIT ?", [limit]);
   return rows.map((r) => ({ at: r.at, step: r.step, ok: !!r.ok, summary: parse(r.summary, r.summary) }));
+}
+
+/** The latest run among `steps` (a platform's), if any. */
+export async function lastRunOf(db: Db, steps: string[]): Promise<{ at: string; step: string } | null> {
+  return db.first<{ at: string; step: string }>(
+    `SELECT at, step FROM runs WHERE step IN (${steps.map(() => "?").join(", ")}) ORDER BY id DESC LIMIT 1`,
+    steps,
+  );
+}
+
+/**
+ * Pictures (an Instagram post's: migrations/0003_instagram.sql), kept base64-encoded in parts small enough for one
+ * statement each through Cloudflare's API.
+ */
+export const MEDIA_PART = 90_000;
+
+export async function hasMedia(db: Db, key: string): Promise<boolean> {
+  const row = await db.first<{ parts: number; n: number }>("SELECT MAX(parts) AS parts, COUNT(*) AS n FROM media WHERE key = ?", [key]);
+  return !!row && row.n > 0 && row.n === row.parts;
+}
+
+/** Stores a picture (base64) under `key`, replacing one stored before. */
+export async function putMedia(db: Db, key: string, base64: string, type = "image/jpeg"): Promise<void> {
+  const parts = Math.max(1, Math.ceil(base64.length / MEDIA_PART));
+  await db.run("DELETE FROM media WHERE key = ?", [key]);
+  const at = nowIso();
+  for (let i = 0; i < parts; i++) {
+    await db.run("INSERT INTO media (key, part, parts, type, data, created_at) VALUES (?, ?, ?, ?, ?, ?)", [
+      key,
+      i,
+      parts,
+      type,
+      base64.slice(i * MEDIA_PART, (i + 1) * MEDIA_PART),
+      at,
+    ]);
+  }
+}
+
+/** A stored picture, base64, with its type; null unless every part is there. */
+export async function getMedia(db: Db, key: string): Promise<{ type: string; base64: string } | null> {
+  const rows = await db.all<{ part: number; parts: number; type: string; data: string }>("SELECT part, parts, type, data FROM media WHERE key = ? ORDER BY part", [key]);
+  if (!rows.length || rows.length !== rows[0].parts) return null;
+  return { type: rows[0].type, base64: rows.map((r) => r.data).join("") };
+}
+
+/** Deletes pictures stored before `before` (ISO): Instagram keeps its own copy once a post is made. */
+export async function pruneMedia(db: Db, before: string): Promise<number> {
+  return (await db.run("DELETE FROM media WHERE created_at < ?", [before])).changes;
 }

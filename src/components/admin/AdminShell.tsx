@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, type QueueData, type SocialPost } from "./api";
+import { api, PLATFORM_LABEL, type Platform, type QueueData, type SocialPost } from "./api";
 import { HealthView, HistoryView, SettingsView } from "./OtherViews";
 import { QueueView } from "./QueueView";
 
@@ -14,13 +14,14 @@ const TABS: [Tab, string][] = [
 ];
 
 /**
- * The admin (/admin/): who is signed in (Cloudflare Access let them through), then the Page's queue and the rest.
- * The queue reloads every minute while the page is in view.
+ * The admin (/admin/): who is signed in (Cloudflare Access let them through), then the queue — the Facebook Page's
+ * or Instagram's — and the rest. The queue reloads every minute while the page is in view.
  */
 export function AdminShell() {
   const [email, setEmail] = useState<string | null>(null);
   const [door, setDoor] = useState<"checking" | "open" | "closed">("checking");
   const [tab, setTab] = useState<Tab>("queue");
+  const [platform, setPlatform] = useState<Platform>("facebook");
   const [data, setData] = useState<QueueData | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
@@ -30,13 +31,14 @@ export function AdminShell() {
 
   const reload = useCallback(async () => {
     try {
-      const d = await api.queue();
-      setData(d);
+      const d = await api.queue(platform);
+      // A reply for the platform shown before a switch is dropped.
+      setData((prev) => (d.platform === platform || !prev ? d : prev));
       setNow(Date.parse(d.now));
     } catch (err) {
       setError((err as Error).message);
     }
-  }, []);
+  }, [platform]);
 
   useEffect(() => {
     let off = false;
@@ -87,7 +89,7 @@ export function AdminShell() {
         <span className="text-muted">{email}</span>
         {data && (
           <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${data.live ? "bg-accent text-accent-ink" : "bg-gold/15 text-gold"}`}>
-            {data.live ? "Live" : "Trial"}
+            {PLATFORM_LABEL[data.platform]} · {data.live ? "Live" : "Trial"}
           </span>
         )}
       </div>
@@ -122,8 +124,28 @@ export function AdminShell() {
         </div>
       )}
 
+      {tab === "queue" && (
+        <div className="mt-5 inline-flex rounded-full border border-line bg-surface p-1" role="tablist" aria-label="Platform">
+          {(["facebook", "instagram"] as Platform[]).map((p) => (
+            <button
+              key={p}
+              role="tab"
+              aria-selected={platform === p}
+              onClick={() => {
+                if (p === platform) return;
+                setData(null);
+                setPlatform(p);
+              }}
+              className={`h-8 rounded-full px-4 text-[13px] font-semibold transition ${platform === p ? "bg-accent text-accent-ink" : "text-muted hover:text-foreground"}`}
+            >
+              {PLATFORM_LABEL[p]}
+            </button>
+          ))}
+        </div>
+      )}
+
       {tab === "queue" &&
-        (data ? (
+        (data && data.platform === platform ? (
           <QueueView
             data={data}
             now={now}
@@ -143,9 +165,9 @@ export function AdminShell() {
       {tab === "history" && <HistoryView onError={onError} />}
       {tab === "settings" && data && (
         <SettingsView
-          key={JSON.stringify([data.settings, data.slots])}
+          key={JSON.stringify([data.settings, data.pageSlots])}
           settings={data.settings}
-          slots={data.slots}
+          slots={data.pageSlots}
           blocks={data.blocks}
           onSaved={(settings) => {
             setData((d) => (d ? { ...d, settings } : d));

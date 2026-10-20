@@ -14,6 +14,8 @@ export interface AdminBindings {
   FB_APP_SECRET?: string;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_ADMIN_CHAT_ID?: string;
+  /** The Instagram account's id (optional: asked of the Page when unset). */
+  IG_USER_ID?: string;
 }
 
 export function reply(body: unknown, status = 200): Response {
@@ -25,7 +27,7 @@ export function reply(body: unknown, status = 200): Response {
 
 export function actionContext(env: AdminBindings, actor: string): ActionContext {
   if (!env.SOCIAL_DB) throw new ActionError(503, "the admin's database isn't bound (SOCIAL_DB)");
-  return { db: fromBinding(env.SOCIAL_DB), actor, fb: graphFromEnv(env as Record<string, string | undefined>) };
+  return { db: fromBinding(env.SOCIAL_DB), actor, fb: graphFromEnv(env as Record<string, string | undefined>), igUserId: env.IG_USER_ID?.trim() || undefined };
 }
 
 /** The handler's answer, or its ActionError as one (with the post as it now is, for a 409). */

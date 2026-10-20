@@ -5,6 +5,9 @@ Bartaboard's admin, at [bartaboard.com/admin/](https://bartaboard.com/admin/), a
 the Facebook Page. How posts are picked is [facebook-posting.md](facebook-posting.md); this page is what sits on top of
 it. Set up 19 October 2026.
 
+Instagram goes through the same queue (Queue → Instagram; its drafts are marked 📸 on Telegram): carousels of
+headlines drawn as Bartaboard cards, at its own times. See [instagram.md](instagram.md).
+
 ## How it works
 
 ```

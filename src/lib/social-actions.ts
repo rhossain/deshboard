@@ -9,6 +9,8 @@ import type { PostRecord } from "./page-posts";
 
 type PostRecordCategory = PostRecord["category"];
 import { deletePost, type GraphAccess, postToFeed, rescrape } from "./facebook-graph";
+import { publishToInstagram } from "./instagram-graph";
+import { IG_CAPTION_MAX, IG_MAX_HEADLINES, instagramCaption, postImages } from "./instagram-post";
 import { editable, editDeadline, queueSettings } from "./social-settings";
 import {
   addBlock,
@@ -17,7 +19,8 @@ import {
   type Card,
   getPost,
   insertPost,
-  lastRuns,
+  lastRunOf,
+  type Platform,
   type Policy,
   type SocialPost,
   StaleError,
@@ -38,6 +41,8 @@ export interface ActionContext {
   db: Db;
   actor: string;
   fb: GraphAccess | null;
+  /** IG_USER_ID: the Instagram account's id, when set (else asked of the Page). */
+  igUserId?: string;
 }
 
 const nowIso = () => new Date().toISOString();
@@ -62,11 +67,19 @@ async function change(ctx: ActionContext, post: SocialPost, changes: Parameters<
   }
 }
 
-/** Whether the queue posts for real: its last run wasn't a trial (FB_QUEUE=on). */
-export async function queueLive(db: Db): Promise<boolean> {
-  const [last] = await lastRuns(db, 1);
-  return last?.step === "queue";
+/** Each platform's runs (the runs table's steps): the one that posts for real, and all of them. */
+export const RUN_STEPS: Record<Platform, { live: string; all: string[] }> = {
+  facebook: { live: "queue", all: ["queue", "shadow", "queue-dry"] },
+  instagram: { live: "instagram", all: ["instagram", "instagram-dry"] },
+};
+
+/** Whether a platform's queue posts for real: its last run wasn't a trial (FB_QUEUE=on, IG_POSTING=on). */
+export async function queueLive(db: Db, platform: Platform = "facebook"): Promise<boolean> {
+  const last = await lastRunOf(db, RUN_STEPS[platform].all);
+  return last?.step === RUN_STEPS[platform].live;
 }
+
+const PLATFORM_NAME: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram" };
 
 const OPEN = ["draft", "approved", "failed"];
 
@@ -138,11 +151,12 @@ export async function edit(ctx: ActionContext, id: string, version: number, e: E
     throw new ActionError(409, `editing closed at ${closed}, ${editLockMinutes} minutes before it goes out; it can still be rejected or skipped`, post);
   }
   const params = { ...post.params };
+  const instagram = post.platform === "instagram";
   let cards: Card[] = post.cards;
   if (e.message !== undefined) {
     const message = e.message.trim();
     if (!message) throw new ActionError(400, "the post needs some text");
-    if (message.length > 5000) throw new ActionError(400, "the text is too long");
+    if (message.length > (instagram ? IG_CAPTION_MAX : 5000)) throw new ActionError(400, `the text is too long${instagram ? ` (Instagram takes ${IG_CAPTION_MAX} characters)` : ""}`);
     params.message = message;
   }
   if (e.order) {
@@ -156,8 +170,10 @@ export async function edit(ctx: ActionContext, id: string, version: number, e: E
   let record = post.record;
   if (e.cards) {
     const carousel = !!post.params.child_attachments;
-    const checked = e.cards.map((c) => checkCard(c, carousel));
-    if (carousel && (checked.length < 2 || checked.length > 10)) throw new ActionError(400, "a carousel needs 2 to 10 cards");
+    // Instagram's cards are drawn by the deploy: they need no picture of their own.
+    const checked = e.cards.map((c) => checkCard(c, carousel && !instagram));
+    const most = instagram ? IG_MAX_HEADLINES : 10;
+    if (carousel && (checked.length < 2 || checked.length > most)) throw new ActionError(400, `a carousel needs 2 to ${most} cards`);
     if (!carousel && checked.length !== 1) throw new ActionError(400, "a single post has one item");
     cards = checked;
     if (carousel) {
@@ -177,6 +193,12 @@ export async function edit(ctx: ActionContext, id: string, version: number, e: E
     }
   }
   if (e.policy && !["manual", "auto_unless_rejected", "auto"].includes(e.policy)) throw new ActionError(400, "unknown policy");
+  // Instagram's pictures show the cards and the day: new cards, a new order or a new time, and the next run draws them
+  // again (postImages is empty until then).
+  if (instagram && (e.cards || e.order || e.scheduledAt !== undefined)) {
+    delete params.images;
+    delete params.imagesKey;
+  }
   return change(
     ctx,
     post,
@@ -202,9 +224,12 @@ export async function edit(ctx: ActionContext, id: string, version: number, e: E
  */
 export async function postNow(ctx: ActionContext, id: string, version: number) {
   if (!ctx.fb) throw new ActionError(503, "Facebook isn't set up for the admin (FB_PAGE_ID, FB_PAGE_TOKEN)");
-  if (!(await queueLive(ctx.db))) throw new ActionError(409, "the queue is still on trial (FB_QUEUE=shadow): nothing is posted from the admin yet");
   const post = await load(ctx, id, version);
+  if (!(await queueLive(ctx.db, post.platform))) {
+    throw new ActionError(409, `${PLATFORM_NAME[post.platform]} is still on trial (${post.platform === "instagram" ? "IG_POSTING=dry" : "FB_QUEUE=shadow"}): nothing is posted from the admin yet`);
+  }
   if (!OPEN.includes(post.status)) throw new ActionError(409, `a ${post.status} post can't be posted`, post);
+  if (post.platform === "instagram") return postToInstagramNow(ctx, post);
   const claimed = await change(ctx, post, { status: "posting" }, "claim");
   try {
     const single = !claimed.params.child_attachments;
@@ -228,10 +253,39 @@ export async function postNow(ctx: ActionContext, id: string, version: number) {
   }
 }
 
+/** An Instagram post, now, with the pictures the last run drew for it. */
+async function postToInstagramNow(ctx: ActionContext, post: SocialPost) {
+  const images = postImages(post);
+  if (!images.length) {
+    throw new ActionError(409, "its pictures aren't drawn yet (they are, within 15 minutes of a change): approve it, and it goes out at its time", post);
+  }
+  const claimed = await change(ctx, post, { status: "posting" }, "claim");
+  try {
+    const made = await publishToInstagram(ctx.fb!, { images, caption: claimed.params.message ?? claimed.message }, { igUserId: ctx.igUserId });
+    const at = nowIso();
+    const record = claimed.record ? { ...claimed.record, at, id: made.id, mode: "on" as const } : null;
+    return await updatePost(
+      ctx.db,
+      post.id,
+      claimed.version,
+      { status: "posted", fbPostId: made.id, permalink: made.permalink, postedAt: at, scheduledAt: at, record, error: null, decidedBy: ctx.actor, decidedAt: at, locked: true },
+      ctx.actor,
+      "posted",
+    );
+  } catch (err) {
+    const message = (err as Error).message;
+    await updatePost(ctx.db, post.id, claimed.version, { status: "failed", error: message }, ctx.actor, "failed");
+    throw new ActionError(502, `Instagram refused it: ${message}`);
+  }
+}
+
 /** Takes a posted post off the Page. It stays in the history (the story did go out). */
 export async function takeDown(ctx: ActionContext, id: string, version: number) {
   if (!ctx.fb) throw new ActionError(503, "Facebook isn't set up for the admin (FB_PAGE_ID, FB_PAGE_TOKEN)");
   const post = await load(ctx, id, version);
+  if (post.platform === "instagram") {
+    throw new ActionError(409, "Instagram doesn't let apps delete posts: open it on Instagram and delete it there", post);
+  }
   if (post.status !== "posted" || !post.fbPostId) throw new ActionError(409, "only a post on the Page can be taken down", post);
   if (post.removedAt) throw new ActionError(409, "already taken down", post);
   try {
@@ -275,6 +329,8 @@ export interface NewItemPost {
   /** The headline or video, as a card (see checkCard). */
   card: Card;
   content: "news" | "video";
+  /** Default facebook. Instagram takes headlines only (its card is drawn by the next run). */
+  platform?: Platform;
   /** The post's text; default: the title, then its outlet or channel. */
   message?: string;
   /** ISO; default: in 5 minutes. */
@@ -284,12 +340,15 @@ export interface NewItemPost {
 /** One headline or video from the site, chosen by a person, as its own post at its time (approved). */
 export async function createFromItem(ctx: ActionContext, p: NewItemPost) {
   if (p.content !== "news" && p.content !== "video") throw new ActionError(400, "an item is a headline or a video");
+  const platform: Platform = p.platform === "instagram" ? "instagram" : "facebook";
+  if (platform === "instagram" && p.content !== "news") throw new ActionError(400, "Instagram takes headlines only: a channel's video can't be posted there");
   const card = checkCard(p.card, false);
-  const message = (p.message?.trim() || `${card.title}\n\n${card.source}`).slice(0, 5000);
-  const at = p.scheduledAt ? Date.parse(p.scheduledAt) : Date.now() + 5 * 60_000;
+  const at = p.scheduledAt ? Date.parse(p.scheduledAt) : Date.now() + (platform === "instagram" ? 20 : 5) * 60_000;
   if (Number.isNaN(at) || at < Date.now() - 5 * 60_000 || at > Date.now() + 14 * DAY_MS) throw new ActionError(400, "the time must be from now to two weeks ahead");
+  const message = (p.message?.trim() || (platform === "instagram" ? instagramCaption([card], at) : `${card.title}\n\n${card.source}`)).slice(0, platform === "instagram" ? IG_CAPTION_MAX : 5000);
   const scheduledAt = new Date(at).toISOString();
   const post = await insertPost(ctx.db, {
+    platform,
     kind: "manual",
     content: p.content,
     status: "approved",
@@ -328,7 +387,8 @@ export interface NewManualPost {
 }
 
 /** A post of one's own (text, and a link Facebook previews), approved, for the queue to post at its time. */
-export async function createManual(ctx: ActionContext, p: NewManualPost) {
+export async function createManual(ctx: ActionContext, p: NewManualPost & { platform?: Platform }) {
+  if (p.platform === "instagram") throw new ActionError(400, "an Instagram post is pictures: add a headline from the board instead");
   const message = p.message?.trim();
   if (!message) throw new ActionError(400, "the post needs some text");
   if (message.length > 5000) throw new ActionError(400, "the text is too long");

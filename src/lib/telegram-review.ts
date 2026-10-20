@@ -4,6 +4,7 @@
  * post changes — refreshed by a run, decided in the admin or with a button (functions/api/telegram.ts), posted —
  * so what the chat shows is the post as it stands.
  */
+import { postImages } from "./instagram-post";
 import type { SocialPost } from "./social-store";
 import type { InlineButton } from "./telegram";
 
@@ -44,7 +45,7 @@ function statusLine(post: SocialPost, by?: string): string {
     case "posted":
       return post.removedAt ? "🗑 Posted, then taken down." : `📣 Posted at ${dhakaClock(post.postedAt ?? post.scheduledAt)}.`;
     case "failed":
-      return `⚠️ Not posted: ${post.error ?? "Facebook refused it"}. The next run tries again.`;
+      return `⚠️ Not posted: ${post.error ?? `${post.platform === "instagram" ? "Instagram" : "Facebook"} refused it`}. The next run tries again.`;
     case "dry":
       return "🧪 Trial pick: the queue would have posted this (nothing was sent).";
     default:
@@ -54,7 +55,7 @@ function statusLine(post: SocialPost, by?: string): string {
 
 export interface ReviewOptions {
   site: string;
-  /** The queue is on trial (FB_QUEUE=shadow): nothing it drafts is posted. */
+  /** The post's platform is on trial (FB_QUEUE=shadow, IG_POSTING=dry): nothing it drafts is posted. */
   trial: boolean;
   /** "Draft updated" rather than "Draft". */
   refreshed?: boolean;
@@ -74,15 +75,22 @@ function lockLine(post: SocialPost, lockMinutes: number | undefined, now: number
 export function reviewText(post: SocialPost, o: ReviewOptions): string {
   const open = ["draft", "approved", "failed"].includes(post.status);
   const head = open ? (o.refreshed ? "🔄 Draft updated" : "📝 Draft") : "📝";
-  const cards = post.cards.length > 1 ? post.cards.map((c, i) => `${bn(i + 1)}. ${c.title} — ${c.source}`) : [];
+  const instagram = post.platform === "instagram";
+  // An Instagram caption lists its headlines itself.
+  const cards = post.cards.length > 1 && !instagram ? post.cards.map((c, i) => `${bn(i + 1)}. ${c.title} — ${c.source}`) : [];
+  const trial = instagram
+    ? "(Trial run: Instagram gets nothing yet; IG_POSTING=dry.)"
+    : "(Trial run: the Page still posts the old way; this queue posts nothing yet.)";
+  const pictures = instagram && open ? (postImages(post).length ? [] : ["🖼 Its pictures are drawn by the next run."]) : [];
   return [
-    `${head} · ${dhakaClock(post.scheduledAt)} · ${CONTENT_LABEL[post.content] ?? post.content}${post.kind === "breaking" ? " · breaking" : ""}`,
+    `${head} · ${instagram ? "📸 Instagram · " : ""}${dhakaClock(post.scheduledAt)} · ${CONTENT_LABEL[post.content] ?? post.content}${post.kind === "breaking" ? " · breaking" : ""}`,
     statusLine(post),
     ...[lockLine(post, o.lockMinutes, Date.now())].filter((l): l is string => !!l),
-    ...(o.trial && open ? ["(Trial run: the Page still posts the old way; this queue posts nothing yet.)"] : []),
+    ...(o.trial && open ? [trial] : []),
+    ...pictures,
     "",
     post.message,
-    ...(cards.length ? ["", ...cards] : post.link ? [post.link] : []),
+    ...(cards.length ? ["", ...cards] : post.link && !instagram ? [post.link] : []),
   ].join("\n");
 }
 
@@ -101,8 +109,15 @@ export function reviewButtons(post: SocialPost, o: ReviewOptions): InlineButton[
     case "skipped":
       return [[b("↩️ Undo", "reopen"), admin]];
     case "posted":
+      if (post.platform === "instagram") return post.permalink ? [[{ text: "View on Instagram", url: post.permalink }, admin]] : [[admin]];
       return post.fbPostId && !post.removedAt ? [[{ text: "View on Facebook", url: `https://www.facebook.com/${post.fbPostId}` }, admin]] : [[admin]];
     default:
       return [[admin]];
   }
+}
+
+/** The address Telegram previews under the message: an Instagram post's first picture, else a single post's link. */
+export function previewOf(post: SocialPost): string | undefined {
+  if (post.platform === "instagram") return postImages(post)[0];
+  return post.cards.length === 1 ? post.link : undefined;
 }

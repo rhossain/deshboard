@@ -30,6 +30,7 @@ on:
           - d1-token-check    # SOCIAL_DB_TOKEN (the deploy's D1-only token) can read the database through the API
           - d1-backup         # exports the database with SOCIAL_DB_TOKEN, as the deploy's daily backup does, as this run's artifact
           - fb-token-check    # whose token FB_PAGE_TOKEN is, its scopes and expiry
+          - ig-check          # the Instagram account connected to the Page, whether the token may post to it, its allowance
       arg:
         description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard; d1-query: the SQL)"
         required: false
@@ -308,6 +309,31 @@ jobs:
             | tee -a "$REPORT"
           if [ -n "$FB_PAGE_ID" ]; then
             echo "page: $(curl -sS "$G/$FB_PAGE_ID?fields=id,name,fan_count&access_token=$FB_PAGE_TOKEN" | jq -c '{id, name, fan_count, error: .error.message}')" | tee -a "$REPORT"
+          fi
+
+      # Instagram (docs/instagram.md): the professional account connected to the Page, as the Page's token sees it;
+      # whether the system user's token has instagram_basic and instagram_content_publish; and the 24-hour allowance.
+      - name: ig-check
+        if: inputs.task == 'ig-check'
+        env:
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
+        run: |
+          G=https://graph.facebook.com/v23.0
+          scopes=$(curl -sS "$G/debug_token?input_token=$FB_PAGE_TOKEN&access_token=$FB_PAGE_TOKEN" | jq -r '.data.scopes // [] | join(",")')
+          for s in instagram_basic instagram_content_publish pages_read_engagement; do
+            case ",$scopes," in *",$s,"*) echo "✓ token has $s" ;; *) echo "✗ token lacks $s" ;; esac
+          done | tee -a "$REPORT"
+          PAGE_TOKEN=$(curl -sS "$G/$FB_PAGE_ID?fields=access_token&access_token=$FB_PAGE_TOKEN" | jq -r '.access_token // empty')
+          T=${PAGE_TOKEN:-$FB_PAGE_TOKEN}
+          linked=$(curl -sS "$G/$FB_PAGE_ID?fields=instagram_business_account%7Bid,username,name,followers_count%7D&access_token=$T")
+          echo "connected account: $(echo "$linked" | jq -c '{account: .instagram_business_account, error: .error.message}')" | tee -a "$REPORT"
+          IG=${IG_USER_ID:-$(echo "$linked" | jq -r '.instagram_business_account.id // empty')}
+          if [ -n "$IG" ]; then
+            echo "allowance: $(curl -sS "$G/$IG/content_publishing_limit?fields=quota_usage,config&access_token=$T" | jq -c '{data, error: .error.message}')" | tee -a "$REPORT"
+          else
+            echo "No Instagram account is connected to the Page yet (docs/instagram.md, Setting up)." | tee -a "$REPORT"
           fi
 
       - name: Report

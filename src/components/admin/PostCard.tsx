@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api, ApiError, atDhakaTime, type Card, CONTENT_LABEL, dhakaTime, POLICY_LABEL, relative, type Policy, type SocialPost } from "./api";
 import { ItemPicker } from "./ItemPicker";
 import { editable, editDeadline } from "@/lib/social-settings";
+import { IG_MAX_HEADLINES, instagramCaption, postImages } from "@/lib/instagram-post";
 import { carouselMessage, singleMessage } from "./items";
 
 const STATUS: Record<string, [string, string]> = {
@@ -81,6 +82,7 @@ export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onC
         <span className="font-display text-xl font-semibold tabular-nums">{dhakaTime(post.scheduledAt)}</span>
         <span className="text-xs text-muted">{relative(post.scheduledAt, now)}</span>
         <span className="text-sm font-semibold">{CONTENT_LABEL[post.content] ?? post.content}</span>
+        {post.platform === "instagram" && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">Instagram</span>}
         {post.kind === "breaking" && <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">Breaking</span>}
         <StatusBadge status={post.status} />
         {post.removedAt && <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">Taken down</span>}
@@ -97,7 +99,7 @@ export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onC
       {mode === "edit" ? (
         <EditForm post={post} busy={busy} onCancel={() => setMode("view")} onSave={(e) => run(() => api.edit(post, e), () => setMode("view"))} />
       ) : (
-        <Preview post={post} />
+        post.platform === "instagram" ? <InstagramPreview post={post} /> : <Preview post={post} />
       )}
 
       {post.error && <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">Not posted: {post.error}</p>}
@@ -142,7 +144,7 @@ export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onC
               className={btn}
               disabled={busy}
               onClick={() => {
-                if (confirmText(`Post this to the Facebook Page now?`)) act("post-now");
+                if (confirmText(post.platform === "instagram" ? "Post this to Instagram now?" : "Post this to the Facebook Page now?")) act("post-now");
               }}
             >
               Post now
@@ -153,12 +155,20 @@ export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onC
               {post.status === "approved" || post.status === "draft" ? "Back to the picker" : "Undo"}
             </button>
           )}
-          {post.status === "posted" && post.fbPostId && (
+          {post.status === "posted" && post.platform === "instagram" && post.permalink && (
+            <a className={`${btn} inline-flex items-center`} href={post.permalink} target="_blank" rel="noreferrer">
+              View on Instagram ↗
+            </a>
+          )}
+          {post.status === "posted" && post.platform === "instagram" && (
+            <span className="self-center text-xs text-muted">To take it down, delete it in the Instagram app: its API can&rsquo;t.</span>
+          )}
+          {post.status === "posted" && post.platform !== "instagram" && post.fbPostId && (
             <a className={`${btn} inline-flex items-center`} href={`https://www.facebook.com/${post.fbPostId}`} target="_blank" rel="noreferrer">
               View on Facebook ↗
             </a>
           )}
-          {post.status === "posted" && post.fbPostId && !post.removedAt && (
+          {post.status === "posted" && post.platform !== "instagram" && post.fbPostId && !post.removedAt && (
             <button
               className={btnDanger}
               disabled={busy}
@@ -219,6 +229,42 @@ function Preview({ post }: { post: SocialPost }) {
   );
 }
 
+/** An Instagram post: its pictures as drawn (a carousel scrolls), or its cards until the next run draws them; the caption. */
+function InstagramPreview({ post }: { post: SocialPost }) {
+  const images = postImages(post);
+  return (
+    <div className="mt-3">
+      {images.length ? (
+        <ol className="-mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1">
+          {images.map((src, i) => (
+            <li key={src} className="w-44 shrink-0 snap-start overflow-hidden rounded-xl border border-line bg-surface-2 sm:w-52">
+              <a href={src} target="_blank" rel="noreferrer" aria-label={`Picture ${i + 1}`}>
+                {/* Drawn by the deploy and served from bartaboard.com/ig/. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" loading="lazy" className="aspect-[4/5] w-full object-cover" />
+              </a>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="rounded-xl border border-dashed border-line p-3">
+          <p className="text-xs text-muted">Its pictures are drawn by the next run (within 15 minutes of a change). The cards:</p>
+          <ol className="mt-2 space-y-1 text-[13px]">
+            {post.cards.map((c, i) => (
+              <li key={`${c.link}-${i}`} lang="bn">
+                {i + 1}. <span className="font-semibold">{c.title}</span> <span className="text-muted">— {c.source}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      <p lang="bn" className="mt-3 whitespace-pre-line text-[15px] leading-relaxed">
+        {post.message || <span className="text-muted">(no text)</span>}
+      </p>
+    </div>
+  );
+}
+
 function Picture({ src }: { src?: string }) {
   const [broken, setBroken] = useState(false);
   if (!src || broken) return <div className="aspect-[1.91/1] w-full bg-line/40" />;
@@ -248,13 +294,16 @@ function EditForm({
   const [cards, setCards] = useState<Card[]>(post.cards);
   const [picking, setPicking] = useState(false);
   const carousel = !!post.params.child_attachments;
+  const instagram = post.platform === "instagram";
+  const most = instagram ? IG_MAX_HEADLINES : 10;
   const videos = post.content === "video" || post.content === "roundup";
   const changedCards = JSON.stringify(cards) !== JSON.stringify(post.cards);
 
   function update(next: Card[]) {
     setCards(next);
     if (typed) return;
-    if (carousel) setMessage(carouselMessage(post.content, next, Date.parse(post.scheduledAt)));
+    if (instagram) setMessage(instagramCaption(next, Date.parse(post.scheduledAt)));
+    else if (carousel) setMessage(carouselMessage(post.content, next, Date.parse(post.scheduledAt)));
     else if (next[0]) setMessage(singleMessage(next[0]));
   }
 
@@ -299,7 +348,8 @@ function EditForm({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={c.picture} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-10 w-16 shrink-0 rounded-md object-cover" />
               ) : (
-                <span className="h-10 w-16 shrink-0 rounded-md bg-line/40" />
+                // Instagram's cards are drawn by the deploy: no picture of their own to show.
+                !instagram && <span className="h-10 w-16 shrink-0 rounded-md bg-line/40" />
               )}
               <span lang="bn" className="min-w-0 flex-1 text-[13px] leading-snug">
                 <span className="line-clamp-2">{c.title}</span>
@@ -339,7 +389,7 @@ function EditForm({
           <ItemPicker
             kind={videos ? "video" : "headline"}
             exclude={cards.map((c) => c.key ?? "")}
-            needsPicture={carousel}
+            needsPicture={carousel && !instagram}
             label={carousel ? "Add" : "Use this"}
             onPick={(card) => {
               update(carousel ? [...cards, card] : [card]);
@@ -348,7 +398,7 @@ function EditForm({
             onClose={() => setPicking(false)}
           />
         ) : (
-          <button className={btn} disabled={carousel && cards.length >= 10} onClick={() => setPicking(true)}>
+          <button className={btn} disabled={carousel && cards.length >= most} onClick={() => setPicking(true)}>
             {carousel ? `Add a ${videos ? "video" : "headline"}` : `Replace with another ${videos ? "video" : "headline"}`}
           </button>
         ))}
@@ -369,8 +419,9 @@ function EditForm({
         </label>
       </div>
       <p className="text-xs text-muted">
-        Saving locks this post: the picker won&rsquo;t replace it, and it goes out as you leave it. Cards you add are checked (link and picture) just
-        before it goes out.
+        {instagram
+          ? `Saving locks this post: the picker won’t replace it, and it goes out as you leave it. New cards, order or time: the next run draws its pictures again (up to ${IG_MAX_HEADLINES} headlines, ${message.length}/2200 characters).`
+          : "Saving locks this post: the picker won’t replace it, and it goes out as you leave it. Cards you add are checked (link and picture) just before it goes out."}
       </p>
       <div className="flex gap-2">
         <button className={btnPrimary} disabled={busy} onClick={save}>

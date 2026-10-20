@@ -21,6 +21,11 @@ export interface QueueSettings {
    * sees at that moment is what goes out. Approve, reject and skip stay open until it goes.
    */
   editLockMinutes: number;
+  /**
+   * Instagram's times of day ("HH:MM", Dhaka), each a carousel of headlines; null: the Page's headline times
+   * (instagram-post.ts IG_DEFAULT_TIMES). Instagram uses the other settings (pause, policy, lead, lock) as they are.
+   */
+  instagramTimes: string[] | null;
 }
 
 export const DEFAULT_SETTINGS: QueueSettings = {
@@ -30,10 +35,12 @@ export const DEFAULT_SETTINGS: QueueSettings = {
   draftLeadMinutes: 40,
   slots: null,
   editLockMinutes: 5,
+  instagramTimes: null,
 };
 
 const POLICIES: Policy[] = ["manual", "auto_unless_rejected", "auto"];
 const CONTENTS = ["headlines", "news", "video", "roundup"];
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export function queueSettings(raw: Record<string, unknown>): QueueSettings {
   const policy = (v: unknown, d: Policy) => (POLICIES.includes(v as Policy) ? (v as Policy) : d);
@@ -42,6 +49,9 @@ export function queueSettings(raw: Record<string, unknown>): QueueSettings {
   const slots = Array.isArray(raw.slots)
     ? (raw.slots as Slot[]).filter((s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s?.time) && CONTENTS.includes(s?.content))
     : [];
+  const times = Array.isArray(raw.instagramTimes)
+    ? [...new Set((raw.instagramTimes as unknown[]).filter((t): t is string => typeof t === "string" && TIME.test(t)))].sort()
+    : [];
   return {
     paused: raw.paused === true,
     slotPolicy: policy(raw.slotPolicy, DEFAULT_SETTINGS.slotPolicy),
@@ -49,6 +59,7 @@ export function queueSettings(raw: Record<string, unknown>): QueueSettings {
     draftLeadMinutes: Number.isFinite(lead) && lead >= 20 && lead <= 360 ? lead : DEFAULT_SETTINGS.draftLeadMinutes,
     slots: slots.length ? slots : null,
     editLockMinutes: raw.editLockMinutes !== undefined && Number.isInteger(lock) && lock >= 0 && lock <= 30 ? lock : DEFAULT_SETTINGS.editLockMinutes,
+    instagramTimes: times.length ? times.slice(0, 12) : null,
   };
 }
 
