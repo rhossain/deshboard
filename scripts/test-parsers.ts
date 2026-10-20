@@ -82,6 +82,8 @@ import { groupVideos, tagStories, videoKeywords } from "../src/lib/video-stories
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { articleProblem, checkedPick, linkProblem, metaContent, pictureProblem, pictureSize, sameTitle, textProblem } from "../src/lib/post-checks";
+import sharp from "sharp";
+import { CARD_SIZE, cardKey, pictureCandidates, prepareCardPicture } from "../src/lib/card-pictures";
 
 /** A PNG's first bytes for a picture of that size, padded to look like a real one (3,000 bytes). */
 function fakePng(width: number, height: number): Uint8Array {
@@ -1550,6 +1552,99 @@ test("post checks: links and pictures as Facebook's crawler would get them", asy
     assert.match((await pictureProblem(undefined))!, /no picture/);
     assert.match((await articleProblem({ ...sampleItem, link: `${base}/missing` }))!, /gone from/);
     assert.equal(await articleProblem({ ...sampleItem, link: `${base}/s/good` }), null);
+  } finally {
+    server.close();
+  }
+});
+
+test("card pictures: the outlet's larger, plainer copy first", () => {
+  const first = (url: string) => pictureCandidates(url)[0];
+  assert.equal(first("https://backoffice.channel24bd.tv/media/imgAll/2026October/PLATE/ishraq-1792481596.jpg"), "https://backoffice.channel24bd.tv/media/imgAll/2026October/ishraq-1792481596.jpg");
+  assert.equal(first("https://dbs3.sgp1.cdn.digitaloceanspaces.com/imgAll/2026October/SM/pm-1792488922.jpg"), "https://dbs3.sgp1.cdn.digitaloceanspaces.com/imgAll/2026October/pm-1792488922.jpg");
+  assert.equal(first("https://assets.dhakapost.com/og-image/media/imgAll/BG/2026October/drone-10.jpg?cid=491800"), "https://assets.dhakapost.com/media/imgAll/BG/2026October/drone-10.jpg?cid=491800");
+  assert.equal(first("https://cdn.jugantor.com/assets/news_photos/2026/10/20/social-thumbnail/3625-6ad71f5974b9c.jpg"), "https://cdn.jugantor.com/assets/news_photos/2026/10/20/3625-6ad71f5974b9c.jpg");
+  assert.equal(first("https://file.dailynayadiganta.com/assets/img/202610/og_1792485404_ac26.webp"), "https://file.dailynayadiganta.com/assets/img/202610/1792485404_ac26.webp");
+  assert.equal(first("https://ncdn.ntvbd.com/sites/default/files/styles/social_gpi_ntv_24m/public/images/2026/10/20/trump.jpg"), "https://ncdn.ntvbd.com/sites/default/files/images/2026/10/20/trump.jpg");
+  assert.equal(first("https://www.thedailystar.net/sites/default/files/styles/social_share/public/2026-10/PM%20Rangpur.webp"), "https://www.thedailystar.net/sites/default/files/2026-10/PM%20Rangpur.webp");
+  assert.equal(first("https://media.prothomalo.com/prothomalo-bangla/2026-10-19/pm8szqt6/19.jfif?w=280"), "https://media.prothomalo.com/prothomalo-bangla/2026-10-19/pm8szqt6/19.jfif?w=1600&auto=format%2Ccompress");
+  assert.equal(first("https://img.rtvonline.com/resize?w=600&h=315&q=100&cmp=RM&img=/media/images/a.jpg"), "https://img.rtvonline.com/resize?w=1200&h=630&q=100&cmp=RM&img=%2Fmedia%2Fimages%2Fa.jpg");
+  assert.equal(first("https://www.alokitobangladesh.com/image-contents/600x315x1x1/news-photos/2026/10/20/image-354551.jpg"), "https://www.alokitobangladesh.com/image-contents/1200x630x1x1/news-photos/2026/10/20/image-354551.jpg");
+  assert.equal(first("https://sarabangla.net/wp-content/uploads/2026/10/Medical-300x180.png"), "https://sarabangla.net/wp-content/uploads/2026/10/Medical.png");
+  assert.deepEqual(pictureCandidates("https://i.ytimg.com/vi/abc123XYZ_-/hqdefault.jpg"), [
+    "https://i.ytimg.com/vi/abc123XYZ_-/maxresdefault.jpg",
+    "https://i.ytimg.com/vi/abc123XYZ_-/sddefault.jpg",
+    "https://i.ytimg.com/vi/abc123XYZ_-/hqdefault.jpg",
+  ]);
+  // The address given is always tried, last; one with nothing to rewrite is the only one.
+  assert.equal(pictureCandidates("https://backoffice.channel24bd.tv/media/imgAll/PLATE/a.jpg").at(-1), "https://backoffice.channel24bd.tv/media/imgAll/PLATE/a.jpg");
+  assert.deepEqual(pictureCandidates("https://media.channelionline.com/2026/10/Untitled23-5.jpg?w=1200"), ["https://media.channelionline.com/2026/10/Untitled23-5.jpg?w=1200"]);
+  assert.match(cardKey("https://x.test/a.jpg"), /^[0-9a-f]{32}-0$/);
+});
+
+test("card pictures: made square from the best copy, or refused", async () => {
+  // A photo's grain: random noise, which no check takes for a graphic.
+  const photo = (width: number, height: number) =>
+    sharp({ create: { width, height, channels: 3, background: "#808080", noise: { type: "gaussian", mean: 128, sigma: 40 } } });
+  const jpeg = async (width: number, height: number) => photo(width, height).jpeg().toBuffer();
+  const files: Record<string, [string, Buffer]> = {
+    "/photo.jpg": ["image/jpeg", await jpeg(1200, 630)],
+    "/thumb.jpg": ["image/jpeg", await jpeg(300, 169)],
+    "/pic-300x169.jpg": ["image/jpeg", await jpeg(300, 169)],
+    "/pic.jpg": ["image/jpeg", await jpeg(1280, 720)],
+    // A WebP behind a .jpg name, as some CDNs send.
+    "/webp.jpg": ["image/jpeg", await photo(1000, 700).webp().toBuffer()],
+    // A 16:9 photo letterboxed into 4:3 with black bars.
+    "/letterbox.jpg": [
+      "image/jpeg",
+      await sharp({ create: { width: 1280, height: 960, channels: 3, background: "#000000" } })
+        .composite([{ input: await jpeg(1280, 720), top: 120, left: 0 }])
+        .jpeg()
+        .toBuffer(),
+    ],
+    // A plain graphic: a white field with a mark in it.
+    "/plain.png": [
+      "image/png",
+      await sharp({ create: { width: 1200, height: 630, channels: 3, background: "#ffffff" } })
+        .composite([{ input: await jpeg(200, 120), top: 255, left: 500 }])
+        .png()
+        .toBuffer(),
+    ],
+    "/media/site-logo.jpg": ["image/jpeg", await jpeg(1200, 630)],
+    "/cut.jpg": ["image/jpeg", (await jpeg(1200, 630)).subarray(0, 9000)],
+    "/page.jpg": ["text/html", Buffer.from(`<html>${"x".repeat(3000)}</html>`)],
+  };
+  const server = createServer((req, res) => {
+    const file = files[req.url ?? ""];
+    res.writeHead(file ? 200 : 404, { "content-type": file?.[0] ?? "text/plain" });
+    res.end(file?.[1] ?? "not found");
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  try {
+    const made = async (path: string) => {
+      const got = await prepareCardPicture(`${base}${path}`);
+      if (!got.picture) return got.problem;
+      const meta = await sharp(got.picture.jpeg).metadata();
+      assert.equal(meta.format, "jpeg");
+      assert.equal(meta.width, CARD_SIZE);
+      assert.equal(meta.height, CARD_SIZE);
+      return got.picture;
+    };
+    const photoCard = await made("/photo.jpg");
+    assert.ok(typeof photoCard !== "string" && photoCard.width === 1200 && photoCard.height === 630);
+    assert.match((await made("/thumb.jpg")) as string, /only 300×169/);
+    // The thumbnail's full-size copy is found and used.
+    const wp = await made("/pic-300x169.jpg");
+    assert.ok(typeof wp !== "string" && wp.source === `${base}/pic.jpg` && wp.width === 1280);
+    assert.ok(typeof (await made("/webp.jpg")) !== "string", "a WebP named .jpg becomes a JPEG");
+    const boxed = await made("/letterbox.jpg");
+    assert.ok(typeof boxed !== "string" && boxed.width === 1280 && boxed.height >= 700 && boxed.height <= 716, `the bars are trimmed: ${typeof boxed === "string" ? boxed : `${boxed.width}×${boxed.height}`}`);
+    assert.match((await made("/plain.png")) as string, /logo or a placeholder/);
+    assert.match((await made("/media/site-logo.jpg")) as string, /logo or a placeholder/);
+    assert.match((await made("/cut.jpg")) as string, /can't be read/);
+    assert.match((await made("/page.jpg")) as string, /can't be read|isn't a picture/);
+    assert.match((await made("/missing.jpg")) as string, /answers 404/);
+    assert.match((await prepareCardPicture(undefined)).problem!, /no picture/);
   } finally {
     server.close();
   }

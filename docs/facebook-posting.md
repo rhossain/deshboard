@@ -145,8 +145,33 @@ the video's Bartaboard page, with its thumbnail, title and channel; the post's o
 With fewer than three stories, a video post goes out instead. So does it if **Facebook refuses the carousel**:
 carousels of links (`child_attachments`) are allowed only for links the Page can show as its own, which is what
 **domain verification** (below) is for. Until bartaboard.com is verified, expect the roundups to come out as video
-posts; the run's summary says so ("Roundup not posted …; posting a video instead"). Carousel cards are square, so
-Facebook crops the thumbnails' sides.
+posts; the run's summary says so ("Roundup not posted …; posting a video instead").
+
+### The cards' pictures
+
+Carousel cards are square, and Facebook fetches each card's picture itself. Outlets' pictures used to come out
+**blurry or broken** there: small thumbnails blown up (Daily Bangladesh's feed pictures are 300×169, Prothom Alo's 280
+across, TBS's and RTV's 600×315), WebP files behind a `.jpg` name (Channel i's), photos framed by the outlet's own
+banner whose words the square cut in half (Channel 24's "PLATE", Dhaka Post's, NTV's, Jugantor's, The Daily Star's,
+bdnews24's strip), the outlet's logo standing in for a photo.
+
+So Bartaboard makes each card's picture itself (`src/lib/card-pictures.ts`) and Facebook gets that:
+
+1. **The best copy.** Where an outlet's addresses say how, its larger, unbranded copy of the same photo is tried first
+   (Channel 24 without `/PLATE/`, Daily Bangladesh without `/SM/`, Dhaka Post without `/og-image/`, Drupal sites
+   without `/styles/…/public/`, YouTube's 1280×720 thumbnail before the letterboxed 480×360 one, …), then the picture
+   as the feed gave it. A copy that doesn't answer with a good picture is passed over.
+2. **Checked.** It must load and decode whole (a cut-off file is refused rather than shown half grey), be at least
+   **400 pixels each way** after any bars around it are trimmed, and be a photo: not named as a logo or placeholder,
+   and not mostly one flat colour.
+3. **Made square.** Cropped to 1080×1080 around what matters in it (faces, colour, detail), and saved as a plain JPEG.
+4. **Served from Bartaboard**, at `bartaboard.com/fb/<key>.jpg` (`functions/fb`), from the admin's database where
+   Instagram's pictures are kept; deleted after four days (Facebook keeps its own copy once a post is made).
+
+A picture that fails is a card that fails (below): the headline is left out and the pick made again. Drafts show the
+made pictures in the admin; cards added in the admin get theirs just before the post goes out. If the database can't
+be reached, cards keep the outlet's (checked) pictures. Locally (`--site`), the pictures are written to
+`.social/fb-cards/` to look at.
 
 ### Checked before anything goes out
 
@@ -156,7 +181,8 @@ Nothing goes out with a missing or broken part:
 | Checked | Fails when |
 | --- | --- |
 | The Bartaboard link, read as Facebook's crawler reads it | it doesn't answer, redirects (a video gone from YouTube), shows the site's fallback card, or shows a different headline or video title than the post's. Read four times over a minute before giving up, in case the upload isn't everywhere yet |
-| The picture (a card's own; a single post's, from its link's page) | it doesn't load, isn't a picture, is the site's stand-in picture, or is smaller than 200×150 (or 2 KB) |
+| A card's picture (see above) | no copy of it loads and decodes whole as a photo at least 400 pixels each way: too small, cut off, the outlet's logo or a flat graphic |
+| A single post's picture, from its link's page | it doesn't load, isn't a picture, is the site's stand-in picture, or is smaller than 200×150 (or 2 KB) |
 | The video, on YouTube | it is private or gone, or its channel doesn't let other sites play it (Bartaboard plays it on its own page) |
 | The article, at the outlet | the outlet has taken it down (404 or 410). Other answers pass: some outlets refuse GitHub's servers |
 | The text | the post's text, a headline, title, outlet or channel name is empty or has a gap ("undefined", "null") |

@@ -70,6 +70,7 @@ import { shareKey } from "../src/lib/share";
 import { findStories } from "../src/lib/stories";
 import { datesToSearch, shardPath, type ShareShard } from "../src/lib/share-lookup";
 import { sourceName } from "../src/lib/bn-names";
+import { cardPictureProblem, isCardPicture, prepareCardPicture } from "../src/lib/card-pictures";
 import {
   articleProblem,
   checkedPick,
@@ -89,9 +90,12 @@ import {
   activeBlocks,
   type Block,
   type Card,
+  hasMedia,
   insertPost,
   listPosts,
   type PostStatus,
+  pruneMedia,
+  putMedia,
   readSettings,
   recordRun,
   type SocialPost,
@@ -107,6 +111,8 @@ import { CONTENT_LABEL, reviewButtons, reviewText } from "../src/lib/telegram-re
 const GRAPH = process.env.FB_GRAPH_URL ?? "https://graph.facebook.com/v23.0";
 const STATE_FILE = path.join(process.cwd(), ".social", "facebook.json");
 const PUBLIC = path.join(process.cwd(), "public");
+/** How long the cards' pictures are kept (as Instagram's: scripts/post-instagram.ts). */
+const KEEP_MEDIA_MS = 4 * 86_400_000;
 /** How far ahead of its slot a post is scheduled in review mode. */
 const REVIEW_LEAD_MS = 45 * 60_000;
 
@@ -451,9 +457,10 @@ async function compose(p: Picking, content: PostContent | null, at: number, fiel
         Promise.resolve(textProblem("video title", unmaskTitle(c.video.title))),
         Promise.resolve(textProblem("channel name", channelBn(c.video.channel))),
         videoProblem(c.video),
-        // A card shows the thumbnail it is given; a video post, the one its link's page names.
+        // A card shows the thumbnail it is given (made into its square: card-pictures.ts); a video post, the one its
+        // link's page names.
         linkProblem(videoLink(SITE, c.video), c.video.title, !card),
-        card ? pictureProblem(videoThumbnail(c.video)) : Promise.resolve(null),
+        card ? cardPictureProblem(videoThumbnail(c.video)) : Promise.resolve(null),
       );
     const pick = (label: string, cards: () => VideoChoice[], card: boolean) =>
       checkedPick(label, cards, (c) => c.video.id, check(card), (c) => failed.add(c.video.id), warn);
@@ -463,7 +470,7 @@ async function compose(p: Picking, content: PostContent | null, at: number, fiel
     };
     const cards = content === "roundup" ? await pick("roundup", () => pickRoundup(stories, options), true) : [];
     // A roundup with too few stories that pass, or one Facebook won't take, goes out as a video post instead.
-    const plan = cards.length ? roundupPlan(cards, fields, single) : await single();
+    const plan = cards.length ? await withCardPictures(roundupPlan(cards, fields, single), single) : await single();
     return { plan, why: plan ? undefined : `${stories.length} video stories, none passes` };
   }
   if (!p.packed) return { plan: null, missing: "No headlines to choose from (public/data/v2/news.json is missing)." };
@@ -483,9 +490,10 @@ async function compose(p: Picking, content: PostContent | null, at: number, fiel
       Promise.resolve(textProblem("headline", c.item.title)),
       Promise.resolve(textProblem("outlet name", sourceName(c.item.sourceId, c.item.sourceName, "bn"))),
       articleProblem(c.item),
-      // A card shows the picture it is given; a single post, the one its link's page names.
+      // A card shows the picture it is given (made into its square: card-pictures.ts); a single post, the one its
+      // link's page names.
       linkProblem(postLink(SITE, c.item, now), c.item.title, !card),
-      card ? pictureProblem(withPicture.get(c.item)) : Promise.resolve(null),
+      card ? cardPictureProblem(withPicture.get(c.item)) : Promise.resolve(null),
     );
   const pick = (label: string, cards: () => PostChoice[], card: boolean) =>
     checkedPick(label, cards, (c) => c.item, check(card), (c) => failed.add(c.item), warn);
@@ -496,7 +504,7 @@ async function compose(p: Picking, content: PostContent | null, at: number, fiel
   };
   const cards = content === "headlines" ? await pick("headlines carousel", () => pickHeadlines(stories, options), true) : [];
   // Too few stories that pass for five, or a carousel Facebook won't take: one headline instead.
-  const plan = cards.length ? headlinesPlan(cards, withPicture, fields, now, single) : await single();
+  const plan = cards.length ? await withCardPictures(headlinesPlan(cards, withPicture, fields, now, single), single) : await single();
   return { plan, why: plan ? undefined : `No slot due and no breaking story (${stories.length} stories from ${items.length} headlines).` };
 }
 
@@ -513,6 +521,8 @@ const queueSetting = (process.env.FB_QUEUE ?? "").trim().toLowerCase();
 
 async function main() {
   const queueLocal = local && args.includes("--queue");
+  // The cards' pictures are kept where the admin's are, whichever way posts are made (none locally: see hostCardPictures).
+  if (!local && mode !== "off") pictureDb = await queueDb();
   if ((local && !queueLocal) || (!["shadow", "on"].includes(queueSetting) && !queueLocal)) return legacyMain();
   if (mode === "off") return legacyMain();
   const db = await queueDb();
@@ -768,7 +778,8 @@ async function queueMain(db: Db, dryRun: boolean) {
     // and each picture load before it goes out.
     const minCards = post.edited ? 2 : undefined;
     const asQueued = plan;
-    const problem = (await planProblem(plan, minCards)) ?? (post.edited ? await cardsProblem(post) : null);
+    // Cards from before Bartaboard made their pictures, or added in the admin, get theirs now (checked as they are made).
+    const problem = (await planProblem(plan, minCards)) ?? (await hostCardPictures(plan)) ?? (post.edited ? await cardsProblem(post) : null);
     if (problem && !post.locked && content) {
       const fresh = await compose(picking, post.kind === "breaking" ? null : content, at, fields, counted());
       plan = fresh.plan && !(await planProblem(fresh.plan)) ? fresh.plan : plan;
@@ -842,6 +853,12 @@ async function queueMain(db: Db, dryRun: boolean) {
         else await show(post);
       }
     }
+  }
+
+  // Cards' pictures of posts long gone (Facebook keeps its own copy once a post is made), as Instagram's are.
+  if (!local) {
+    const pruned = await pruneMedia(db, iso(now - KEEP_MEDIA_MS)).catch(() => 0);
+    if (pruned) report.push(`${pruned} old picture parts deleted`);
   }
 
   // The old path's history file, kept in step from the database: switching FB_QUEUE off again loses nothing.
@@ -977,12 +994,85 @@ async function cardsProblem(post: SocialPost): Promise<string | null> {
   for (const c of post.cards) {
     const problem = await firstProblem(
       linkProblem(c.link, c.title, !carousel),
-      carousel ? pictureProblem(c.picture) : Promise.resolve(null),
+      carousel ? cardPictureProblem(c.picture) : Promise.resolve(null),
     );
     if (problem) return `"${c.title.slice(0, 60)}": ${problem}`;
   }
   return null;
 }
+
+/** Where the cards' pictures are kept, served at /fb/<key>.jpg: the admin's database. */
+let pictureDb: Db | null = null;
+/** Pictures that went up this run, by key: each is stored and checked once. */
+const hosted = new Map<string, Promise<string | null>>();
+
+/**
+ * Gives each card of a carousel its picture made by Bartaboard (card-pictures.ts: the outlet's photo, largest and
+ * plainest copy, cropped square, a plain JPEG) at Bartaboard's own address, instead of the outlet's: Facebook then
+ * shows exactly that, whatever the outlet sends its servers. The problem when a card's picture isn't good enough.
+ *
+ * Kept in the admin's database and served by functions/fb. Without the database, or if the stored picture doesn't
+ * answer at its address, the card keeps the outlet's (checked) picture. Locally, the pictures are written to
+ * .social/fb-cards/ to look at.
+ */
+async function hostCardPictures(plan: Plan): Promise<string | null> {
+  if (!plan.params.child_attachments) return null;
+  const children = JSON.parse(plan.params.child_attachments) as Record<"link" | "name" | "description" | "picture", string>[];
+  for (const [i, c] of children.entries()) {
+    if (isCardPicture(c.picture, SITE)) {
+      // Made by an earlier run; kept a few days (pruneMedia), so a post that waited longer has lost it.
+      const key = /\/fb\/([0-9a-f]+-\d+)\.jpg$/.exec(c.picture)?.[1];
+      if (pictureDb && key && !(await hasMedia(pictureDb, key).catch(() => true))) return `card ${i + 1} ("${normalTitle(c.name)}"): its picture is no longer kept`;
+      continue;
+    }
+    const made = await prepareCardPicture(c.picture);
+    if (!made.picture) return `card ${i + 1} ("${normalTitle(c.name)}"): ${made.problem}`;
+    const { key, jpeg, source, width, height } = made.picture;
+    if (local) {
+      const dir = path.join(process.cwd(), ".social", "fb-cards");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, `${key}.jpg`), jpeg);
+      console.log(`  card ${i + 1}: .social/fb-cards/${key}.jpg (from ${source}, ${width}×${height})`);
+      continue;
+    }
+    if (!pictureDb) continue;
+    const db = pictureDb;
+    if (!hosted.has(key)) {
+      hosted.set(
+        key,
+        (async () => {
+          const url = `${SITE}/fb/${key}.jpg`;
+          try {
+            if (!(await hasMedia(db, key))) await putMedia(db, key, jpeg.toString("base64"));
+          } catch (err) {
+            warn(`Card picture not stored (${(err as Error).message}); the card keeps the outlet's picture.`);
+            return null;
+          }
+          const served = await pictureProblem(url);
+          if (served) {
+            warn(`Card picture stored but not served (${served}); the card keeps the outlet's picture.`);
+            return null;
+          }
+          return url;
+        })(),
+      );
+    }
+    const url = await hosted.get(key)!;
+    if (url) c.picture = url;
+  }
+  plan.params.child_attachments = JSON.stringify(children);
+  return null;
+}
+
+/** A carousel with its cards' pictures made (hostCardPictures); the single post instead if one can't be. */
+async function withCardPictures(plan: Plan, single: () => Promise<Plan | null>): Promise<Plan | null> {
+  const problem = await hostCardPictures(plan);
+  if (!problem) return plan;
+  warn(`Carousel not made: ${problem}`);
+  return single();
+}
+
+const normalTitle = (title: string) => (title.length > 60 ? `${title.slice(0, 60)}…` : title);
 
 /** Why the last post publish() tried wasn't made (for the queue's record of it). */
 let lastError = "";
