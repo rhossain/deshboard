@@ -142,6 +142,12 @@ const en = {
   noHeadlines: "No headlines.",
   showLess: "Show less",
   showAll: (count: string) => `Show all ${count}`,
+  /** The panel a source card's "Show all" opens under the card's row. */
+  allHeadlines: {
+    label: "All headlines",
+    summary: (count: string, name: string) => `${count} headlines from ${name}`,
+    close: (name: string) => `Close ${name}’s headlines`,
+  },
 
   // Headline menus and times
   moreActions: "More actions",
@@ -478,6 +484,11 @@ const bn: Strings = {
   noHeadlines: "কোনো শিরোনাম নেই।",
   showLess: "কম দেখুন",
   showAll: (count) => `সব ${count}টি দেখুন`,
+  allHeadlines: {
+    label: "সব শিরোনাম",
+    summary: (count, name) => `${name}-এর ${count}টি শিরোনাম`,
+    close: (name) => `${name}-এর শিরোনাম বন্ধ করুন`,
+  },
 
   moreActions: "আরও",
   moreActionsSaved: "আরও (সংরক্ষিত)",

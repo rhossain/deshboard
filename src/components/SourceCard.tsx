@@ -1,18 +1,18 @@
 "use client";
 
-import { createContext, memo, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, memo, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { fallbackNote, sourceProblem } from "@/lib/problems";
 import type { NewsFeed, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
 import { useLocale, useStrings } from "./locale";
 import { formatCount } from "./time";
-import { AlertIcon, ArrowUpRightIcon, ChevronIcon, ItemMenu, NewDot, StarIcon } from "./ui";
+import { AlertIcon, ArrowUpRightIcon, ChevronIcon, CloseIcon, ItemMenu, NewDot, StarIcon } from "./ui";
 import { Highlight } from "./Highlight";
 
 const PER_CARD = 8;
 /**
  * Headlines on a card in compact density. The card still has PER_CARD (the page is the same for
- * every reader and search engines); CSS hides the rest until "Show all".
+ * every reader and search engines); CSS hides the rest, and "Show all" opens them in a SourcePanel.
  */
 const COMPACT_PER_CARD = 5;
 
@@ -38,6 +38,9 @@ export const SourceCard = memo(function SourceCard({
   onShare,
   total,
   onShowAll,
+  expanded = false,
+  panelId,
+  onExpand,
   pinned = false,
   onTogglePin,
 }: {
@@ -63,11 +66,16 @@ export const SourceCard = memo(function SourceCard({
   total?: number;
   /** Called when the card opens in full, for the board to load the headlines it doesn't have yet. */
   onShowAll?: () => void;
+  /** Its SourcePanel is open: every headline, in a row of the grid under the card's row (as Videos' stories). */
+  expanded?: boolean;
+  /** The open panel's id, for the button that controls it. */
+  panelId?: string;
+  /** Opens or closes the card's SourcePanel (one at a time, so the board keeps which). */
+  onExpand?: (sourceId: string) => void;
   /** One of the reader's own sources (see pinned.ts), shown first. */
   pinned?: boolean;
   onTogglePin?: (sourceId: string) => void;
 }) {
-  const [showAll, setShowAll] = useState(false);
   const ref = useRef<HTMLElement>(null);
   const t = useStrings();
   const locale = useLocale();
@@ -84,10 +92,10 @@ export const SourceCard = memo(function SourceCard({
   const foldsOnPhone = foldable && (savedCollapsed ?? (!!problem && !stale));
   const collapsed = collapsible && foldsOnPhone;
   const phoneFolded = !collapsible && foldsOnPhone;
-  const [lead, ...rest] = showAll ? items : items.slice(0, PER_CARD);
+  const [lead, ...rest] = items.slice(0, PER_CARD);
   const count = total ?? items.length;
   // Rows for the headlines still to come, so the card is already the size it will be.
-  const placeholders = showAll ? 0 : Math.max(0, Math.min(count, PER_CARD) - Math.min(items.length, PER_CARD));
+  const placeholders = Math.max(0, Math.min(count, PER_CARD) - Math.min(items.length, PER_CARD));
   // The saved lead is the unfiltered card's, so a filtered card (a category) can't compare its own to it.
   const hasNew = collapsed && !filtering && !!lead && !!seenLead && seenLead !== lead.link;
 
@@ -100,12 +108,15 @@ export const SourceCard = memo(function SourceCard({
       const offset = card.getBoundingClientRect().top - toolbar.getBoundingClientRect().bottom - 8;
       if (offset < 0) window.scrollBy({ top: offset, behavior: "instant" });
     }
+    // A folded card's panel would point at nothing: it closes with it.
+    if (!collapsed && expanded) onExpand?.(source.id);
     onToggle?.(source.id, !collapsed);
   };
 
   return (
     <article
       ref={ref}
+      data-source-card={source.id}
       // Cards off screen are skipped when the page is laid out and painted (most of them, on a page of
       // fifty); the estimate holds their place until they are.
       className={`flex flex-col overflow-hidden rounded-2xl border border-line bg-surface [contain-intrinsic-size:auto_560px] [content-visibility:auto] compact:[contain-intrinsic-size:auto_400px] ${
@@ -244,8 +255,8 @@ export const SourceCard = memo(function SourceCard({
                   key={it.link}
                   className={`border-b border-line last:border-b-0 ${
                     // The lead is row 0, so this is row i + 1.
-                    !showAll && i + 1 >= COMPACT_PER_CARD ? "compact:hidden" : ""
-                  } ${!showAll && i + 2 === COMPACT_PER_CARD && i + 1 < rest.length ? "compact:border-b-0" : ""}`}
+                    i + 1 >= COMPACT_PER_CARD ? "compact:hidden" : ""
+                  } ${i + 2 === COMPACT_PER_CARD && i + 1 < rest.length ? "compact:border-b-0" : ""}`}
                 >
                   <Headline
                     item={it}
@@ -279,18 +290,20 @@ export const SourceCard = memo(function SourceCard({
           {count > COMPACT_PER_CARD && (
             <button
               type="button"
+              data-show-all
               onClick={() => {
-                if (!showAll) onShowAll?.();
-                setShowAll((v) => !v);
+                if (!expanded) onShowAll?.();
+                onExpand?.(source.id);
               }}
-              aria-expanded={showAll}
+              aria-expanded={expanded}
+              aria-controls={expanded ? panelId : undefined}
               // With PER_CARD or fewer, only compact cards have more to show.
-              className={`min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2 ${
-                count > PER_CARD || showAll ? "flex" : "hidden compact:flex"
+              className={`min-h-12 w-full items-center justify-center gap-1.5 border-t border-line text-sm font-semibold text-accent transition active:bg-surface-2 aria-expanded:bg-accent-soft ${
+                count > PER_CARD || expanded ? "flex" : "hidden compact:flex"
               }`}
             >
-              {showAll ? t.showLess : t.showAll(formatCount(count, locale))}
-              <ChevronIcon className={`h-4 w-4 transition ${showAll ? "rotate-180" : ""}`} />
+              {expanded ? t.showLess : t.showAll(formatCount(count, locale))}
+              <ChevronIcon className={`h-4 w-4 transition duration-300 ${expanded ? "rotate-180" : ""}`} />
             </button>
           )}
         </Fold>
@@ -308,6 +321,157 @@ function Fold({ open, phoneFolded, children }: { open: boolean; phoneFolded: boo
   return (
     <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${rows}`} inert={!open}>
       <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+/** Rows held for headlines still loading in an open panel (the whole feed is on its way). */
+const PANEL_PLACEHOLDERS = 6;
+
+/**
+ * Every headline of one source, laid out across the grid in a row of its own under the source card's
+ * row, newest first, as Videos lays out a story's other videos: a notch points up at the card, Escape
+ * or the close buttons close it (and the board puts focus back on the card's "Show all").
+ */
+export function SourcePanel({
+  id,
+  source,
+  items,
+  total,
+  now,
+  isNew,
+  savedLinks,
+  onToggleSave,
+  onShare,
+  onClose,
+}: {
+  id: string;
+  source: NewsSource;
+  items: NewsItem[];
+  /** Its headlines in the whole feed, while the page only has some of them. */
+  total?: number;
+  now: number;
+  isNew: (item: NewsItem) => boolean;
+  savedLinks: Set<string>;
+  onToggleSave: (item: NewsItem) => void;
+  onShare: (item: NewsItem) => void;
+  onClose: () => void;
+}) {
+  const t = useStrings();
+  const locale = useLocale();
+  const panel = useRef<HTMLDivElement>(null);
+  const notch = useRef<HTMLSpanElement>(null);
+  const count = Math.max(total ?? 0, items.length);
+  const waiting = Math.min(PANEL_PLACEHOLDERS, count - items.length);
+
+  // On opening, the notch goes under the card (and again as the grid reflows), and the panel comes up
+  // into view if it opened low on the screen.
+  useLayoutEffect(() => {
+    const el = panel.current;
+    if (!el) return;
+    const place = () => {
+      const card = el.parentElement?.querySelector(`[data-source-card="${CSS.escape(source.id)}"]`);
+      const mark = notch.current;
+      if (!card || !mark) return;
+      const c = card.getBoundingClientRect();
+      const p = el.getBoundingClientRect();
+      // A card as wide as the panel (one column) needs no pointer.
+      mark.hidden = c.width > p.width * 0.6;
+      mark.style.left = `${c.left - p.left + c.width / 2}px`;
+    };
+    place();
+    const top = el.getBoundingClientRect().top;
+    if (top > window.innerHeight * 0.7) window.scrollBy({ top: top - window.innerHeight * 0.4, behavior: "smooth" });
+    const observer = new ResizeObserver(place);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [source.id]);
+
+  return (
+    <div
+      ref={panel}
+      id={id}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+      className="story-panel col-span-full -mt-1 sm:mt-0"
+    >
+      <section
+        aria-labelledby={`${id}-title`}
+        className="relative rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5"
+      >
+        <span
+          ref={notch}
+          aria-hidden
+          className="absolute -top-[7px] h-3 w-3 -translate-x-1/2 rotate-45 rounded-tl-[3px] border-l border-t border-line bg-surface"
+        />
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold">{t.allHeadlines.label}</p>
+            <p id={`${id}-title`} className="mt-1 font-display text-lg leading-snug">
+              {t.allHeadlines.summary(formatCount(count, locale), source.name)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t.allHeadlines.close(source.name)}
+            title={t.allHeadlines.close(source.name)}
+            className="-mr-1.5 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-surface-2 hover:text-foreground"
+          >
+            <CloseIcon className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+        <ul
+          className="-mx-2 mt-3 grid gap-x-4 gap-y-1 border-t border-line pt-3 sm:grid-cols-2 xl:grid-cols-3"
+          aria-busy={waiting > 0 || undefined}
+        >
+          {items.map((it) => (
+            <li key={it.link} className="flex rounded-xl transition-colors hover:bg-surface-2">
+              <a
+                data-headline
+                href={it.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block min-w-0 flex-1 py-2.5 pl-2 text-foreground transition visited:text-muted"
+              >
+                <span lang={it.lang} className="block text-[14px] leading-[1.5] group-hover:text-accent">
+                  {isNew(it) && <NewDot className="mr-2 -mt-0.5" />}
+                  <Highlight text={it.title} />
+                </span>
+                <ItemTime item={it} now={now} className="mt-1 block text-[11px] text-muted" />
+              </a>
+              <ItemMenu
+                saved={savedLinks.has(it.link)}
+                onToggleSave={() => onToggleSave(it)}
+                onShare={() => onShare(it)}
+                className="pt-1.5"
+              />
+            </li>
+          ))}
+          {Array.from({ length: Math.max(0, waiting) }, (_, i) => (
+            <li key={`waiting-${i}`} aria-hidden className="space-y-2 px-2 py-3">
+              <div className="skeleton h-3.5 rounded-full" />
+              <div className="skeleton h-3.5 w-3/5 rounded-full" />
+              <div className="skeleton h-2.5 w-16 rounded-full" />
+            </li>
+          ))}
+        </ul>
+        {/* A long list's end is far from the close button at the top. */}
+        {count > 12 && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border-t border-line text-sm font-semibold text-accent transition hover:bg-surface-2 active:bg-surface-2"
+          >
+            {t.showLess}
+            <ChevronIcon className="h-4 w-4 rotate-180" />
+          </button>
+        )}
+      </section>
     </div>
   );
 }

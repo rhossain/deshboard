@@ -50,7 +50,7 @@ import { useSaved, useSavedVideos } from "./saved";
 import { SavedList } from "./SavedList";
 import { AT_TOP_PX, PUBLISH_LAG_MS, RETRY_MS, UPDATE_EVERY_MS } from "./schedule";
 import { type Shareable, ShareOptions, shareUrl, videoShareUrl } from "./ShareOptions";
-import { Logos, SourceCard } from "./SourceCard";
+import { Logos, SourceCard, SourcePanel } from "./SourceCard";
 import { TopStories } from "./TopStories";
 import { ConsentChoicesLink } from "./ConsentBanner";
 import { markTourSeen, Tour, TourInvite } from "./Tour";
@@ -877,6 +877,53 @@ export function NewsBoard({
   );
   const toggleCard = useCallback((id: string, collapsed: boolean) => setCollapsed([id], collapsed), [setCollapsed]);
 
+  // The card opened in full ("Show all"): its SourcePanel goes in a row of its own after the card's row,
+  // in the page as on screen (so the keyboard reaches it after that row's cards), as Videos does with a
+  // story. One at a time; other filters, a search or another view close it.
+  const [openSource, setOpenSource] = useState<string | null>(null);
+  const expandCard = useCallback((id: string) => setOpenSource((open) => (open === id ? null : id)), []);
+  const closeCard = useCallback(() => {
+    setOpenSource((open) => {
+      // Back to the card's "Show all", which scrolls it into view if the panel was long.
+      if (open) {
+        requestAnimationFrame(() =>
+          document.querySelector<HTMLElement>(`[data-source-card="${CSS.escape(open)}"] [data-show-all]`)?.focus(),
+        );
+      }
+      return null;
+    });
+  }, []);
+  const openKey = `${view}\n${lang}\n${onlySource}\n${category}\n${searchQuery}\n${order}\n${onlyNew}`;
+  const [openFor, setOpenFor] = useState(openKey);
+  if (openFor !== openKey) {
+    setOpenFor(openKey);
+    setOpenSource(null);
+  }
+  const panelId = useId();
+  // The grid's columns say where the open card's row ends.
+  const [columns, setColumns] = useState(1);
+  const sourceGrid = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const measure = () => setColumns(getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length || 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  /** The index in visibleSources after which the open card's panel goes (-1 for none). */
+  const panelAfter = useMemo(() => {
+    if (!openSource) return -1;
+    const open = visibleSources.findIndex((s) => s.id === openSource);
+    const shows = (s: NewsSource) => !filtering || !!itemsBySource.get(s.id)?.length;
+    if (open < 0 || !shows(visibleSources[open])) return -1;
+    // The cards drawn in the open card's group: the headings start a new row.
+    const [from, to] = pinnedCards === 0 ? [0, visibleSources.length] : open < pinnedCards ? [0, pinnedCards] : [pinnedCards, visibleSources.length];
+    const drawn: number[] = [];
+    for (let i = from; i < to; i++) if (shows(visibleSources[i])) drawn.push(i);
+    const at = drawn.indexOf(open);
+    return drawn[Math.min(drawn.length - 1, (Math.floor(at / columns) + 1) * columns - 1)];
+  }, [openSource, visibleSources, pinnedCards, filtering, itemsBySource, columns]);
+
   const pinnedIds = useMemo(() => new Set(pins.ids), [pins]);
   /** A card's star. Pinning turns "Pinned first" back on; with no room left, the picker opens instead. */
   const toggleSourcePin = useCallback(
@@ -1452,7 +1499,7 @@ export function NewsBoard({
                 })()}
 
               {hasData && view === "sources" && (
-                <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 compact:gap-3">
+                <div ref={sourceGrid} className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 compact:gap-3">
                   {pinnedCards === 0 && <h2 className="sr-only">{t.byNewspaper}</h2>}
                   {visibleSources.map((s, i) => (
                     <Fragment key={s.id}>
@@ -1475,9 +1522,34 @@ export function NewsBoard({
                         onShare={shareItem}
                         total={cardTotals && (cardTotals[s.id] ?? 0)}
                         onShowAll={whole ? undefined : showAllCards}
+                        expanded={openSource === s.id}
+                        panelId={panelId}
+                        onExpand={expandCard}
                         pinned={pinnedIds.has(s.id)}
                         onTogglePin={toggleSourcePin}
                       />
+                      {i === panelAfter &&
+                        openSource &&
+                        (() => {
+                          const open = sourceById.get(openSource);
+                          return (
+                            open && (
+                              <SourcePanel
+                                key={openSource}
+                                id={panelId}
+                                source={open}
+                                items={itemsBySource.get(openSource) ?? NO_ITEMS}
+                                total={cardTotals && (cardTotals[openSource] ?? 0)}
+                                now={now}
+                                isNew={isNew}
+                                savedLinks={savedLinks}
+                                onToggleSave={toggleSaved}
+                                onShare={shareItem}
+                                onClose={closeCard}
+                              />
+                            )
+                          );
+                        })()}
                     </Fragment>
                   ))}
                 </div>
