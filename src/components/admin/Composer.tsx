@@ -7,6 +7,7 @@ import { api, atDhakaTime, dhakaTime, type Platform, PLATFORM_LABEL, type Social
 import { ItemPicker, type Pick } from "./ItemPicker";
 import { CardList } from "./CardList";
 import { picturesSummary, usePictureChecks } from "./pictures";
+import { PreviewDialog } from "./SocialPreview";
 
 const btn = "h-9 rounded-full border border-line px-3.5 text-[13px] font-semibold transition hover:bg-surface-2 active:scale-95 disabled:opacity-50";
 const btnPrimary = "h-10 rounded-full bg-accent px-5 text-[13px] font-semibold text-accent-ink transition active:scale-95 disabled:opacity-50";
@@ -37,6 +38,7 @@ export function Composer({ platform, onDone, onError, onClose }: Props) {
   const [time, setTime] = useState(() => dhakaTime(Date.now() + 30 * 60_000));
   const [picking, setPicking] = useState<"headline" | "video" | "any" | null>(null);
   const [busy, setBusy] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   const kind = picks[0]?.item.kind;
   const videos = kind === "video";
@@ -150,6 +152,20 @@ export function Composer({ platform, onDone, onError, onClose }: Props) {
         </>
       )}
 
+      {previewing && (
+        <PreviewDialog
+          post={{
+            platform,
+            content: mode === "pick" ? content : "custom",
+            message,
+            link: mode === "pick" ? (picks.length > 1 ? `https://bartaboard.com/bn/${videos ? "videos/" : ""}` : (cards[0]?.link ?? "")) : link,
+            cards: mode === "pick" ? cards : link ? [{ link, title: message.split("\n")[0].slice(0, 140), source: "Bartaboard" }] : [],
+            scheduledAt: new Date(when()).toISOString(),
+          }}
+          onClose={() => setPreviewing(false)}
+        />
+      )}
+
       {picking && (
         <ItemPicker
           kind={picking}
@@ -212,6 +228,9 @@ export function Composer({ platform, onDone, onError, onClose }: Props) {
               <span className="text-xs text-muted">Dhaka</span>
             </label>
             <span className="flex-1" />
+            <button type="button" className={btn} disabled={busy || !ready} onClick={() => setPreviewing(true)} title={`As the ${PLATFORM_LABEL[platform]} app will show it`}>
+              Preview
+            </button>
             <button type="button" className={btn} disabled={busy} onClick={onClose}>
               Cancel
             </button>

@@ -70,6 +70,12 @@ thumbnail opens the picture full size; the button reads "Add to the queue anyway
 video's card is judged by YouTube's largest thumbnail, the one the deploy and the share page use. Instagram's cards
 are drawn from the headline, so there is nothing to check there.
 
+**Preview** (`src/components/admin/SocialPreview.tsx`), on every post's card and in the composer, shows the post as
+the Facebook or Instagram app will: the apps' own layout, type and colours, the text folded where they fold it
+("See more", "more"), a single post's link card, a carousel's square cards, Instagram's pictures as drawn (or
+stand-ins with the same words until the next run draws them). Near enough to judge by; the apps may crop a little
+differently.
+
 **The layout.** On a desktop the sections are a sidebar, with the number of drafts to review (and failures) on
 Queue and quick Pause and Refresh buttons; on a phone they are a bar along the bottom. The section is in the address
 (`/admin/#history`), so a reload and the back button keep their place. Queue starts with today's counts (to review,

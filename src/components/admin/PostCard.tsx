@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api, ApiError, atDhakaTime, type Card, CONTENT_LABEL, dhakaTime, POLICY_LABEL, relative, type Policy, type SocialPost } from "./api";
 import { CardList } from "./CardList";
 import { usePictureChecks } from "./pictures";
+import { PreviewDialog } from "./SocialPreview";
 import { ItemPicker } from "./ItemPicker";
 import { editable, editDeadline } from "@/lib/social-settings";
 import { IG_MAX_HEADLINES, instagramCaption, postImages } from "@/lib/instagram-post";
@@ -44,7 +45,7 @@ interface Props {
   onError: (message: string) => void;
 }
 
-type Mode = "view" | "edit" | "reject";
+type Mode = "view" | "edit" | "reject" | "preview";
 
 export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onChange, onError }: Props) {
   const [mode, setMode] = useState<Mode>("view");
@@ -109,8 +110,18 @@ export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onC
 
       {mode === "reject" && <RejectForm busy={busy} onCancel={() => setMode("view")} onReject={(opts) => act("reject", opts)} />}
 
-      {mode === "view" && (
+      {mode === "preview" && (
+        <PreviewDialog
+          post={{ platform: post.platform, content: post.content, message: post.message, link: post.link, cards: post.cards, images: postImages(post), scheduledAt: post.scheduledAt }}
+          onClose={() => setMode("view")}
+        />
+      )}
+
+      {(mode === "view" || mode === "preview") && (
         <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" className={btn} disabled={busy} onClick={() => setMode("preview")} title={`As the ${post.platform === "instagram" ? "Instagram" : "Facebook"} app will show it`}>
+            Preview
+          </button>
           {post.status === "draft" && (
             <button className={btnPrimary} disabled={busy} onClick={() => act("approve")}>
               Approve
