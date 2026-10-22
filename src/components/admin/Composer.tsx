@@ -6,9 +6,11 @@ import { carouselMessage, FB_MAX_CARDS, singleMessage } from "@/lib/post-text";
 import { api, atDhakaTime, dhakaTime, type Platform, PLATFORM_LABEL, type SocialPost } from "./api";
 import { ItemPicker, type Pick } from "./ItemPicker";
 import { CardList } from "./CardList";
+import { picturesSummary, usePictureChecks } from "./pictures";
 
 const btn = "h-9 rounded-full border border-line px-3.5 text-[13px] font-semibold transition hover:bg-surface-2 active:scale-95 disabled:opacity-50";
 const btnPrimary = "h-10 rounded-full bg-accent px-5 text-[13px] font-semibold text-accent-ink transition active:scale-95 disabled:opacity-50";
+const btnDanger = "h-10 rounded-full border border-danger/50 bg-danger-soft px-5 text-[13px] font-semibold text-danger transition active:scale-95 disabled:opacity-50";
 
 interface Props {
   platform: Platform;
@@ -89,6 +91,9 @@ export function Composer({ platform, onDone, onError, onClose }: Props) {
     </button>
   );
 
+  // Instagram's cards are drawn by the deploy, from the headline, not the outlet's picture: nothing to check there.
+  const checks = usePictureChecks(instagram || mode !== "pick" ? [] : cards, picks.length > 1);
+  const pictures = picturesSummary(checks);
   const ready = mode === "pick" ? picks.length > 0 && !!message.trim() : !!message.trim();
   const what = picks.length > 1 ? `A carousel of ${picks.length} ${videos ? "videos" : "headlines"}` : picks.length === 1 ? (videos ? "One video" : "One headline") : "";
 
@@ -121,6 +126,7 @@ export function Composer({ platform, onDone, onError, onClose }: Props) {
               onMove={move}
               onRemove={(pos) => setPicks(picks.filter((_, i) => i !== pos))}
               removeTitle="Take it out"
+              checks={instagram ? undefined : checks}
             />
           )}
 
@@ -209,10 +215,26 @@ export function Composer({ platform, onDone, onError, onClose }: Props) {
             <button type="button" className={btn} disabled={busy} onClick={onClose}>
               Cancel
             </button>
-            <button type="button" className={btnPrimary} disabled={busy || !ready || (instagram && message.length > IG_CAPTION_MAX)} onClick={save}>
-              {busy ? "Adding…" : "Add to the queue"}
+            <button
+              type="button"
+              className={pictures.bad ? btnDanger : btnPrimary}
+              disabled={busy || !ready || (instagram && message.length > IG_CAPTION_MAX)}
+              onClick={save}
+              title={pictures.text ?? undefined}
+            >
+              {busy ? "Adding…" : pictures.text ? "Add to the queue anyway" : "Add to the queue"}
             </button>
           </div>
+          {pictures.text && (
+            <p className={`rounded-xl px-3 py-2 text-xs ${pictures.bad ? "bg-danger-soft text-danger" : "bg-gold/10 text-gold"}`}>
+              <strong>{pictures.text}.</strong>{" "}
+              {pictures.bad
+                ? picks.length > 1
+                  ? "A card marked ⛔ stops the whole carousel when it is checked before going out: take it out, or pick another story for it."
+                  : "A post marked ⛔ goes out without a picture (Facebook shows the fallback card): pick another story, or add it anyway if the headline matters more."
+                : "It will post, but the picture may look soft or cropped; open it (tap the thumbnail) to decide."}
+            </p>
+          )}
           <p className="text-xs text-muted">
             {instagram
               ? "It goes out at its time, as written; give it 20 minutes or more, for its pictures to be drawn first."

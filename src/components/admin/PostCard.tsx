@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api, ApiError, atDhakaTime, type Card, CONTENT_LABEL, dhakaTime, POLICY_LABEL, relative, type Policy, type SocialPost } from "./api";
 import { CardList } from "./CardList";
+import { usePictureChecks } from "./pictures";
 import { ItemPicker } from "./ItemPicker";
 import { editable, editDeadline } from "@/lib/social-settings";
 import { IG_MAX_HEADLINES, instagramCaption, postImages } from "@/lib/instagram-post";
@@ -299,6 +300,8 @@ function EditForm({
   const most = instagram ? IG_MAX_HEADLINES : 10;
   const videos = post.content === "video" || post.content === "roundup";
   const changedCards = JSON.stringify(cards) !== JSON.stringify(post.cards);
+  // Instagram's cards are drawn by the deploy: no outlet picture to check.
+  const checks = usePictureChecks(instagram ? [] : cards, carousel);
 
   function update(next: Card[]) {
     setCards(next);
@@ -347,6 +350,7 @@ function EditForm({
           onMove={carousel ? move : undefined}
           onRemove={carousel ? (pos) => update(cards.filter((_, i) => i !== pos)) : undefined}
           least={2}
+          checks={instagram ? undefined : checks}
         />
       )}
 

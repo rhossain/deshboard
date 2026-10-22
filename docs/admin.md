@@ -61,6 +61,15 @@ you scroll, and for headlines reaches back through the last 30 days' day files o
 headlines"). On a phone it takes the whole screen; on a desktop it is a dialog; Esc closes it. When several are
 wanted, tap each and then "Add".
 
+**Pictures are looked at before a post is queued** (`src/components/admin/pictures.ts`). Each card a person picks
+has its picture loaded in the browser and judged by what Facebook will do with it: none, or one that doesn't load,
+or too small (under 200×200 for a single post; under 400 pixels each way for a carousel card, which the deploy
+redraws) is marked ⛔ with why — a carousel card like that would stop the whole post at its check before going
+out; a small (under 600×315), tall or very wide one is marked ⚠️, since it posts but looks soft or cropped. The
+thumbnail opens the picture full size; the button reads "Add to the queue anyway" while any card is marked. A
+video's card is judged by YouTube's largest thumbnail, the one the deploy and the share page use. Instagram's cards
+are drawn from the headline, so there is nothing to check there.
+
 **The layout.** On a desktop the sections are a sidebar, with the number of drafts to review (and failures) on
 Queue and quick Pause and Refresh buttons; on a phone they are a bar along the bottom. The section is in the address
 (`/admin/#history`), so a reload and the back button keep their place. Queue starts with today's counts (to review,

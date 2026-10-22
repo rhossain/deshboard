@@ -31,6 +31,8 @@ import { getMedia, hasMedia, MEDIA_PART, pruneMedia, putMedia } from "../src/lib
 import { headlinesHeading as pageHeading } from "../src/lib/page-posts";
 import { roundupHeading as videoHeading } from "../src/lib/page-video-posts";
 import { carouselMessage, roundupHeading } from "../src/lib/post-text";
+import { MIN_SIDE } from "../src/lib/card-pictures";
+import { CARD_MIN_SIDE } from "../src/components/admin/pictures";
 import { headlinesHeading, IG_DEFAULT_TIMES, instagramCaption, instagramSlots, postImages, slideSetOf } from "../src/lib/instagram-post";
 import { queueLive, takeDown } from "../src/lib/social-actions";
 import { publishToInstagram } from "../src/lib/instagram-graph";
@@ -431,6 +433,8 @@ async function main() {
       assert.equal(headlinesHeading(at, 5), pageHeading(at, 5));
       assert.equal(roundupHeading(at, 5), videoHeading(at, 5));
     }
+    // The admin's early picture check uses the deploy's card limit.
+    assert.equal(CARD_MIN_SIDE, MIN_SIDE);
   });
 
   await test("an Instagram caption lists the headlines, the site and the tags, within 2,200 characters", async () => {
