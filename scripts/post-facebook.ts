@@ -71,6 +71,7 @@ import { findStories } from "../src/lib/stories";
 import { datesToSearch, shardPath, type ShareShard } from "../src/lib/share-lookup";
 import { sourceName } from "../src/lib/bn-names";
 import { cardPictureProblem, isCardPicture, prepareCardPicture } from "../src/lib/card-pictures";
+import { carouselTextWithout, singleMessage } from "../src/lib/post-text";
 import {
   articleProblem,
   checkedPick,
@@ -778,8 +779,11 @@ async function queueMain(db: Db, dryRun: boolean) {
     // and each picture load before it goes out.
     const minCards = post.edited ? 2 : undefined;
     const asQueued = plan;
+    // A card that can't go out is left out and the rest go (a person's post, down to one card: then on its own).
     // Cards from before Bartaboard made their pictures, or added in the admin, get theirs now (checked as they are made).
-    const problem = (await planProblem(plan, minCards)) ?? (await hostCardPictures(plan)) ?? (post.edited ? await cardsProblem(post) : null);
+    const person = post.edited || post.locked || !content;
+    const left = await dropBadCards(plan, { checkLinks: post.edited, least: minCards ?? leastCards(plan), single: person, cards: post.cards });
+    const problem = left.problem ?? (await planProblem(plan, minCards)) ?? (await hostCardPictures(plan));
     if (problem && !post.locked && content) {
       const fresh = await compose(picking, post.kind === "breaking" ? null : content, at, fields, counted());
       plan = fresh.plan && !(await planProblem(fresh.plan)) ? fresh.plan : plan;
@@ -819,6 +823,10 @@ async function queueMain(db: Db, dryRun: boolean) {
     replace(done);
     await show(done, { existingOnly: true });
     planSummary(sent, postMode, sendAt, now, post.kind, label);
+    if (left.dropped.length && sent === plan) {
+      report.push(`${dhakaTime(at)}: posted without ${left.dropped.join("; ")}`);
+      if (tg) await sendMessage(tg, `ℹ️ Posted (${dhakaTime(sendAt)}, ${CONTENT_LABEL[post.content] ?? post.content}) without ${left.dropped.length === 1 ? "one card" : `${left.dropped.length} cards`} that couldn't go out:\n${left.dropped.map((d) => `• ${d}`).join("\n")}\n${SITE}/admin/`);
+    }
     if (tg && post.kind === "breaking") await sendMessage(tg, `⚡ Breaking news posted (${dhakaTime(sendAt)}):\n${done.message}\n${done.link}\nTo take it down: ${SITE}/admin/`, { previewUrl: done.link });
     return true;
   };
@@ -976,7 +984,7 @@ async function planProblem(plan: Plan, minCards?: number): Promise<string | null
   if (plan.params.child_attachments) {
     const children = JSON.parse(plan.params.child_attachments) as Record<"link" | "name" | "description" | "picture", string>[];
     // A carousel a person edited may be smaller: Facebook takes from two cards.
-    const least = minCards ?? (plan.record.content === "headlines" ? CAROUSEL_CARDS : 3);
+    const least = minCards ?? leastCards(plan);
     if (children.length < least) return `the carousel has ${children.length} cards, not ${least}`;
     for (const [i, c] of children.entries()) {
       const gap = (["link", "name", "description", "picture"] as const).map((f) => textProblem(`card ${i + 1}'s ${f}`, c[f])).find(Boolean);
@@ -988,17 +996,73 @@ async function planProblem(plan: Plan, minCards?: number): Promise<string | null
   return null;
 }
 
-/** The first card of a person's post whose link doesn't answer or whose picture doesn't load. */
-async function cardsProblem(post: SocialPost): Promise<string | null> {
-  const carousel = !!post.params.child_attachments;
-  for (const c of post.cards) {
-    const problem = await firstProblem(
-      linkProblem(c.link, c.title, !carousel),
-      carousel ? cardPictureProblem(c.picture) : Promise.resolve(null),
-    );
-    if (problem) return `"${c.title.slice(0, 60)}": ${problem}`;
+/** A carousel the picker made has this many cards at least; Facebook takes two, the least a person's may have. */
+const leastCards = (plan: Plan) => (plan.record.content === "headlines" ? CAROUSEL_CARDS : 3);
+
+type Child = Record<"link" | "name" | "description" | "picture", string>;
+
+/** What is wrong with one card of a carousel, as it is about to go out; null when it can go. */
+async function cardProblem(c: Child, checkLink: boolean): Promise<string | null> {
+  const gap = (["link", "name", "description", "picture"] as const).map((f) => textProblem(f, c[f])).find(Boolean);
+  if (gap) return gap;
+  if (isCardPicture(c.picture, SITE)) {
+    // Made by an earlier run; kept a few days (pruneMedia), so a post that waited longer has lost it.
+    const key = /\/fb\/([0-9a-f]+-\d+)\.jpg$/.exec(c.picture)?.[1];
+    if (pictureDb && key && !(await hasMedia(pictureDb, key).catch(() => true))) return "its picture is no longer kept";
+    return checkLink ? linkProblem(c.link, c.name, false) : null;
   }
-  return null;
+  return firstProblem(cardPictureProblem(c.picture), checkLink ? linkProblem(c.link, c.name, false) : Promise.resolve(null));
+}
+
+/**
+ * Takes out of a carousel the cards that can't go out — a picture Bartaboard can't make a card of, a gap in a card's
+ * text, or (`checkLinks`: a person's cards, not checked as the picker's were) a link that doesn't answer — so the rest
+ * go out as they are, rather than none of them. The text follows when it is the cards' own (their numbered lines,
+ * and the count in its heading); a person's own words are left as written. `least` cards must be left; with `single`
+ * (a person's post), one card left goes out as a post of its own. Says which cards were left out, for the post's note
+ * and the report, or the problem when too few are left.
+ */
+async function dropBadCards(
+  plan: Plan,
+  opts: { checkLinks: boolean; least: number; single: boolean; cards: Card[] },
+): Promise<{ dropped: string[]; problem?: string }> {
+  if (!plan.params.child_attachments) return { dropped: [] };
+  const children = JSON.parse(plan.params.child_attachments) as Child[];
+  const problems = await Promise.all(children.map((c) => cardProblem(c, opts.checkLinks)));
+  const dropped = children.flatMap((c, i) => (problems[i] ? [`card ${i + 1} ("${normalTitle(c.name)}"): ${problems[i]}`] : []));
+  if (!dropped.length) return { dropped };
+  const kept = children.flatMap((_, i) => (problems[i] ? [] : [i]));
+  const keptCards = kept.map((i) => children[i]);
+  if (!keptCards.length) return { dropped, problem: dropped.join("; ") };
+  if (keptCards.length < opts.least && !(opts.single && keptCards.length === 1)) {
+    return { dropped, problem: `${dropped.join("; ")}; ${keptCards.length} card${keptCards.length === 1 ? "" : "s"} left, not ${opts.least}` };
+  }
+  const text = carouselTextWithout(plan.params.message, children.map((c) => ({ title: c.name, source: c.description })), kept);
+  const note = `left out: ${dropped.join("; ")}`;
+  plan.note = plan.note ? `${plan.note} · ${note}` : note;
+  if (keptCards.length === 1) {
+    // One card left of a person's carousel: it goes out as a post of its own, linking its page.
+    const c = keptCards[0];
+    const card = opts.cards.find((x) => x.link === c.link);
+    plan.params = { message: text === null ? plan.params.message : singleMessage({ title: c.name, source: c.description, link: c.link }), link: c.link };
+    plan.links = [c.link];
+    plan.cards = [];
+    plan.fallback = undefined;
+    plan.record = {
+      ...plan.record,
+      content: plan.record.content === "roundup" ? "video" : "news",
+      title: c.name,
+      link: c.link,
+      ...(card?.sourceId && { sourceId: card.sourceId }),
+      ...(card?.section && { category: card.section as PostRecord["category"] }),
+    };
+    return { dropped };
+  }
+  plan.params.child_attachments = JSON.stringify(keptCards);
+  if (text !== null) plan.params.message = text;
+  plan.links = keptCards.map((c) => c.link);
+  if (plan.cards.length) plan.cards = plan.links;
+  return { dropped };
 }
 
 /** Where the cards' pictures are kept, served at /fb/<key>.jpg: the admin's database. */

@@ -249,7 +249,7 @@ export function Composer({ platform, onDone, onError, onClose }: Props) {
               <strong>{pictures.text}.</strong>{" "}
               {pictures.bad
                 ? picks.length > 1
-                  ? "A card marked ⛔ stops the whole carousel when it is checked before going out: take it out, or pick another story for it."
+                  ? "A card marked ⛔ can't be made: it is left out when the post goes out, and the rest go as they are. Take it out, or pick another story for it."
                   : "A post marked ⛔ goes out without a picture (Facebook shows the fallback card): pick another story, or add it anyway if the headline matters more."
                 : "It will post, but the picture may look soft or cropped; open it (tap the thumbnail) to decide."}
             </p>

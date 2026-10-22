@@ -30,7 +30,7 @@ import { previewOf, reviewButtons, reviewText } from "../src/lib/telegram-review
 import { getMedia, hasMedia, MEDIA_PART, pruneMedia, putMedia } from "../src/lib/social-store";
 import { headlinesHeading as pageHeading } from "../src/lib/page-posts";
 import { roundupHeading as videoHeading } from "../src/lib/page-video-posts";
-import { carouselMessage, roundupHeading } from "../src/lib/post-text";
+import { carouselMessage, carouselTextWithout, roundupHeading } from "../src/lib/post-text";
 import { MIN_SIDE } from "../src/lib/card-pictures";
 import { CARD_MIN_SIDE } from "../src/components/admin/pictures";
 import { headlinesHeading, IG_DEFAULT_TIMES, instagramCaption, instagramSlots, postImages, slideSetOf } from "../src/lib/instagram-post";
@@ -370,6 +370,9 @@ async function main() {
     assert.equal(p.link, "https://bartaboard.com/bn/");
     assert.equal(p.message, carouselMessage("headlines", p.cards, at));
     assert.match(p.message, /^দুপুরের শীর্ষ ৩ খবর\n\n১\. শিরোনাম 1 — উৎস 1\n২\./);
+    // A card left out as it goes out: its line goes, the rest are numbered again, the heading counts two.
+    assert.equal(carouselTextWithout(p.message, p.cards, [0, 2]), carouselMessage("headlines", [p.cards[0], p.cards[2]], at));
+    assert.equal(carouselTextWithout("আমাদের নিজের লেখা", p.cards, [0, 2]), null);
     const children = JSON.parse(p.params.child_attachments) as Record<string, string>[];
     assert.equal(children.length, 3);
     assert.deepEqual(children[1], { link: h(2).link, name: "শিরোনাম 2", description: "উৎস 2", picture: pic(2) });

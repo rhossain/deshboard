@@ -1,4 +1,7 @@
+import { BROWSER_UA, CRAWLER_UA } from "./card-picture-rules";
 import type { NewsItem, Video } from "./types";
+
+export { BROWSER_UA, CRAWLER_UA };
 
 /**
  * The checks every Facebook post passes before it goes out (scripts/post-facebook.ts): each link answers Facebook's
@@ -16,8 +19,6 @@ export const FALLBACK_TITLE = /every Bangladeshi headline, on one board|has left
 export const PREVIEW_TRIES = 4;
 export const PREVIEW_RETRY_MS = Number(process.env.FB_CHECK_RETRY_MS) || 20_000;
 
-export const CRAWLER_UA = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
-export const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36";
 /** The site's own picture, which a share page shows when the headline has none: a bare preview. */
 export const SITE_PICTURE = /\/opengraph-image/;
 /** Smallest picture a card or preview may have (Facebook shows smaller ones as a thumbnail, or not at all). */

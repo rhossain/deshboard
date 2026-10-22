@@ -32,5 +32,26 @@ export function carouselMessage(content: string, cards: Card[], at: number): str
   return `${heading}\n\n${cards.map((c, i) => `${bnDigits(i + 1)}. ${c.title} — ${c.source}`).join("\n")}`;
 }
 
+/**
+ * A carousel's text without some of its cards (`kept`: the indexes of those that stay): their numbered lines gone, the
+ * rest numbered again, and the heading's count ("রাতের শীর্ষ ৬ খবর") theirs. Null when the text isn't the cards' own
+ * (a person wrote it): it is left as it is.
+ */
+export function carouselTextWithout(message: string, cards: Pick<Card, "title" | "source">[], kept: number[]): string | null {
+  const lineOf = (c: Pick<Card, "title" | "source">, n: number) => `${bnDigits(n)}. ${c.title} — ${c.source}`;
+  const lines = message.split("\n");
+  const at = cards.map((c, i) => lines.indexOf(lineOf(c, i + 1)));
+  if (at.some((i) => i < 0)) return null;
+  const keep = new Set(kept);
+  let n = 0;
+  const out = lines.flatMap((line, li) => {
+    const card = at.indexOf(li);
+    if (card < 0) return [line];
+    return keep.has(card) ? [lineOf(cards[card], ++n)] : [];
+  });
+  out[0] = out[0].replace(`শীর্ষ ${bnDigits(cards.length)} `, `শীর্ষ ${bnDigits(kept.length)} `);
+  return out.join("\n");
+}
+
 /** A single post's text for this item: its title, then its outlet or channel. */
 export const singleMessage = (c: Card) => `${c.title}\n\n${c.source}`;

@@ -7,6 +7,7 @@ import { CloseIcon, SearchIcon } from "../ui";
 import { useSearch } from "../use-search";
 import { type Card, dhakaTime, PLATFORM_LABEL, relative } from "./api";
 import { cardOf, loadItems, loadOlderDay, olderDates, type PickItem, pictureFor, type Posted, recentlyPosted } from "./items";
+import { checkPicture, type PictureVerdict } from "./pictures";
 
 const chip = "h-8 shrink-0 rounded-full border px-3 text-[12px] font-semibold transition disabled:opacity-40";
 const chipOn = `${chip} border-accent bg-accent-soft text-accent`;
@@ -97,8 +98,12 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
   const setCursor = (f: (c: number) => number) => setCursorFor({ query, cursor: f(cursor) });
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // Each chosen item's picture as a carousel card (by key), checked as it is chosen: shown on its row, so a picture
+  // the deploy can't make a card of is known here, not when the post goes out. "checking" until known.
+  const [verdicts, setVerdicts] = useState<Map<string, PictureVerdict | "checking">>(new Map());
   const [now] = useState(() => Date.now());
   const multi = (max ?? 1) > 1;
+  const checking = [...chosen.keys()].some((k) => verdicts.get(k) === "checking");
 
 
   // A modal dialog: the page behind can't be scrolled or reached; Esc closes it (the dialog's own cancel).
@@ -183,6 +188,27 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
 
   const pictureNeeded = (adding: number) => needsPicture === true || (needsPicture === "carousel" && inPost + adding > 1);
 
+  /** The item's picture as a carousel card would be made of it (checkPicture, cached by address). */
+  const cardVerdict = async (it: PickItem, picture?: string): Promise<PictureVerdict> => {
+    const verdict = await checkPicture(picture ?? (await pictureFor(it)), true);
+    setVerdicts((v) => new Map(v).set(it.key, verdict));
+    return verdict;
+  };
+
+  /** Starts checking the chosen items not yet known, once the post would be a carousel (two cards or more). */
+  const checkChosen = (next: Map<string, PickItem>) => {
+    if (!pictureNeeded(next.size)) return;
+    const unchecked = [...next.values()].filter((it) => !verdicts.has(it.key));
+    if (!unchecked.length) return;
+    setVerdicts((v) => {
+      const marked = new Map(v);
+      for (const it of unchecked) marked.set(it.key, "checking");
+      return marked;
+    });
+    for (const it of unchecked) void cardVerdict(it);
+  };
+  const carouselNow = pictureNeeded(Math.max(chosen.size, 1));
+
   async function finish(list: PickItem[]) {
     setBusy(true);
     setProblem(null);
@@ -201,6 +227,20 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
           });
           return;
         }
+        // Each picture as the deploy will make its card: one it can't is said now, with why, and not added.
+        const checked = await Promise.all(list.map((it, i) => cardVerdict(it, pictures[i])));
+        const bad = list.filter((_, i) => checked[i].level === "bad");
+        if (bad.length) {
+          setProblem(
+            `${bad.map((b) => `“${b.title.slice(0, 40)}…”`).join(", ")} can't be ${bad.length === 1 ? "a carousel card" : "carousel cards"} (see ${bad.length === 1 ? "its row" : "their rows"}): ${bad.length === 1 ? "it was" : "they were"} taken out of the choice. Pick another story, or post ${bad.length === 1 ? "it" : "one"} on its own.`,
+          );
+          setChosen((c) => {
+            const next = new Map(c);
+            for (const b of bad) next.delete(b.key);
+            return next;
+          });
+          return;
+        }
       }
       onPick(list.map((item, i) => ({ card: cardOf(item, pictures[i]), item })));
     } finally {
@@ -212,10 +252,14 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
     if (!multi) return void finish([it]);
     setProblem(null);
     const next = new Map(chosen);
+    const known = verdicts.get(it.key);
     if (next.has(it.key)) next.delete(it.key);
+    else if (known && known !== "checking" && known.level === "bad" && pictureNeeded(next.size + 1))
+      return setProblem(`“${it.title.slice(0, 40)}…” can't be a carousel card: ${known.note}.`);
     else if (next.size < (max ?? 1)) next.set(it.key, it);
     else return setProblem(`Up to ${max} here: the post takes ${inPost + (max ?? 1)} cards in all.`);
     setChosen(next);
+    checkChosen(next);
   }
 
   function choose(s: Suggestion) {
@@ -453,6 +497,9 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
               const on = chosen.has(it.key);
               const sec = it.section ? SECTION.get(it.section as Category) : undefined;
               const went = postedNote(it);
+              // Shown while the post would be a carousel; a bad one stays shown after it is taken out of the choice.
+              const known = verdicts.get(it.key);
+              const verdict = known && (known !== "checking" || on) && (carouselNow || (known !== "checking" && known.level === "bad")) ? known : undefined;
               return (
                 <li key={`${it.kind}-${it.key}`}>
                   <button
@@ -481,6 +528,17 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
                         <Highlight text={it.title} />
                       </span>
                       {went && <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold text-gold">{went}</span>}
+                      {verdict === "checking" ? (
+                        <span className="mt-1 block text-[11px] text-muted">Checking its picture…</span>
+                      ) : (
+                        verdict &&
+                        verdict.level !== "ok" && (
+                          <span className={`mt-1 block text-[11px] font-semibold ${verdict.level === "bad" ? "text-danger" : "text-gold"}`}>
+                            {verdict.level === "bad" ? "⛔ " : "⚠ "}
+                            {verdict.note}
+                          </span>
+                        )
+                      )}
                       <span className="mt-0.5 block truncate text-[11px] text-muted">
                         <span lang="bn">{it.source}</span>
                         {sec && sec.id !== "other" && (
@@ -540,11 +598,11 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
             {multi && (
               <button
                 type="button"
-                disabled={busy || chosen.size === 0}
+                disabled={busy || checking || chosen.size === 0}
                 onClick={() => finish([...chosen.values()])}
                 className="h-10 rounded-full bg-accent px-5 text-[13px] font-semibold text-accent-ink transition active:scale-95 disabled:opacity-50"
               >
-                {busy ? "Checking…" : `Add ${chosen.size || ""}`.trim()}
+                {busy || checking ? "Checking…" : `Add ${chosen.size || ""}`.trim()}
               </button>
             )}
           </div>

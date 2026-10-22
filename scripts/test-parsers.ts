@@ -84,6 +84,7 @@ import type { AddressInfo } from "node:net";
 import { articleProblem, checkedPick, linkProblem, metaContent, pictureProblem, pictureSize, sameTitle, textProblem } from "../src/lib/post-checks";
 import sharp from "sharp";
 import { CARD_SIZE, cardKey, pictureCandidates, prepareCardPicture } from "../src/lib/card-pictures";
+import { addressProblem, shapeProblem, trimBars } from "../src/lib/card-picture-rules";
 
 /** A PNG's first bytes for a picture of that size, padded to look like a real one (3,000 bytes). */
 function fakePng(width: number, height: number): Uint8Array {
@@ -1581,6 +1582,31 @@ test("card pictures: the outlet's larger, plainer copy first", () => {
   assert.match(cardKey("https://x.test/a.jpg"), /^[0-9a-f]{32}-0$/);
 });
 
+test("card pictures: the admin's rules are the deploy's — bars trimmed alike from RGB and RGBA pixels", () => {
+  // A 200×100 picture of noise in a 300×150 white field.
+  const make = (channels: number) => {
+    const w = 300;
+    const h = 150;
+    const data = new Uint8ClampedArray(w * h * channels).fill(255);
+    for (let y = 25; y < 125; y++) {
+      for (let x = 50; x < 250; x++) {
+        const at = (y * w + x) * channels;
+        for (let k = 0; k < 3; k++) data[at + k] = (x * 37 + y * 91 + k * 53) % 200;
+      }
+    }
+    return trimBars(data, w, h, channels);
+  };
+  const rgb = make(3);
+  assert.deepEqual(rgb, make(4));
+  assert.ok(rgb && rgb.width >= 190 && rgb.width <= 200 && rgb.height >= 90 && rgb.height <= 100, JSON.stringify(rgb));
+  // Nothing to trim; or trimming that would leave little (a mark on a page): left whole.
+  assert.equal(trimBars(new Uint8Array(30 * 30 * 3).map((_, i) => (i * 7) % 251), 30, 30, 3), null);
+  assert.equal(shapeProblem(594, 356), "is only 594×356 (a card needs 400 pixels each way)");
+  assert.equal(shapeProblem(1200, 630), null);
+  assert.match(shapeProblem(1600, 400)!, /too narrow a strip/);
+  assert.equal(addressProblem("https://x.test/media/site-logo.jpg"), "is the outlet's logo or a placeholder, not a photo");
+});
+
 test("card pictures: made square from the best copy, or refused", async () => {
   // A photo's grain: random noise, which no check takes for a graphic.
   const photo = (width: number, height: number) =>
@@ -1607,6 +1633,14 @@ test("card pictures: made square from the best copy, or refused", async () => {
       await sharp({ create: { width: 1200, height: 630, channels: 3, background: "#ffffff" } })
         .composite([{ input: await jpeg(200, 120), top: 255, left: 500 }])
         .png()
+        .toBuffer(),
+    ],
+    // A photo big enough as a file, but small inside the white page around it: trimmed, it is too small for a card.
+    "/framed.jpg": [
+      "image/jpeg",
+      await sharp({ create: { width: 900, height: 506, channels: 3, background: "#ffffff" } })
+        .composite([{ input: await jpeg(594, 356), top: 75, left: 153 }])
+        .jpeg()
         .toBuffer(),
     ],
     "/media/site-logo.jpg": ["image/jpeg", await jpeg(1200, 630)],
@@ -1640,6 +1674,7 @@ test("card pictures: made square from the best copy, or refused", async () => {
     const boxed = await made("/letterbox.jpg");
     assert.ok(typeof boxed !== "string" && boxed.width === 1280 && boxed.height >= 700 && boxed.height <= 716, `the bars are trimmed: ${typeof boxed === "string" ? boxed : `${boxed.width}×${boxed.height}`}`);
     assert.match((await made("/plain.png")) as string, /logo or a placeholder/);
+    assert.match((await made("/framed.jpg")) as string, /is only 5\d\d×3\d\d \(a card needs 400 pixels each way\)/);
     assert.match((await made("/media/site-logo.jpg")) as string, /logo or a placeholder/);
     assert.match((await made("/cut.jpg")) as string, /can't be read/);
     assert.match((await made("/page.jpg")) as string, /can't be read|isn't a picture/);
