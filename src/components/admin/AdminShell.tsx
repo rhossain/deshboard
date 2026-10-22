@@ -118,11 +118,17 @@ export function AdminShell() {
   const wants = attention(data, now);
   const current = TABS.find((t) => t.id === tab)!;
 
-  const badge = data && (
-    <span className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${data.live ? "bg-accent text-accent-ink" : "bg-gold/15 text-gold"}`}>
-      {PLATFORM_LABEL[data.platform]} · {data.live ? "Live" : "Trial"}
-    </span>
-  );
+  /** "Facebook · Live"; `short` for a phone's top bar, where "FB · Live" is all there is room for. */
+  const badgeFor = (short: boolean) =>
+    data && (
+      <span
+        className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${data.live ? "bg-accent text-accent-ink" : "bg-gold/15 text-gold"}`}
+        title={`${PLATFORM_LABEL[data.platform]} · ${data.live ? "Live" : "Trial"}`}
+      >
+        {short ? (data.platform === "instagram" ? "IG" : "FB") : PLATFORM_LABEL[data.platform]} · {data.live ? "Live" : "Trial"}
+      </span>
+    );
+  const badge = badgeFor(false);
 
   const platformSwitch = (
     <div className="inline-flex rounded-full border border-line bg-surface-2 p-1" role="tablist" aria-label="Platform">
@@ -272,13 +278,13 @@ export function AdminShell() {
       <div className="min-w-0">
         {/* The top bar, on a phone or tablet. */}
         <header className="sticky top-0 z-20 border-b border-line bg-[var(--background)]/95 backdrop-blur lg:hidden">
-          <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] sm:px-6">
-            <Link href="/" className="flex shrink-0 text-[22px]" aria-label="Bartaboard home">
+          <div className="mx-auto flex max-w-4xl min-w-0 items-center gap-2 px-4 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] sm:gap-3 sm:px-6">
+            <Link href="/" className="flex shrink-0 text-[20px] sm:text-[22px]" aria-label="Bartaboard home">
               <BartaboardLogo tagline={false} />
             </Link>
-            <span className="font-display text-lg font-semibold">Admin</span>
-            <span className="flex-1" />
-            {badge}
+            <span className="min-w-0 flex-1 truncate font-display text-lg font-semibold">Admin</span>
+            <span className="sm:hidden">{badgeFor(true)}</span>
+            <span className="hidden sm:inline">{badge}</span>
           </div>
         </header>
 
