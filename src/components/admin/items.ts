@@ -5,8 +5,8 @@
  */
 import { sourceName } from "@/lib/bn-names";
 import { DATA_DIR, type PackedFeed, unpackFeed } from "@/lib/packed";
-import { headlinesHeading, postLink, shareDay } from "@/lib/page-posts";
-import { channelBn, roundupHeading, videoLink, videoThumbnail } from "@/lib/page-video-posts";
+import { postLink, shareDay } from "@/lib/page-posts";
+import { channelBn, videoLink, videoThumbnail } from "@/lib/page-video-posts";
 import { shareKey } from "@/lib/share";
 import { datesToSearch, shardPath, type ShareShard } from "@/lib/share-lookup";
 import type { Card } from "@/lib/social-store";
@@ -96,14 +96,4 @@ export function cardOf(p: PickItem, picture: string | undefined): Card {
   return { link: p.link, title: p.title, source: p.source, sourceId: p.sourceId, picture, key: p.key, ...(p.section && { section: p.section }) };
 }
 
-const BN = "০১২৩৪৫৬৭৮৯";
-const bn = (n: number) => String(n).replace(/\d/g, (d) => BN[+d]);
-
-/** A carousel's text for these cards: its heading for the time it goes out, and the cards numbered. */
-export function carouselMessage(content: string, cards: Card[], at: number): string {
-  const heading = content === "roundup" ? roundupHeading(at, cards.length) : headlinesHeading(at, cards.length);
-  return `${heading}\n\n${cards.map((c, i) => `${bn(i + 1)}. ${c.title} — ${c.source}`).join("\n")}`;
-}
-
-/** A single post's text for this item: its title, then its outlet or channel. */
-export const singleMessage = (c: Card) => `${c.title}\n\n${c.source}`;
+export { carouselMessage, singleMessage } from "@/lib/post-text";

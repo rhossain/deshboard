@@ -11,6 +11,7 @@ type PostRecordCategory = PostRecord["category"];
 import { deletePost, type GraphAccess, postToFeed, rescrape } from "./facebook-graph";
 import { publishToInstagram } from "./instagram-graph";
 import { IG_CAPTION_MAX, IG_MAX_HEADLINES, instagramCaption, postImages } from "./instagram-post";
+import { carouselMessage, singleMessage } from "./post-text";
 import { editable, editDeadline, queueSettings } from "./social-settings";
 import {
   addBlock,
@@ -297,6 +298,8 @@ export async function takeDown(ctx: ActionContext, id: string, version: number) 
 }
 
 const SITE_HOSTS = ["bartaboard.com", "www.bartaboard.com"];
+/** The page a carousel itself links to: the board, or the Videos page. */
+const SITE = "https://bartaboard.com";
 
 /** A card a person added: a Bartaboard link, a title, its source, and a picture where it shows one. */
 function checkCard(c: Card, needsPicture: boolean): Card {
@@ -326,47 +329,82 @@ function checkCard(c: Card, needsPicture: boolean): Card {
 }
 
 export interface NewItemPost {
-  /** The headline or video, as a card (see checkCard). */
-  card: Card;
-  content: "news" | "video";
-  /** Default facebook. Instagram takes headlines only (its card is drawn by the next run). */
+  /** One headline or video, as a card (see checkCard). */
+  card?: Card;
+  /** Several, as a carousel: 2 to 10 headlines or videos on Facebook; 2 to 9 headlines on Instagram. */
+  cards?: Card[];
+  /** What they are: "news" or "headlines" for headlines, "video" or "roundup" for videos (several of either make a carousel). */
+  content: "news" | "video" | "headlines" | "roundup";
+  /** Default facebook. Instagram takes headlines only (its cards are drawn by the next run). */
   platform?: Platform;
-  /** The post's text; default: the title, then its outlet or channel. */
+  /** The post's text; default: a carousel's heading and its cards numbered, or the title, then its outlet or channel. */
   message?: string;
-  /** ISO; default: in 5 minutes. */
+  /** ISO; default: in 5 minutes (Instagram: 20, for its pictures to be drawn first). */
   scheduledAt?: string;
 }
 
-/** One headline or video from the site, chosen by a person, as its own post at its time (approved). */
+/** Facebook takes 2 to 10 cards in a carousel. */
+export const FB_MAX_CARDS = 10;
+
+/**
+ * Headlines or videos from the site, chosen by a person, as their own post at its time (approved): one, as a single
+ * post, or several as a carousel (a card each, the post itself linking the board or the Videos page).
+ */
 export async function createFromItem(ctx: ActionContext, p: NewItemPost) {
-  if (p.content !== "news" && p.content !== "video") throw new ActionError(400, "an item is a headline or a video");
+  if (!["news", "video", "headlines", "roundup"].includes(p.content)) throw new ActionError(400, "an item is a headline or a video");
   const platform: Platform = p.platform === "instagram" ? "instagram" : "facebook";
-  if (platform === "instagram" && p.content !== "news") throw new ActionError(400, "Instagram takes headlines only: a channel's video can't be posted there");
-  const card = checkCard(p.card, false);
-  const at = p.scheduledAt ? Date.parse(p.scheduledAt) : Date.now() + (platform === "instagram" ? 20 : 5) * 60_000;
+  const instagram = platform === "instagram";
+  const videos = p.content === "video" || p.content === "roundup";
+  if (instagram && videos) throw new ActionError(400, "Instagram takes headlines only: a channel's video can't be posted there");
+  const given = Array.isArray(p.cards) ? p.cards : p.card ? [p.card] : [];
+  if (!given.length) throw new ActionError(400, "pick at least one headline or video");
+  const carousel = given.length > 1;
+  const most = instagram ? IG_MAX_HEADLINES : FB_MAX_CARDS;
+  if (given.length > most) throw new ActionError(400, `a carousel takes up to ${most} ${videos ? "videos" : "headlines"}${instagram ? " on Instagram" : ""}`);
+  // Instagram's cards are drawn by the deploy: they need no picture of their own.
+  const cards = given.map((c) => checkCard(c, carousel && !instagram));
+  const keys = cards.map((c) => c.key).filter((k): k is string => !!k);
+  if (new Set(keys).size !== keys.length) throw new ActionError(400, "the same item is in the post twice");
+  const content: "news" | "video" | "headlines" | "roundup" = carousel ? (videos ? "roundup" : "headlines") : videos ? "video" : "news";
+  const at = p.scheduledAt ? Date.parse(p.scheduledAt) : Date.now() + (instagram ? 20 : 5) * 60_000;
   if (Number.isNaN(at) || at < Date.now() - 5 * 60_000 || at > Date.now() + 14 * DAY_MS) throw new ActionError(400, "the time must be from now to two weeks ahead");
-  const message = (p.message?.trim() || (platform === "instagram" ? instagramCaption([card], at) : `${card.title}\n\n${card.source}`)).slice(0, platform === "instagram" ? IG_CAPTION_MAX : 5000);
+  const link = carousel ? `${SITE}/bn/${videos ? "videos/" : ""}` : cards[0].link;
+  const message = (p.message?.trim() || (instagram ? instagramCaption(cards, at) : carousel ? carouselMessage(content, cards, at) : singleMessage(cards[0]))).slice(
+    0,
+    instagram ? IG_CAPTION_MAX : 5000,
+  );
+  const params: Record<string, string> = { message, link };
+  if (carousel) {
+    // The cards as Facebook's carousel takes them (and as the admin's edits keep them, for Instagram too).
+    params.child_attachments = JSON.stringify(cards.map((c) => ({ link: c.link, name: c.title, description: c.source, ...(c.picture && { picture: c.picture }) })));
+    if (!instagram) {
+      params.multi_share_optimized = "false";
+      params.multi_share_end_card = "false";
+    }
+  }
   const scheduledAt = new Date(at).toISOString();
+  const first = cards[0];
   const post = await insertPost(ctx.db, {
     platform,
     kind: "manual",
-    content: p.content,
+    content,
     status: "approved",
     policy: "auto",
     scheduledAt,
     message,
-    link: card.link,
-    params: { message, link: card.link },
-    cards: [card],
+    link,
+    params,
+    cards,
     record: {
       kind: "slot",
-      content: p.content,
+      content,
       at: scheduledAt,
-      title: card.title,
-      link: card.link,
-      sourceId: card.sourceId ?? "bartaboard",
-      category: (p.content === "news" ? (card.section ?? "other") : "other") as PostRecordCategory,
-      keys: card.key ? [card.key] : [],
+      title: carousel ? message.split("\n")[0].slice(0, 200) : first.title,
+      link,
+      sourceId: first.sourceId ?? "bartaboard",
+      ...(carousel && { alsoCredited: [...new Set(cards.slice(1).map((c) => c.sourceId).filter((s): s is string => !!s))] }),
+      category: (!videos && !carousel ? (first.section ?? "other") : "other") as PostRecordCategory,
+      keys,
       words: [],
       mode: "on",
     },

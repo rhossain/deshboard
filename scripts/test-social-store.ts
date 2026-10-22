@@ -29,6 +29,8 @@ import { getPost, recordRun } from "../src/lib/social-store";
 import { previewOf, reviewButtons, reviewText } from "../src/lib/telegram-review";
 import { getMedia, hasMedia, MEDIA_PART, pruneMedia, putMedia } from "../src/lib/social-store";
 import { headlinesHeading as pageHeading } from "../src/lib/page-posts";
+import { roundupHeading as videoHeading } from "../src/lib/page-video-posts";
+import { carouselMessage, roundupHeading } from "../src/lib/post-text";
 import { headlinesHeading, IG_DEFAULT_TIMES, instagramCaption, instagramSlots, postImages, slideSetOf } from "../src/lib/instagram-post";
 import { queueLive, takeDown } from "../src/lib/social-actions";
 import { publishToInstagram } from "../src/lib/instagram-graph";
@@ -353,6 +355,54 @@ async function main() {
     await assert.rejects(createFromItem(ctx, { card: { ...card, link: "https://youtube.com/watch?v=x" }, content: "video" }), ActionError);
   });
 
+  await test("several headlines or videos from the site become a carousel of their own; too few, too many or twice are refused", async () => {
+    const pic = (n: number) => `https://img.example/${n}.jpg`;
+    const h = (n: number) => ({ link: `https://bartaboard.com/s/261019-${n}`, title: `শিরোনাম ${n}`, source: `উৎস ${n}`, picture: pic(n), key: `h${n}`, sourceId: `src${n}`, section: "politics" });
+    // Tomorrow at 13:00 Dhaka: within the two weeks a post may be set for.
+    const at = Date.parse(`${new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}T07:00:00Z`);
+    const scheduledAt = new Date(at).toISOString();
+    const p = await createFromItem(ctx, { cards: [h(1), h(2), h(3)], content: "headlines", scheduledAt });
+    assert.equal(p.status, "approved");
+    assert.equal(p.content, "headlines");
+    assert.equal(p.kind, "manual");
+    assert.equal(p.link, "https://bartaboard.com/bn/");
+    assert.equal(p.message, carouselMessage("headlines", p.cards, at));
+    assert.match(p.message, /^দুপুরের শীর্ষ ৩ খবর\n\n১\. শিরোনাম 1 — উৎস 1\n২\./);
+    const children = JSON.parse(p.params.child_attachments) as Record<string, string>[];
+    assert.equal(children.length, 3);
+    assert.deepEqual(children[1], { link: h(2).link, name: "শিরোনাম 2", description: "উৎস 2", picture: pic(2) });
+    assert.equal(p.params.multi_share_end_card, "false");
+    assert.deepEqual(p.record?.keys, ["h1", "h2", "h3"]);
+    assert.deepEqual(p.record?.alsoCredited, ["src2", "src3"]);
+    assert.equal(p.record?.category, "other");
+    // The cards can be edited like the picker's carousels (down to two).
+    const e = await edit(ctx, p.id, p.version, { cards: [h(3), h(1)] });
+    assert.deepEqual(e.cards.map((c) => c.title), ["শিরোনাম 3", "শিরোনাম 1"]);
+    // Videos make a roundup, with the Videos page as the post's link and its own heading.
+    const v = (n: number) => ({ link: `https://bartaboard.com/s/youtu.be/vid${n}`, title: `ভিডিও ${n}`, source: `চ্যানেল ${n}`, picture: pic(n), key: `v${n}`, sourceId: `ch${n}` });
+    const r = await createFromItem(ctx, { cards: [v(1), v(2)], content: "roundup", scheduledAt });
+    assert.equal(r.content, "roundup");
+    assert.equal(r.link, "https://bartaboard.com/bn/videos/");
+    assert.match(r.message, /^দুপুরের শীর্ষ ২ ভিডিও খবর\n\n১\. ভিডিও 1 — চ্যানেল 1/);
+    // One card under "headlines" is still a single post.
+    const one = await createFromItem(ctx, { cards: [h(7)], content: "headlines", scheduledAt });
+    assert.equal(one.content, "news");
+    assert.equal(one.link, h(7).link);
+    assert.equal(one.params.child_attachments, undefined);
+    await assert.rejects(createFromItem(ctx, { cards: [], content: "headlines" }), /at least one/);
+    await assert.rejects(createFromItem(ctx, { cards: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h), content: "headlines" }), /up to 10/);
+    await assert.rejects(createFromItem(ctx, { cards: [h(1), h(1)], content: "headlines" }), /twice/);
+    await assert.rejects(createFromItem(ctx, { cards: [h(1), { ...h(2), picture: undefined }], content: "headlines" }), /picture/);
+    // Instagram: up to nine headlines, no pictures needed (drawn by the next run), never videos.
+    const ig = await createFromItem(ctx, { cards: [{ ...h(1), picture: undefined }, { ...h(2), picture: undefined }], content: "headlines", platform: "instagram", scheduledAt });
+    assert.equal(ig.platform, "instagram");
+    assert.match(ig.message, /লিংক বায়োতে/);
+    assert.equal(ig.params.multi_share_end_card, undefined);
+    assert.equal(JSON.parse(ig.params.child_attachments).length, 2);
+    await assert.rejects(createFromItem(ctx, { cards: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(h), content: "headlines", platform: "instagram" }), /up to 9/);
+    await assert.rejects(createFromItem(ctx, { cards: [v(1), v(2)], content: "roundup", platform: "instagram" }), /Instagram/);
+  });
+
   await test("edits close 5 minutes before a post goes out; approving and skipping don't", async () => {
     const soon = new Date(Date.now() + 4 * 60_000).toISOString();
     const later = new Date(Date.now() + 6 * 60_000).toISOString();
@@ -379,6 +429,7 @@ async function main() {
     for (let h = 0; h < 24; h++) {
       const at = Date.parse(`2026-10-20T${String(h).padStart(2, "0")}:10:00Z`);
       assert.equal(headlinesHeading(at, 5), pageHeading(at, 5));
+      assert.equal(roundupHeading(at, 5), videoHeading(at, 5));
     }
   });
 

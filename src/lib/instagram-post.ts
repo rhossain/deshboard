@@ -8,6 +8,7 @@
  * Only headlines go to Instagram: the board's videos are the channels' own, on YouTube, which Instagram can't link.
  */
 import { CATEGORIES } from "./categories";
+import { bnDigits as bn, headlinesHeading } from "./post-text";
 import { SLOTS, type Slot } from "./slot-table";
 import type { Card, SocialPost } from "./social-store";
 
@@ -25,18 +26,8 @@ export const instagramSlots = (times: string[] | null | undefined): Slot[] =>
 const HASHTAGS = "#বাংলাদেশ #খবর #সংবাদ #শিরোনাম #Bangladesh #BangladeshNews #BanglaNews #Bartaboard";
 const FOOTER = "সব সংবাদমাধ্যমের খবর এক জায়গায়: bartaboard.com (লিংক বায়োতে)";
 
-const BN = "০১২৩৪৫৬৭৮৯";
-const bn = (n: number) => String(n).replace(/\d/g, (d) => BN[+d]);
-
-/**
- * "রাতের শীর্ষ ৫ খবর", by the Dhaka hour of `at`: page-posts.ts headlinesHeading, repeated here so the admin's edge
- * functions needn't load the picking code (scripts/test-social-store.ts checks the two agree).
- */
-export function headlinesHeading(at: number, cards: number): string {
-  const hour = new Date(at + 6 * 3600_000).getUTCHours();
-  const part = hour < 11 ? "সকালের" : hour < 15 ? "দুপুরের" : hour < 18 ? "বিকেলের" : "রাতের";
-  return `${part} শীর্ষ ${bn(cards)} খবর`;
-}
+/** "রাতের শীর্ষ ৫ খবর", by the Dhaka hour of `at` (post-text.ts; page-posts.ts words the picker's posts the same way). */
+export { headlinesHeading };
 
 /** The caption: a carousel's heading and numbered headlines, or one headline and its outlet; then the site and tags. */
 export function instagramCaption(cards: Card[], at: number): string {
