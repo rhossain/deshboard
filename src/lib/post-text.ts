@@ -6,6 +6,9 @@
  */
 import type { Card } from "./social-store";
 
+/** Facebook takes 2 to 10 cards in a carousel. */
+export const FB_MAX_CARDS = 10;
+
 const BN = "০১২৩৪৫৬৭৮৯";
 
 /** 5 → "৫". */

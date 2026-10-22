@@ -45,12 +45,26 @@ each post to Facebook 20 minutes ahead (as a scheduled post), which closes editi
 queue is live, FB_POSTING=on keeps the 5-minute window.
 
 **Editing a post's items.** Edit lists the post's cards: reorder them, remove one (a carousel keeps at least two;
-Facebook takes 2 to 10), or add one from a search over the board's headlines and videos right now. A single post's
-item can be replaced. The text follows the cards (heading, numbered list) until you type in it. Cards a person added
-are checked just before the post goes out (each link answers, each picture loads); one that fails stops the post, and
-Telegram says which. **Add a post** takes one headline or video from the board as a post of its own, or text and a
-link you write. **Pause** stops everything going out; drafts are still
-made, and those whose time passes are skipped.
+Facebook takes 2 to 10), or add one or several at once from the picker (below). A single post's item can be replaced.
+The text follows the cards (heading, numbered list) until you type in it. Cards a person added are checked just
+before the post goes out (each link answers, each picture loads); one that fails stops the post, and Telegram says
+which. **Add a post** takes one or several headlines or videos from the board as a post of its own: one is a single
+post, several a carousel with a card each (up to 10 on Facebook, linking the board or the Videos page; up to 9
+headlines on Instagram, drawn by the next run), or text and a link you write (Facebook). Its text follows the cards
+too. **Pause** stops everything going out; drafts are still made, and those whose time passes are skipped.
+
+**The picker** (`src/components/admin/ItemPicker.tsx`) searches the board's headlines and videos the way the site's
+search box does ([search.md](search.md): Bangla, English and Banglish, other forms and spellings of a word), with the
+words found marked. As you type it suggests outlets or channels, sections and headlines; ↓ ↑ and Enter choose one.
+Chips narrow the list by age (the last 2, 6 or 24 hours), section and outlet. The list shows every match, more as
+you scroll, and for headlines reaches back through the last 30 days' day files on request ("Search older
+headlines"). On a phone it takes the whole screen; on a desktop it is a dialog; Esc closes it. When several are
+wanted, tap each and then "Add".
+
+**The layout.** On a desktop the sections are a sidebar, with the number of drafts to review (and failures) on
+Queue and quick Pause and Refresh buttons; on a phone they are a bar along the bottom. The section is in the address
+(`/admin/#history`), so a reload and the back button keep their place. Queue starts with today's counts (to review,
+approved, posted, failed, skipped), each a filter over the list.
 
 **FB_QUEUE** (repository variable) chooses the path:
 

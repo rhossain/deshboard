@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api, ApiError, atDhakaTime, type Card, CONTENT_LABEL, dhakaTime, POLICY_LABEL, relative, type Policy, type SocialPost } from "./api";
+import { CardList } from "./CardList";
 import { ItemPicker } from "./ItemPicker";
 import { editable, editDeadline } from "@/lib/social-settings";
 import { IG_MAX_HEADLINES, instagramCaption, postImages } from "@/lib/instagram-post";
@@ -340,68 +341,43 @@ function EditForm({
       {!typed && changedCards && <p className="-mt-1 text-xs text-muted">The text was rewritten to match the cards; edit it if you like.</p>}
 
       {cards.length > 0 && (
-        <ol className="space-y-1.5">
-          {cards.map((c, pos) => (
-            <li key={`${c.link}-${pos}`} className="flex items-center gap-2 rounded-xl border border-line px-2 py-1.5">
-              {c.picture ? (
-                // An outlet's or YouTube's picture, at its own address.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.picture} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-10 w-16 shrink-0 rounded-md object-cover" />
-              ) : (
-                // Instagram's cards are drawn by the deploy: no picture of their own to show.
-                !instagram && <span className="h-10 w-16 shrink-0 rounded-md bg-line/40" />
-              )}
-              <span lang="bn" className="min-w-0 flex-1 text-[13px] leading-snug">
-                <span className="line-clamp-2">{c.title}</span>
-                <span className="text-[11px] text-muted">{c.source}</span>
-              </span>
-              {carousel && (
-                <>
-                  <button className="h-8 w-8 shrink-0 rounded-full border border-line text-sm disabled:opacity-30" disabled={pos === 0} onClick={() => move(pos, -1)} aria-label="Move up">
-                    ↑
-                  </button>
-                  <button
-                    className="h-8 w-8 shrink-0 rounded-full border border-line text-sm disabled:opacity-30"
-                    disabled={pos === cards.length - 1}
-                    onClick={() => move(pos, 1)}
-                    aria-label="Move down"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    className="h-8 w-8 shrink-0 rounded-full border border-danger/40 text-sm text-danger disabled:opacity-30"
-                    disabled={cards.length <= 2}
-                    onClick={() => update(cards.filter((_, i) => i !== pos))}
-                    aria-label="Remove this card"
-                    title={cards.length <= 2 ? "A carousel needs at least two cards" : "Remove"}
-                  >
-                    ✕
-                  </button>
-                </>
-              )}
-            </li>
-          ))}
-        </ol>
+        <CardList
+          cards={cards}
+          numbered={carousel}
+          onMove={carousel ? move : undefined}
+          onRemove={carousel ? (pos) => update(cards.filter((_, i) => i !== pos)) : undefined}
+          least={2}
+        />
       )}
 
-      {post.content !== "custom" &&
-        (picking ? (
-          <ItemPicker
-            kind={videos ? "video" : "headline"}
-            exclude={cards.map((c) => c.key ?? "")}
-            needsPicture={carousel && !instagram}
-            label={carousel ? "Add" : "Use this"}
-            onPick={(card) => {
-              update(carousel ? [...cards, card] : [card]);
-              setPicking(false);
-            }}
-            onClose={() => setPicking(false)}
-          />
-        ) : (
-          <button className={btn} disabled={carousel && cards.length >= most} onClick={() => setPicking(true)}>
-            {carousel ? `Add a ${videos ? "video" : "headline"}` : `Replace with another ${videos ? "video" : "headline"}`}
+      {post.content !== "custom" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className={btn} disabled={carousel && cards.length >= most} onClick={() => setPicking(true)}>
+            {carousel ? `Add ${videos ? "videos" : "headlines"}` : `Replace with another ${videos ? "video" : "headline"}`}
           </button>
-        ))}
+          {carousel && (
+            <span className="text-xs text-muted">
+              {cards.length} of {most} cards
+            </span>
+          )}
+        </div>
+      )}
+      {picking && (
+        <ItemPicker
+          kind={videos ? "video" : "headline"}
+          exclude={cards.map((c) => c.key ?? "")}
+          inPost={carousel ? cards.length : 0}
+          needsPicture={carousel && !instagram}
+          max={carousel ? most - cards.length : undefined}
+          label={carousel ? "Add" : "Use this"}
+          title={carousel ? undefined : `Replace the ${videos ? "video" : "headline"}`}
+          onPick={(picks) => {
+            update(carousel ? [...cards, ...picks.map((p) => p.card)] : [picks[0].card]);
+            setPicking(false);
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
 
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <label className="flex items-center gap-2">

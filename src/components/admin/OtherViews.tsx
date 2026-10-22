@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, CONTENT_LABEL, dhakaDate, dhakaTime, type Block, type Health, POLICY_LABEL, type Policy, type QueueSettings, type Slot, type SocialPost } from "./api";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Highlight, SearchProvider } from "../Highlight";
+import { CloseIcon, SearchIcon } from "../ui";
+import { useSearch } from "../use-search";
+import { api, CONTENT_LABEL, dhakaDate, dhakaTime, type Block, type Health, type Platform, PLATFORM_LABEL, POLICY_LABEL, type Policy, type QueueSettings, type Slot, type SocialPost } from "./api";
 import { IG_DEFAULT_TIMES } from "@/lib/instagram-post";
 import { StatusBadge } from "./PostCard";
 
@@ -9,10 +12,26 @@ const btn = "h-9 rounded-full border border-line px-3.5 text-[13px] font-semibol
 const btnPrimary = "h-9 rounded-full bg-accent px-4 text-[13px] font-semibold text-accent-ink transition active:scale-95 disabled:opacity-50";
 const box = "rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5";
 
+const chip = "h-8 shrink-0 rounded-full border px-3 text-[12px] font-semibold transition";
+const chipOn = `${chip} border-accent bg-accent-soft text-accent`;
+const chipOff = `${chip} border-line text-muted hover:text-foreground`;
+
+type Status = "posted" | "all" | "failed" | "skipped";
+const STATUSES: [Status, string, string[]][] = [
+  ["posted", "Posted", ["posted"]],
+  ["failed", "Failed", ["failed"]],
+  ["skipped", "Left out", ["skipped", "rejected", "dry"]],
+  ["all", "Everything", []],
+];
+
+/** What went out (and what didn't): searched the way the board is, by day range, platform and outcome. */
 export function HistoryView({ onError }: { onError: (m: string) => void }) {
   const [days, setDays] = useState(7);
   const [posts, setPosts] = useState<SocialPost[] | null>(null);
-  const [filter, setFilter] = useState<"all" | "posted">("posted");
+  const [status, setStatus] = useState<Status>("posted");
+  const [platform, setPlatform] = useState<Platform | "all">("all");
+  const [query, setQuery] = useState("");
+  const search = useSearch(useDeferredValue(query));
 
   useEffect(() => {
     let off = false;
@@ -25,16 +44,47 @@ export function HistoryView({ onError }: { onError: (m: string) => void }) {
     };
   }, [days, onError]);
 
-  const shown = (posts ?? []).filter((p) => filter === "all" || p.status === "posted");
+  const shown = useMemo(() => {
+    const keep = STATUSES.find(([id]) => id === status)![2];
+    return (posts ?? []).filter(
+      (p) =>
+        (!keep.length || keep.includes(p.status)) &&
+        (platform === "all" || p.platform === platform) &&
+        (!search || search.matches(p.message) || p.cards.some((c) => search.matches(c.title) || search.matches(c.source))),
+    );
+  }, [posts, status, platform, search]);
   const counts = (posts ?? []).reduce<Record<string, number>>((n, p) => ((n[p.status] = (n[p.status] ?? 0) + 1), n), {});
 
   return (
-    <div className="mt-6 space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-4">
+      <div className="relative">
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          type="text"
+          inputMode="search"
+          placeholder="Search what was posted (Bangla or English)…"
+          className="h-11 w-full rounded-xl border border-line bg-surface px-10 text-[15px] outline-none focus:border-accent"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            aria-label="Clear the search"
+            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-foreground"
+          >
+            <CloseIcon className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
         {[1, 3, 7, 30].map((d) => (
           <button
             key={d}
-            className={d === days ? btnPrimary : btn}
+            type="button"
+            className={d === days ? chipOn : chipOff}
+            aria-pressed={d === days}
             onClick={() => {
               setPosts(null);
               setDays(d);
@@ -43,46 +93,66 @@ export function HistoryView({ onError }: { onError: (m: string) => void }) {
             {d === 1 ? "Today" : `${d} days`}
           </button>
         ))}
-        <button className={btn} onClick={() => setFilter(filter === "all" ? "posted" : "all")}>
-          {filter === "all" ? "Posted only" : "Everything"}
-        </button>
+        <span className="w-2 shrink-0" aria-hidden />
+        {(["all", "facebook", "instagram"] as const).map((p) => (
+          <button key={p} type="button" className={platform === p ? chipOn : chipOff} aria-pressed={platform === p} onClick={() => setPlatform(p)}>
+            {p === "all" ? "Both" : PLATFORM_LABEL[p]}
+          </button>
+        ))}
+        <span className="w-2 shrink-0" aria-hidden />
+        {STATUSES.map(([id, label]) => (
+          <button key={id} type="button" className={status === id ? chipOn : chipOff} aria-pressed={status === id} onClick={() => setStatus(id)}>
+            {label}
+          </button>
+        ))}
       </div>
       {posts && (
         <p className="text-sm text-muted">
+          {shown.length} shown ·{" "}
           {Object.entries(counts)
             .map(([s, n]) => `${n} ${s}`)
             .join(" · ") || "Nothing yet."}
         </p>
       )}
       {!posts && <p className="text-sm text-muted">Loading…</p>}
-      <ol className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-        {shown.map((p) => (
-          <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line px-4 py-3 first:border-t-0">
-            <span className="w-24 shrink-0 text-xs tabular-nums text-muted">
-              {dhakaDate(p.scheduledAt)} {dhakaTime(p.scheduledAt)}
-            </span>
-            <span className="w-20 shrink-0 text-xs font-semibold">
-              {p.platform === "instagram" ? "IG · " : ""}
-              {CONTENT_LABEL[p.content] ?? p.content}
-            </span>
-            <StatusBadge status={p.status} />
-            <span lang="bn" className="min-w-0 flex-1 truncate text-sm">
-              {p.cards[0]?.title || p.message.split("\n")[0]}
-            </span>
-            {p.platform === "instagram"
-              ? p.permalink && (
-                  <a className="text-xs font-semibold text-accent hover:underline" href={p.permalink} target="_blank" rel="noreferrer">
-                    on Instagram ↗
-                  </a>
-                )
-              : p.fbPostId && (
-                  <a className="text-xs font-semibold text-accent hover:underline" href={`https://www.facebook.com/${p.fbPostId}`} target="_blank" rel="noreferrer">
-                    {p.removedAt ? "taken down" : "on Facebook ↗"}
-                  </a>
-                )}
-          </li>
-        ))}
-      </ol>
+      {posts && shown.length === 0 && <p className="text-sm text-muted">Nothing matches.</p>}
+      <SearchProvider search={search}>
+        <ol className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
+          {shown.map((p) => (
+            <li key={p.id} className="border-t border-line px-4 py-3 first:border-t-0">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                <span className="tabular-nums text-muted">
+                  {dhakaDate(p.scheduledAt)} {dhakaTime(p.scheduledAt)}
+                </span>
+                <span className="font-semibold">
+                  {p.platform === "instagram" ? "IG · " : ""}
+                  {CONTENT_LABEL[p.content] ?? p.content}
+                </span>
+                {p.kind === "breaking" && <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">Breaking</span>}
+                {p.kind === "manual" && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">Yours</span>}
+                <StatusBadge status={p.status} />
+                <span className="flex-1" />
+                {p.platform === "instagram"
+                  ? p.permalink && (
+                      <a className="font-semibold text-accent hover:underline" href={p.permalink} target="_blank" rel="noreferrer">
+                        on Instagram ↗
+                      </a>
+                    )
+                  : p.fbPostId && (
+                      <a className="font-semibold text-accent hover:underline" href={`https://www.facebook.com/${p.fbPostId}`} target="_blank" rel="noreferrer">
+                        {p.removedAt ? "taken down" : "on Facebook ↗"}
+                      </a>
+                    )}
+              </div>
+              <p lang="bn" className="mt-1 line-clamp-2 text-sm leading-snug">
+                <Highlight text={p.cards[0]?.title || p.message.split("\n")[0]} />
+                {p.cards.length > 1 && <span className="text-muted"> + {p.cards.length - 1} more</span>}
+              </p>
+              {p.error && <p className="mt-1 text-xs text-danger">Not posted: {p.error}</p>}
+            </li>
+          ))}
+        </ol>
+      </SearchProvider>
       <p className="text-xs text-muted">Reach and clicks per post arrive here once the Page token can read Page Insights.</p>
     </div>
   );
@@ -136,7 +206,7 @@ export function SettingsView({
   );
 
   return (
-    <div className="mt-6 space-y-5">
+    <div className="space-y-5">
       <section className={box}>
         <h2 className="font-display text-lg font-semibold">How posts go out</h2>
         <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
@@ -297,7 +367,7 @@ export function HealthView({ onError }: { onError: (m: string) => void }) {
       .then(setHealth)
       .catch((e) => onError(e.message));
   }, [onError]);
-  if (!health) return <p className="mt-6 text-sm text-muted">Loading…</p>;
+  if (!health) return <p className="text-sm text-muted">Loading…</p>;
   const stale = health.lastRunMinutesAgo === null || health.lastRunMinutesAgo > 35;
   const item = (ok: boolean, title: string, text: string) => (
     <li className="flex items-start gap-3 border-t border-line px-4 py-3 first:border-t-0">
@@ -309,7 +379,7 @@ export function HealthView({ onError }: { onError: (m: string) => void }) {
     </li>
   );
   return (
-    <div className="mt-6 space-y-5">
+    <div className="space-y-5">
       <ul className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
         {item(!stale, "The deploy's runs", health.lastRunMinutesAgo === null ? "No run recorded yet." : `Last run ${health.lastRunMinutesAgo} minutes ago (every 15 minutes).`)}
         {item(true, "Facebook mode", health.live ? "Live: the queue posts to the Page." : "Trial: the Page posts the old way; the queue runs beside it and posts nothing.")}

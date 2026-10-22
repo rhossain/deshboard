@@ -11,7 +11,7 @@ type PostRecordCategory = PostRecord["category"];
 import { deletePost, type GraphAccess, postToFeed, rescrape } from "./facebook-graph";
 import { publishToInstagram } from "./instagram-graph";
 import { IG_CAPTION_MAX, IG_MAX_HEADLINES, instagramCaption, postImages } from "./instagram-post";
-import { carouselMessage, singleMessage } from "./post-text";
+import { carouselMessage, FB_MAX_CARDS, singleMessage } from "./post-text";
 import { editable, editDeadline, queueSettings } from "./social-settings";
 import {
   addBlock,
@@ -342,9 +342,6 @@ export interface NewItemPost {
   /** ISO; default: in 5 minutes (Instagram: 20, for its pictures to be drawn first). */
   scheduledAt?: string;
 }
-
-/** Facebook takes 2 to 10 cards in a carousel. */
-export const FB_MAX_CARDS = 10;
 
 /**
  * Headlines or videos from the site, chosen by a person, as their own post at its time (approved): one, as a single

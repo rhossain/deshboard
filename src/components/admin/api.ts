@@ -76,6 +76,9 @@ export const api = {
   create: (p: { message: string; link?: string; scheduledAt?: string }) => call<SocialPost>("/posts", { method: "POST", json: p }),
   createFromItem: (p: { card: Card; content: "news" | "video"; message?: string; scheduledAt?: string; platform?: Platform }) =>
     call<SocialPost>("/posts", { method: "POST", json: p }),
+  /** One or several headlines or videos from the board: several make a carousel (functions/api/admin/posts). */
+  createFromItems: (p: { cards: Card[]; content: "news" | "video" | "headlines" | "roundup"; message?: string; scheduledAt?: string; platform?: Platform }) =>
+    call<SocialPost>("/posts", { method: "POST", json: p }),
   bulk: (action: string, posts: SocialPost[], extra: Record<string, unknown> = {}) =>
     call<{ results: { id: string; ok: boolean; error?: string }[] }>("/bulk", {
       method: "POST",
