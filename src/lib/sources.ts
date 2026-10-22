@@ -69,11 +69,15 @@ const LISTED: NewsSource[] = [
   {id: "dhakatribune-bn", name: "Dhaka Tribune Bangla", lang: "bn", kind: "Newspaper", homepage: "https://bangla.dhakatribune.com", method: "sitemap", url: "https://bangla.dhakatribune.com/news-sitemap.xml", notes: "Google News sitemap"},
 ];
 
-/** Shown (and fetched) first, in this order. Everything else follows in list order. */
+/**
+ * Shown (and fetched) first, in this order. Everything else follows in list order. The first six are
+ * Bangla papers, so the board opens on Bangla news (NewsBoard keeps six Bangla cards first even when
+ * one of these fails); the English editions follow them.
+ */
 const PRIORITY = [
-  "prothomalo", "prothomalo-en",
-  "dailystar-bn", "dailystar",
-  "dailysun", "jugantor", "kalerkantho", "observerbd", "mzamin", "ittefaq", "banglanews24", "kalbela",
+  "prothomalo", "dailystar-bn", "jugantor", "kalerkantho", "mzamin", "ittefaq",
+  "prothomalo-en", "dailystar", "dailysun", "observerbd",
+  "banglanews24", "kalbela",
   "amadershomoy", "amardesh", "bd-pratidin", "nayadiganta", "bonikbarta", "bhorerkagoj", "inqilab",
   "deshrupantor", "sarabangla", "somoynews",
 ];

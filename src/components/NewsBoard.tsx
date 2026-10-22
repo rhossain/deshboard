@@ -93,6 +93,12 @@ const NO_SAVED_VIDEOS: ReturnType<typeof useSavedVideos>["savedVideos"] = [];
 const NOTICE_MS = 6000;
 /** Top stories need this many outlets, unless no story has that many. */
 const TOP_MIN_OUTLETS = 3;
+/**
+ * On the default order with every language, the first cards after the reader's own are this many
+ * Bangla papers' (the configured order starts with them, see PRIORITY in sources.ts): one failing, or
+ * having nothing under a category or search, lets the next Bangla paper up rather than an English one.
+ */
+const BANGLA_LEAD = 6;
 
 /** The site's sections. News holds three views of the headlines; the others are one view each. */
 type Section = "news" | "videos" | "saved";
@@ -755,13 +761,21 @@ export function NewsBoard({
     const broken = (s: NewsSource) => (sourceProblem(s, statusById.get(s.id)) ? 1 : 0);
     const pinnedFirst = (a: NewsSource, b: NewsSource) =>
       +sourceRank.has(b.id) - +sourceRank.has(a.id) || broken(a) - broken(b) || rank(a) - rank(b);
-    return sources
+    const sorted = sources
       .filter((s) => (lang === "all" || s.lang === lang) && (!onlySource || s.id === onlySource))
       .sort(
         (a, b) =>
           pinnedFirst(a, b) || (order === "newest" ? newestFirst(latest(a.id), latest(b.id)) : 0),
       );
-  }, [sources, lang, onlySource, itemsBySource, statusById, order, sourceRank]);
+    if (order !== "default" || lang !== "all" || onlySource) return sorted;
+    // The reader's own stay first, as they ordered them; then BANGLA_LEAD Bangla cards that show.
+    const shows = (s: NewsSource) => !broken(s) && (!filtering || !!itemsBySource.get(s.id)?.length);
+    const mine = sorted.filter((s) => sourceRank.has(s.id));
+    const rest = sorted.filter((s) => !sourceRank.has(s.id));
+    const lead = rest.filter((s) => s.lang === "bn" && shows(s)).slice(0, BANGLA_LEAD);
+    const leads = new Set(lead);
+    return [...mine, ...lead, ...rest.filter((s) => !leads.has(s))];
+  }, [sources, lang, onlySource, itemsBySource, statusById, order, sourceRank, filtering]);
   // Where the pinned cards end in visibleSources, when both they and others are on show (only cards that
   // render count: a search or category leaves out cards with nothing matching); 0 for no headings.
   const pinnedCards = useMemo(() => {
