@@ -239,8 +239,9 @@ export function AdminShell() {
     <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
       {/* The sidebar, on a desktop. */}
       <aside className="hidden border-r border-line bg-surface lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:px-4 lg:py-6">
-        <Link href="/" className="inline-block px-2 text-[24px]" aria-label="Bartaboard home">
-          <BartaboardLogo />
+        {/* The compact lockup: the one with the tagline is wider than the sidebar. */}
+        <Link href="/" className="flex px-2 text-[24px]" aria-label="Bartaboard home">
+          <BartaboardLogo tagline={false} />
         </Link>
         <p className="mt-3 px-2 font-display text-2xl font-semibold tracking-tight">Admin</p>
         {email && <p className="mt-1 truncate px-2 text-xs text-muted" title={email}>{email}</p>}
@@ -272,8 +273,8 @@ export function AdminShell() {
         {/* The top bar, on a phone or tablet. */}
         <header className="sticky top-0 z-20 border-b border-line bg-[var(--background)]/95 backdrop-blur lg:hidden">
           <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] sm:px-6">
-            <Link href="/" className="inline-block shrink-0 text-[20px]" aria-label="Bartaboard home">
-              <BartaboardLogo />
+            <Link href="/" className="flex shrink-0 text-[22px]" aria-label="Bartaboard home">
+              <BartaboardLogo tagline={false} />
             </Link>
             <span className="font-display text-lg font-semibold">Admin</span>
             <span className="flex-1" />
