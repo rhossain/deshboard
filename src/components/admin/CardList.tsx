@@ -1,6 +1,7 @@
 "use client";
 
 import type { Card } from "./api";
+import type { LinkVerdict } from "./links";
 import type { PictureVerdict } from "./pictures";
 
 const round = "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm transition disabled:opacity-30 sm:h-8 sm:w-8";
@@ -14,6 +15,7 @@ export function CardList({
   least = 0,
   removeTitle = "Remove",
   checks,
+  links,
 }: {
   cards: Card[];
   numbered: boolean;
@@ -24,12 +26,15 @@ export function CardList({
   removeTitle?: string;
   /** What was found out about each card's picture, by its link (usePictureChecks); shown under the card. */
   checks?: Map<string, PictureVerdict>;
+  /** Whether each card's link still leads to its story, by its link (useLinkChecks); a dead one is said under the card. */
+  links?: Map<string, LinkVerdict>;
 }) {
   return (
     <ol className="space-y-1.5">
       {cards.map((c, pos) => {
         const v = checks?.get(c.link);
-        const tone = v?.level === "bad" ? "border-danger/50 bg-danger-soft/40" : v?.level === "warn" ? "border-gold/50 bg-gold/10" : "border-line bg-surface";
+        const dead = links?.get(c.link)?.dead ? links.get(c.link) : undefined;
+        const tone = v?.level === "bad" || dead ? "border-danger/50 bg-danger-soft/40" : v?.level === "warn" ? "border-gold/50 bg-gold/10" : "border-line bg-surface";
         const ring = v?.level === "bad" ? "ring-2 ring-danger" : v?.level === "warn" ? "ring-2 ring-gold" : "";
         return (
           <li key={`${c.link}-${pos}`} className={`rounded-xl border px-2 py-1.5 ${tone}`}>
@@ -76,6 +81,15 @@ export function CardList({
                 </button>
               )}
             </div>
+            {dead && (
+              <p role="alert" className="mt-1.5 flex items-start gap-1.5 text-[12px] leading-snug text-danger">
+                <span aria-hidden>⛔</span>
+                <span>
+                  <strong>Link is dead.</strong> {dead.problem}
+                  {onRemove && cards.length > least ? ": remove it." : "."}
+                </span>
+              </p>
+            )}
             {v && v.level !== "ok" && (
               <p role={v.level === "bad" ? "alert" : "status"} className={`mt-1.5 flex items-start gap-1.5 text-[12px] leading-snug ${v.level === "bad" ? "text-danger" : "text-gold"}`}>
                 <span aria-hidden>{v.level === "bad" ? "⛔" : "⚠️"}</span>

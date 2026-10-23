@@ -57,9 +57,23 @@ too. **Pause** stops everything going out; drafts are still made, and those whos
 search box does ([search.md](search.md): Bangla, English and Banglish, other forms and spellings of a word), with the
 words found marked. As you type it suggests outlets or channels, sections and headlines; ↓ ↑ and Enter choose one.
 Chips narrow the list by age (the last 2, 6 or 24 hours), section and outlet. The list shows every match, more as
-you scroll, and for headlines reaches back through the last 30 days' day files on request ("Search older
-headlines"). On a phone it takes the whole screen; on a desktop it is a dialog; Esc closes it. When several are
+you scroll, and for headlines reaches back through the last 30 days' day files: by itself when the board has fewer
+than 20 matches for a search (as the site's search carries on into "Earlier headlines"), and further on request
+("Load 3 more days"). The board's files are fetched again once they are two minutes old (the site is rebuilt every
+15 minutes), so an admin page left open finds what the board shows now; until 23 October they were loaded once a
+page view, and a search missed everything newer. On a phone it takes the whole screen; on a desktop it is a dialog; Esc closes it. When several are
 wanted, tap each and then "Add".
+
+**Dead links** (`functions/api/admin/link.ts`, `src/components/admin/links.ts`). A card's Bartaboard link is
+followed to what it shares, as the deploy checks it: a headline's article at its outlet (404 or 410 is gone; any
+other answer passes, as some outlets refuse Cloudflare), a video on YouTube (private, deleted, or no longer playable
+on other sites), and a headline past the share index by its own page ("has left Bartaboard"). In the picker an item
+is checked as it is chosen, and a dead one is marked ⛔ on its row and not added. On the queue, every post that can
+still go out, and every post up on the Page, has its links checked: a dead one is named on the post's card, with
+"Remove the dead card" for a carousel that keeps two, "Replace it…" for a single post, or, once editing has closed,
+reject or skip. A posted post can't lose one card on Facebook: its card says so, with Take down. History's "Check
+links" checks every posted post shown (it is many requests, so only on request); a dead one is marked, with "Take
+down from the Page" on its row; any posted Facebook post can be taken down there ("Take down…").
 
 **Pictures are looked at before a post is queued** (`src/components/admin/pictures.ts`). Each card a person picks
 has its picture loaded in the browser and judged by what Facebook will do with it: none, or one that doesn't load,

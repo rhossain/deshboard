@@ -35,10 +35,17 @@ export interface PickItem {
   link: string;
   /** A video's thumbnail; a headline's is looked up when picked (pictureFor). */
   picture?: string;
+  /** The title as the site shows it, when it differs (a video's, before unmaskTitle): searched too. */
+  shownTitle?: string;
   item?: NewsItem;
 }
 
-let loading: Promise<PickItem[]> | null = null;
+/**
+ * The board is rebuilt every 15 minutes: what was loaded is used this long, then fetched again, so an admin page left
+ * open finds what the board shows now.
+ */
+const ITEMS_TTL_MS = 2 * 60_000;
+let loading: { at: number; items: Promise<PickItem[]> } | null = null;
 
 const CHANNEL_NAME = new Map(CHANNELS.map((c) => [c.id, c.name]));
 
@@ -66,17 +73,23 @@ async function json<T>(path: string): Promise<T | null> {
   }
 }
 
-/** Every headline and video on the board now, newest first (loaded once a page view; reload() to refresh). */
+/**
+ * Every headline and video on the board now, newest first: fetched again once ITEMS_TTL_MS old, or when `fresh`. A file
+ * that didn't load leaves its half empty this time and is asked for again the next.
+ */
 export function loadItems(fresh = false): Promise<PickItem[]> {
-  if (loading && !fresh) return loading;
-  loading = (async () => {
+  if (loading && !fresh && Date.now() - loading.at < ITEMS_TTL_MS) return loading.items;
+  const current: { at: number; items: Promise<PickItem[]> } = { at: Date.now(), items: Promise.resolve([]) };
+  current.items = (async () => {
     const now = Date.now();
     const [packed, videos] = await Promise.all([json<PackedFeed>(`${DATA_DIR}/news.json`), json<VideoFeed>("/data/videos.json")]);
+    if (!packed || !videos) current.at = 0;
     const headlines: PickItem[] = (packed ? unpackFeed(packed).results.flatMap((r) => r.items) : []).map((it) => headlineItem(it, now));
     const clips: PickItem[] = (videos?.videos ?? []).map((v) => ({
       kind: "video",
       key: v.id,
       title: unmaskTitle(v.title),
+      ...(unmaskTitle(v.title) !== v.title && { shownTitle: v.title }),
       source: channelBn(v.channel),
       sourceEn: channelName(v.channel, CHANNEL_NAME.get(v.channel) ?? v.channel, "en"),
       sourceId: v.channel,
@@ -86,7 +99,9 @@ export function loadItems(fresh = false): Promise<PickItem[]> {
     }));
     return [...headlines, ...clips].sort((a, b) => b.time - a.time);
   })();
-  return loading;
+  current.items.catch(() => (current.at = 0));
+  loading = current;
+  return current.items;
 }
 
 /** Posted in the last 12 hours, by an item's key: when, and where. */

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api, ApiError, atDhakaTime, type Card, CONTENT_LABEL, dhakaTime, POLICY_LABEL, relative, type Policy, type SocialPost } from "./api";
 import { CardList } from "./CardList";
+import { deadCards, useLinkChecks } from "./links";
 import { usePictureChecks } from "./pictures";
 import { PreviewDialog } from "./SocialPreview";
 import { ItemPicker } from "./ItemPicker";
@@ -54,6 +55,10 @@ export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onC
   const canEdit = open && editable(post.scheduledAt, lockMinutes, now);
   const deadline = dhakaTime(editDeadline(post.scheduledAt, lockMinutes));
   const faded = ["rejected", "skipped", "dry"].includes(post.status) || !!post.removedAt;
+  // Whether its links still lead to their stories: while it can still go out, and once it is up on the Page.
+  const linked = post.cards.length ? post.cards : post.link ? [{ link: post.link, title: "", source: "" }] : [];
+  const links = useLinkChecks(linked, open || (post.status === "posted" && !post.removedAt));
+  const dead = deadCards(linked, links);
 
   async function run(fn: () => Promise<SocialPost>, done?: () => void) {
     setBusy(true);
@@ -105,6 +110,16 @@ export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onC
         post.platform === "instagram" ? <InstagramPreview post={post} /> : <Preview post={post} />
       )}
 
+      {mode !== "edit" && dead.length > 0 && (
+        <DeadLinks
+          post={post}
+          dead={dead}
+          canEdit={canEdit}
+          busy={busy}
+          onRemove={(cards, message) => run(() => api.edit(post, { cards, ...(message !== post.message && { message }) }))}
+          onEdit={() => setMode("edit")}
+        />
+      )}
       {post.error && <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">Not posted: {post.error}</p>}
       {post.note && mode === "view" && <p className="mt-2 text-xs text-muted">{post.note.replace(/^ · /, "")}</p>}
 
@@ -195,6 +210,72 @@ export function PostCard({ post, now, live, lockMinutes, selected, onSelect, onC
         </div>
       )}
     </article>
+  );
+}
+
+/** The post's text for these cards, when its text is the cards' own (as the picker or the composer wrote it); else its own. */
+function textFor(post: SocialPost, cards: Card[]): string {
+  const at = Date.parse(post.scheduledAt);
+  const made = (list: Card[]) =>
+    post.platform === "instagram" ? instagramCaption(list, at) : post.params.child_attachments ? carouselMessage(post.content, list, at) : list[0] ? singleMessage(list[0]) : post.message;
+  return post.message === made(post.cards) ? made(cards) : post.message;
+}
+
+/**
+ * The cards whose link no longer leads to their story (the article taken down, the video deleted), and what can be
+ * done: before it goes out, take them out of the carousel or replace the item; once posted, take the post down.
+ */
+function DeadLinks({
+  post,
+  dead,
+  canEdit,
+  busy,
+  onRemove,
+  onEdit,
+}: {
+  post: SocialPost;
+  dead: { pos: number; card: Card; problem: string }[];
+  canEdit: boolean;
+  busy: boolean;
+  onRemove: (cards: Card[], message: string) => void;
+  onEdit: () => void;
+}) {
+  const carousel = post.cards.length > 1;
+  const rest = post.cards.filter((_, i) => !dead.some((d) => d.pos === i));
+  const posted = post.status === "posted";
+  const many = dead.length > 1;
+  return (
+    <div role="alert" className="mt-3 rounded-xl border border-danger/40 bg-danger-soft/40 p-3 text-xs text-danger">
+      <p className="font-semibold">⛔ {many ? `${dead.length} links are dead` : "A link is dead"}{posted ? " on this post" : ""}:</p>
+      <ul className="mt-1 space-y-0.5">
+        {dead.map((d) => (
+          <li key={d.pos} lang="bn">
+            {carousel && `Card ${d.pos + 1}: `}
+            {d.card.title ? <span className="font-semibold">{d.card.title}</span> : d.card.link} — <span lang="en">{d.problem}</span>
+          </li>
+        ))}
+      </ul>
+      {posted ? (
+        <p className="mt-1.5 text-foreground">
+          {post.platform === "instagram"
+            ? "It is up on Instagram: to remove it, delete it in the Instagram app (its API can’t)."
+            : `It is up on the Page with ${many ? "these links" : "this link"}. Facebook can’t take ${carousel ? "one card out of a posted carousel" : "the link out of a post"}: take the post down (below), and post the rest again from “Add a post” if you like.`}
+        </p>
+      ) : canEdit ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {carousel && rest.length >= 2 && (
+            <button className={btnDanger} disabled={busy} onClick={() => onRemove(rest, textFor(post, rest))}>
+              Remove {many ? `the ${dead.length} dead cards` : "the dead card"}
+            </button>
+          )}
+          <button className={btn} disabled={busy} onClick={onEdit}>
+            {carousel ? (rest.length >= 2 ? "Edit…" : "Edit: add others…") : post.content === "custom" ? "Edit…" : "Replace it…"}
+          </button>
+        </div>
+      ) : (
+        <p className="mt-1.5 text-foreground">Editing is closed for this post: {post.status === "draft" ? "reject it" : "skip it"} so it doesn’t go out like this.</p>
+      )}
+    </div>
   );
 }
 
@@ -313,6 +394,7 @@ function EditForm({
   const changedCards = JSON.stringify(cards) !== JSON.stringify(post.cards);
   // Instagram's cards are drawn by the deploy: no outlet picture to check.
   const checks = usePictureChecks(instagram ? [] : cards, carousel);
+  const links = useLinkChecks(cards);
 
   function update(next: Card[]) {
     setCards(next);
@@ -362,6 +444,7 @@ function EditForm({
           onRemove={carousel ? (pos) => update(cards.filter((_, i) => i !== pos)) : undefined}
           least={2}
           checks={instagram ? undefined : checks}
+          links={links}
         />
       )}
 

@@ -4,11 +4,13 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Highlight, SearchProvider } from "../Highlight";
 import { CloseIcon, SearchIcon } from "../ui";
 import { useSearch } from "../use-search";
-import { api, CONTENT_LABEL, dhakaDate, dhakaTime, type Block, type Health, type Platform, PLATFORM_LABEL, POLICY_LABEL, type Policy, type QueueSettings, type Slot, type SocialPost } from "./api";
+import { api, ApiError, type Card, CONTENT_LABEL, dhakaDate, dhakaTime, type Block, type Health, type Platform, PLATFORM_LABEL, POLICY_LABEL, type Policy, type QueueSettings, type Slot, type SocialPost } from "./api";
 import { IG_DEFAULT_TIMES } from "@/lib/instagram-post";
+import { deadCards, useLinkChecks } from "./links";
 import { StatusBadge } from "./PostCard";
 
 const btn = "h-9 rounded-full border border-line px-3.5 text-[13px] font-semibold transition hover:bg-surface-2 active:scale-95 disabled:opacity-50";
+const btnDanger = "h-9 rounded-full border border-danger/40 px-3.5 text-[13px] font-semibold text-danger transition hover:bg-danger-soft active:scale-95 disabled:opacity-50";
 const btnPrimary = "h-9 rounded-full bg-accent px-4 text-[13px] font-semibold text-accent-ink transition active:scale-95 disabled:opacity-50";
 const box = "rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5";
 
@@ -32,6 +34,8 @@ export function HistoryView({ onError }: { onError: (m: string) => void }) {
   const [platform, setPlatform] = useState<Platform | "all">("all");
   const [query, setQuery] = useState("");
   const search = useSearch(useDeferredValue(query));
+  // Each posted post's links asked about (the article still up, the video still there), once asked for: many requests.
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     let off = false;
@@ -107,54 +111,122 @@ export function HistoryView({ onError }: { onError: (m: string) => void }) {
         ))}
       </div>
       {posts && (
-        <p className="text-sm text-muted">
-          {shown.length} shown ·{" "}
-          {Object.entries(counts)
-            .map(([s, n]) => `${n} ${s}`)
-            .join(" · ") || "Nothing yet."}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <p className="flex-1 text-sm text-muted">
+            {shown.length} shown ·{" "}
+            {Object.entries(counts)
+              .map(([s, n]) => `${n} ${s}`)
+              .join(" · ") || "Nothing yet."}
+          </p>
+          <button
+            type="button"
+            className={btn}
+            disabled={checking}
+            onClick={() => setChecking(true)}
+            title="Whether each posted headline's article is still up at its outlet, and each video still on YouTube"
+          >
+            {checking ? "Links checked as they load" : "Check links"}
+          </button>
+        </div>
       )}
       {!posts && <p className="text-sm text-muted">Loading…</p>}
       {posts && shown.length === 0 && <p className="text-sm text-muted">Nothing matches.</p>}
       <SearchProvider search={search}>
         <ol className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
           {shown.map((p) => (
-            <li key={p.id} className="border-t border-line px-4 py-3 first:border-t-0">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                <span className="tabular-nums text-muted">
-                  {dhakaDate(p.scheduledAt)} {dhakaTime(p.scheduledAt)}
-                </span>
-                <span className="font-semibold">
-                  {p.platform === "instagram" ? "IG · " : ""}
-                  {CONTENT_LABEL[p.content] ?? p.content}
-                </span>
-                {p.kind === "breaking" && <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">Breaking</span>}
-                {p.kind === "manual" && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">Yours</span>}
-                <StatusBadge status={p.status} />
-                <span className="flex-1" />
-                {p.platform === "instagram"
-                  ? p.permalink && (
-                      <a className="font-semibold text-accent hover:underline" href={p.permalink} target="_blank" rel="noreferrer">
-                        on Instagram ↗
-                      </a>
-                    )
-                  : p.fbPostId && (
-                      <a className="font-semibold text-accent hover:underline" href={`https://www.facebook.com/${p.fbPostId}`} target="_blank" rel="noreferrer">
-                        {p.removedAt ? "taken down" : "on Facebook ↗"}
-                      </a>
-                    )}
-              </div>
-              <p lang="bn" className="mt-1 line-clamp-2 text-sm leading-snug">
-                <Highlight text={p.cards[0]?.title || p.message.split("\n")[0]} />
-                {p.cards.length > 1 && <span className="text-muted"> + {p.cards.length - 1} more</span>}
-              </p>
-              {p.error && <p className="mt-1 text-xs text-danger">Not posted: {p.error}</p>}
-            </li>
+            <HistoryRow
+              key={p.id}
+              post={p}
+              checkLinks={checking}
+              onChange={(next) => setPosts((list) => list?.map((q) => (q.id === next.id ? next : q)) ?? null)}
+              onError={onError}
+            />
           ))}
         </ol>
       </SearchProvider>
       <p className="text-xs text-muted">Reach and clicks per post arrive here once the Page token can read Page Insights.</p>
     </div>
+  );
+}
+
+/** A post in the history: what went out, where, and whether its links still lead to their stories. */
+function HistoryRow({ post: p, checkLinks, onChange, onError }: { post: SocialPost; checkLinks: boolean; onChange: (p: SocialPost) => void; onError: (m: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const live = p.status === "posted" && !p.removedAt;
+  const linked: Card[] = p.cards.length ? p.cards : p.link ? [{ link: p.link, title: "", source: "" }] : [];
+  const dead = deadCards(linked, useLinkChecks(linked, checkLinks && live));
+  const canTakeDown = live && p.platform !== "instagram" && !!p.fbPostId;
+
+  async function takeDown() {
+    if (typeof window.confirm === "function" && !window.confirm("Take this post down from the Facebook Page? This can't be undone.")) return;
+    setBusy(true);
+    try {
+      onChange(await api.action(p, "take-down"));
+    } catch (err) {
+      if (err instanceof ApiError && err.post) onChange(err.post);
+      onError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="border-t border-line px-4 py-3 first:border-t-0">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <span className="tabular-nums text-muted">
+          {dhakaDate(p.scheduledAt)} {dhakaTime(p.scheduledAt)}
+        </span>
+        <span className="font-semibold">
+          {p.platform === "instagram" ? "IG · " : ""}
+          {CONTENT_LABEL[p.content] ?? p.content}
+        </span>
+        {p.kind === "breaking" && <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">Breaking</span>}
+        {p.kind === "manual" && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">Yours</span>}
+        <StatusBadge status={p.status} />
+        <span className="flex-1" />
+        {p.platform === "instagram"
+          ? p.permalink && (
+              <a className="font-semibold text-accent hover:underline" href={p.permalink} target="_blank" rel="noreferrer">
+                on Instagram ↗
+              </a>
+            )
+          : p.fbPostId && (
+              <a className="font-semibold text-accent hover:underline" href={`https://www.facebook.com/${p.fbPostId}`} target="_blank" rel="noreferrer">
+                {p.removedAt ? "taken down" : "on Facebook ↗"}
+              </a>
+            )}
+      </div>
+      <p lang="bn" className="mt-1 line-clamp-2 text-sm leading-snug">
+        <Highlight text={p.cards[0]?.title || p.message.split("\n")[0]} />
+        {p.cards.length > 1 && <span className="text-muted"> + {p.cards.length - 1} more</span>}
+      </p>
+      {p.error && <p className="mt-1 text-xs text-danger">Not posted: {p.error}</p>}
+      {dead.length > 0 && (
+        <p role="alert" lang="bn" className="mt-1.5 text-xs text-danger">
+          ⛔ <span lang="en" className="font-semibold">Link is dead{p.cards.length > 1 ? ` (card ${dead.map((d) => d.pos + 1).join(", ")})` : ""}:</span>{" "}
+          {dead.map((d) => `${d.card.title ? `${d.card.title.slice(0, 60)} — ` : ""}${d.problem}`).join("; ")}
+          {p.platform === "instagram" && <span lang="en">. Delete it in the Instagram app: its API can’t.</span>}
+        </p>
+      )}
+      {canTakeDown && (dead.length > 0 || confirming) && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button type="button" className={btnDanger} disabled={busy} onClick={takeDown}>
+            {busy ? "Taking down…" : "Take down from the Page"}
+          </button>
+          {confirming && !dead.length && (
+            <button type="button" className={btn} disabled={busy} onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
+      {canTakeDown && !dead.length && !confirming && (
+        <button type="button" className="mt-1 text-xs font-semibold text-danger hover:underline" onClick={() => setConfirming(true)}>
+          Take down…
+        </button>
+      )}
+    </li>
   );
 }
 

@@ -7,6 +7,7 @@ import { CloseIcon, SearchIcon } from "../ui";
 import { useSearch } from "../use-search";
 import { type Card, dhakaTime, PLATFORM_LABEL, relative } from "./api";
 import { cardOf, loadItems, loadOlderDay, olderDates, type PickItem, pictureFor, type Posted, recentlyPosted } from "./items";
+import { checkLink, type LinkVerdict } from "./links";
 import { checkPicture, type PictureVerdict } from "./pictures";
 
 const chip = "h-8 shrink-0 rounded-full border px-3 text-[12px] font-semibold transition disabled:opacity-40";
@@ -17,6 +18,8 @@ const chipOff = `${chip} border-line text-muted hover:text-foreground`;
 const PAGE = 80;
 /** Older days loaded at a time ("Load 3 more days"): each day file is a few MB. */
 const DAYS_AT_A_TIME = 3;
+/** A search the board has fewer matches for than this carries on into the older days by itself, as the site's does. */
+const AUTO_OLDER_BELOW = 20;
 
 type Age = "2h" | "6h" | "24h" | "all";
 const AGES: [Age, string, number][] = [
@@ -101,6 +104,8 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
   // Each chosen item's picture as a carousel card (by key), checked as it is chosen: shown on its row, so a picture
   // the deploy can't make a card of is known here, not when the post goes out. "checking" until known.
   const [verdicts, setVerdicts] = useState<Map<string, PictureVerdict | "checking">>(new Map());
+  // Each chosen item's link (by key): a headline whose article is gone, or a video YouTube no longer has, isn't added.
+  const [links, setLinks] = useState<Map<string, LinkVerdict | "checking">>(new Map());
   const [now] = useState(() => Date.now());
   const multi = (max ?? 1) > 1;
   const checking = [...chosen.keys()].some((k) => verdicts.get(k) === "checking");
@@ -115,7 +120,13 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
 
   useEffect(() => {
     let off = false;
-    loadItems().then((all) => !off && setItems(all));
+    loadItems()
+      .then((all) => !off && setItems(all))
+      .catch(() => {
+        if (off) return;
+        setItems([]);
+        setProblem("The board's headlines and videos didn't load: close this and open it again.");
+      });
     recentlyPosted().then((map) => !off && setPosted(map));
     return () => {
       off = true;
@@ -148,7 +159,7 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
         .filter((it) => !section || it.section === section)
         .filter((it) => !source || it.sourceId === source.id)
         .filter((it) => span === Infinity || (it.time && it.time >= now - span))
-        .filter((it) => !search || search.matches(it.title) || search.matches(it.source) || search.matches(it.sourceEn) || fold(it.sourceId).includes(fold(deferred.trim()))),
+        .filter((it) => !search || search.matches(it.title) || (it.shownTitle && search.matches(it.shownTitle)) || search.matches(it.source) || search.matches(it.sourceEn) || fold(it.sourceId).includes(fold(deferred.trim()))),
     [pool, show, section, source, span, now, search, deferred],
   );
 
@@ -209,10 +220,32 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
   };
   const carouselNow = pictureNeeded(Math.max(chosen.size, 1));
 
+  /** The item's link as the admin's check has it (checkLink, cached by link), shown on its row. */
+  const linkVerdict = async (it: PickItem): Promise<LinkVerdict> => {
+    setLinks((m) => (m.get(it.key) ? m : new Map(m).set(it.key, "checking")));
+    const verdict = await checkLink(it.link);
+    setLinks((m) => new Map(m).set(it.key, verdict));
+    return verdict;
+  };
+
   async function finish(list: PickItem[]) {
     setBusy(true);
     setProblem(null);
     try {
+      // A link that no longer leads to its story is said now, and not added.
+      const checkedLinks = await Promise.all(list.map(linkVerdict));
+      const gone = list.filter((_, i) => checkedLinks[i].dead);
+      if (gone.length) {
+        setProblem(
+          `${gone.map((g) => `“${g.title.slice(0, 40)}…”`).join(", ")}: the link is dead (see ${gone.length === 1 ? "its row" : "their rows"}), so ${gone.length === 1 ? "it was" : "they were"} taken out of the choice. Pick another.`,
+        );
+        setChosen((c) => {
+          const next = new Map(c);
+          for (const g of gone) next.delete(g.key);
+          return next;
+        });
+        return;
+      }
       const pictures = await Promise.all(list.map(pictureFor));
       if (pictureNeeded(list.length)) {
         const missing = list.filter((_, i) => !pictures[i]);
@@ -253,13 +286,25 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
     setProblem(null);
     const next = new Map(chosen);
     const known = verdicts.get(it.key);
+    const link = links.get(it.key);
     if (next.has(it.key)) next.delete(it.key);
+    else if (link && link !== "checking" && link.dead) return setProblem(`“${it.title.slice(0, 40)}…”: the link is dead (${link.problem}).`);
     else if (known && known !== "checking" && known.level === "bad" && pictureNeeded(next.size + 1))
       return setProblem(`“${it.title.slice(0, 40)}…” can't be a carousel card: ${known.note}.`);
     else if (next.size < (max ?? 1)) next.set(it.key, it);
     else return setProblem(`Up to ${max} here: the post takes ${inPost + (max ?? 1)} cards in all.`);
     setChosen(next);
     checkChosen(next);
+    if (next.has(it.key))
+      void linkVerdict(it).then((v) => {
+        if (!v.dead) return;
+        setChosen((c) => {
+          const left = new Map(c);
+          left.delete(it.key);
+          return left;
+        });
+        setProblem(`“${it.title.slice(0, 40)}…” was taken out of the choice: the link is dead (${v.problem}).`);
+      });
   }
 
   function choose(s: Suggestion) {
@@ -285,6 +330,16 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
       setLoadingDays(false);
     }
   }
+
+  // As the site's search does, a search the board has few matches for carries on into the last days' files by itself.
+  const fewOnBoard = show === "headline" && !!items && !!deferred.trim() && !loadedDays && shown.length < AUTO_OLDER_BELOW;
+  useEffect(() => {
+    if (!fewOnBoard || loadingDays) return;
+    const t = setTimeout(() => void loadMoreDays(), 500);
+    return () => clearTimeout(t);
+    // Asked again when the search changes; loadMoreDays reads the state it needs as it is then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fewOnBoard, loadingDays]);
 
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "ArrowDown" && suggestions.length) {
@@ -488,7 +543,8 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
           {items && shown.length === 0 && (
             <li className="px-4 py-6 text-sm text-muted">
               Nothing matches{age !== "all" ? " in this time" : ""}
-              {section || source ? " with these filters" : ""}.{show === "headline" && moreDays ? " Try the older days below." : ""}
+              {section || source ? " with these filters" : ""}
+              {loadingDays ? ": looking in the older days…" : `.${show === "headline" && moreDays ? " Try the older days below." : ""}`}
             </li>
           )}
           <SearchProvider search={search}>
@@ -500,6 +556,7 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
               // Shown while the post would be a carousel; a bad one stays shown after it is taken out of the choice.
               const known = verdicts.get(it.key);
               const verdict = known && (known !== "checking" || on) && (carouselNow || (known !== "checking" && known.level === "bad")) ? known : undefined;
+              const link = links.get(it.key);
               return (
                 <li key={`${it.kind}-${it.key}`}>
                   <button
@@ -528,6 +585,13 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
                         <Highlight text={it.title} />
                       </span>
                       {went && <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold text-gold">{went}</span>}
+                      {link === "checking" && on ? (
+                        <span className="mt-1 block text-[11px] text-muted">Checking its link…</span>
+                      ) : (
+                        link &&
+                        link !== "checking" &&
+                        link.dead && <span className="mt-1 block text-[11px] font-semibold text-danger">⛔ Link is dead: {link.problem}</span>
+                      )}
                       {verdict === "checking" ? (
                         <span className="mt-1 block text-[11px] text-muted">Checking its picture…</span>
                       ) : (
