@@ -11,9 +11,9 @@ import { postLink, shareDay } from "@/lib/page-posts";
 import { channelBn, videoLink, videoThumbnail } from "@/lib/page-video-posts";
 import { shareKey } from "@/lib/share";
 import { datesToSearch, shardPath, type ShareShard } from "@/lib/share-lookup";
-import type { Card, Platform } from "@/lib/social-store";
+import type { Card, Platform, SavedItem } from "@/lib/social-store";
 import { api } from "./api";
-import type { NewsItem, VideoFeed } from "@/lib/types";
+import type { NewsItem, Video, VideoFeed } from "@/lib/types";
 import { unmaskTitle } from "@/lib/video-stories";
 
 /** Links are always the live site's: the admin's API takes only bartaboard.com links. */
@@ -38,7 +38,12 @@ export interface PickItem {
   /** The title as the site shows it, when it differs (a video's, before unmaskTitle): searched too. */
   shownTitle?: string;
   item?: NewsItem;
+  /** Its row on the admin's saved list, when it was saved from the board (functions/api/admin/saved). */
+  saved?: SavedItem;
 }
+
+/** What a saved item is known by in a picker's pool, where headlines and videos are kept apart. */
+export const poolKey = (it: { kind: PickItem["kind"]; key: string }) => `${it.kind}-${it.key}`;
 
 /**
  * The board is rebuilt every 15 minutes: what was loaded is used this long, then fetched again, so an admin page left
@@ -102,6 +107,61 @@ export function loadItems(fresh = false): Promise<PickItem[]> {
   current.items.catch(() => (current.at = 0));
   loading = current;
   return current.items;
+}
+
+/**
+ * A saved item (the admin's Saved list) as the picker shows it: the board's own row for it when it is still on the
+ * board (so its picture and time are the board's), else one made from what was saved — a headline's NewsItem was
+ * kept, so its picture can still be looked up (pictureFor).
+ */
+export function pickItemOf(s: SavedItem): PickItem {
+  const time = Date.parse(s.publishedAt ?? "") || 0;
+  if (s.kind === "video") {
+    const video = (s.item ?? null) as Video | null;
+    const title = unmaskTitle(video?.title ?? s.title);
+    return {
+      kind: "video",
+      key: s.key,
+      title,
+      ...(video && unmaskTitle(video.title) !== video.title && { shownTitle: video.title }),
+      source: s.source,
+      sourceEn: channelName(s.sourceId, CHANNEL_NAME.get(s.sourceId) ?? s.sourceId, "en"),
+      sourceId: s.sourceId,
+      time,
+      link: s.link,
+      picture: s.picture ?? videoThumbnail({ id: s.key } as Video),
+      saved: s,
+    };
+  }
+  const item = (s.item ?? null) as NewsItem | null;
+  return {
+    kind: "headline",
+    key: s.key,
+    title: s.title,
+    source: s.source,
+    sourceEn: item?.sourceName ?? s.sourceId,
+    sourceId: s.sourceId,
+    time,
+    ...((s.section ?? item?.category) && { section: s.section ?? item?.category }),
+    link: s.link,
+    ...(s.picture && { picture: s.picture }),
+    ...(item && { item }),
+    saved: s,
+  };
+}
+
+const SAVED_TTL_MS = 60_000;
+let savedLoading: { at: number; items: Promise<SavedItem[]> } | null = null;
+
+/** The admin's saved list (newest first), fetched again once SAVED_TTL_MS old, or when `fresh`. Empty when it can't be read. */
+export function loadSaved(fresh = false): Promise<SavedItem[]> {
+  if (savedLoading && !fresh && Date.now() - savedLoading.at < SAVED_TTL_MS) return savedLoading.items;
+  const current = { at: Date.now(), items: api.saved().then((r) => r.items) };
+  current.items.catch(() => {
+    current.at = 0;
+  });
+  savedLoading = current;
+  return current.items.catch(() => []);
 }
 
 /** Posted in the last 12 hours, by an item's key: when, and where. */

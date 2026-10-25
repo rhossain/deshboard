@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { api, atDhakaTime, CONTENT_LABEL, dhakaDate, dhakaDay, dhakaTime, type QueueData, type SocialPost } from "./api";
 import { Composer } from "./Composer";
+import type { Pick } from "./ItemPicker";
 import { PostCard } from "./PostCard";
 
 const btn = "h-9 rounded-full border border-line px-3.5 text-[13px] font-semibold transition hover:bg-surface-2 active:scale-95 disabled:opacity-50";
@@ -63,16 +64,25 @@ const IN_FILTER: Record<Filter, string[]> = {
 interface Props {
   data: QueueData;
   now: number;
+  /** Cards a new post should open with (from the Saved tab), until the composer is closed. */
+  seed?: Pick[] | null;
+  onSeedUsed?: () => void;
   onChange: (post: SocialPost) => void;
   onError: (message: string) => void;
   onReload: () => void;
   onPause: (paused: boolean) => void;
 }
 
-export function QueueView({ data, now, onChange, onError, onReload, onPause }: Props) {
+export function QueueView({ data, now, seed, onSeedUsed, onChange, onError, onReload, onPause }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showPast, setShowPast] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [addingOwn, setAdding] = useState(false);
+  // A seed from the Saved tab opens the composer with its cards, until it is closed.
+  const adding = addingOwn || !!seed;
+  const closeComposer = () => {
+    setAdding(false);
+    onSeedUsed?.();
+  };
   const [filter, setFilter] = useState<Filter>("all");
   const [busy, setBusy] = useState(false);
   const days = useMemo(() => rowsFor(data, now), [data, now]);
@@ -159,7 +169,7 @@ export function QueueView({ data, now, onChange, onError, onReload, onPause }: P
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className={adding ? btn : btnPrimary} onClick={() => setAdding((a) => !a)}>
+        <button type="button" className={adding ? btn : btnPrimary} onClick={() => (adding ? closeComposer() : setAdding(true))}>
           {adding ? "Close the new post" : "Add a post"}
         </button>
         <button type="button" className={data.settings.paused ? btnPrimary : btn} onClick={() => onPause(!data.settings.paused)}>
@@ -182,7 +192,16 @@ export function QueueView({ data, now, onChange, onError, onReload, onPause }: P
         )}
       </div>
 
-      {adding && <Composer platform={data.platform} onDone={(p) => (onChange(p), setAdding(false), setFilter("all"))} onError={onError} onClose={() => setAdding(false)} />}
+      {adding && (
+        <Composer
+          key={seed ? `seed-${seed.map((p) => p.item.key).join(",")}` : "blank"}
+          platform={data.platform}
+          initialPicks={seed ?? undefined}
+          onDone={(p) => (onChange(p), closeComposer(), setFilter("all"))}
+          onError={onError}
+          onClose={closeComposer}
+        />
+      )}
 
       <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="Show">
         {FILTERS.map(([id, label]) => (

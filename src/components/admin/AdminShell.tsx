@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { markAdminSeen } from "../admin-session";
 import { BartaboardLogo } from "../BartaboardLogo";
-import { ArrowUpRightIcon, ClockIcon, ListIcon, SlidersIcon } from "../ui";
+import { ArrowUpRightIcon, BookmarkIcon, ClockIcon, ListIcon, SlidersIcon } from "../ui";
 import { api, PLATFORM_LABEL, type Platform, type QueueData, type SocialPost } from "./api";
+import type { Pick } from "./ItemPicker";
 import { HealthView, HistoryView, SettingsView } from "./OtherViews";
 import { QueueView } from "./QueueView";
+import { SavedView } from "./SavedView";
 
-type Tab = "queue" | "history" | "settings" | "health";
+type Tab = "queue" | "saved" | "history" | "settings" | "health";
 
 const PulseIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
@@ -18,6 +21,7 @@ const PulseIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
 
 const TABS: { id: Tab; label: string; icon: (p: { className?: string }) => ReactNode; blurb: string }[] = [
   { id: "queue", label: "Queue", icon: ListIcon, blurb: "Today's and tomorrow's posts: review, edit, add." },
+  { id: "saved", label: "Saved", icon: BookmarkIcon, blurb: "Headlines and videos you saved on the board, for a post." },
   { id: "history", label: "History", icon: ClockIcon, blurb: "What went out, and what didn't." },
   { id: "settings", label: "Settings", icon: SlidersIcon, blurb: "Policies, times and what's left out." },
   { id: "health", label: "Health", icon: PulseIcon, blurb: "The deploy's runs, Facebook, Instagram, Telegram." },
@@ -44,6 +48,8 @@ export function AdminShell() {
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Cards the Saved tab handed to the queue's composer, until it is closed.
+  const [seed, setSeed] = useState<Pick[] | null>(null);
 
   const onError = useCallback((m: string) => setError(m), []);
 
@@ -67,6 +73,8 @@ export function AdminShell() {
         if (res.ok && body.email) {
           setEmail(body.email);
           setDoor("open");
+          // The board's pages in this browser may now offer "Save for a social post" (admin-session.ts).
+          markAdminSeen();
         } else setDoor("closed");
       })
       .catch(() => !off && setDoor("closed"));
@@ -117,6 +125,16 @@ export function AdminShell() {
 
   const wants = attention(data, now);
   const current = TABS.find((t) => t.id === tab)!;
+
+  /** From the Saved tab: a new post with these cards, in the queue, on the platform asked for. */
+  const startPost = (picks: Pick[], on: Platform) => {
+    if (on !== platform) {
+      setData(null);
+      setPlatform(on);
+    }
+    setSeed(picks);
+    go("queue");
+  };
 
   /** "Facebook · Live"; `short` for a phone's top bar, where "FB · Live" is all there is room for. */
   const badgeFor = (short: boolean) =>
@@ -215,10 +233,11 @@ export function AdminShell() {
 
         {tab === "queue" &&
           (data && data.platform === platform ? (
-            <QueueView data={data} now={now} onChange={onChange} onError={onError} onReload={reload} onPause={onPause} />
+            <QueueView data={data} now={now} seed={seed} onSeedUsed={() => setSeed(null)} onChange={onChange} onError={onError} onReload={reload} onPause={onPause} />
           ) : (
             <p className="text-sm text-muted">Loading the queue…</p>
           ))}
+        {tab === "saved" && <SavedView onStartPost={startPost} onError={onError} />}
         {tab === "history" && <HistoryView onError={onError} />}
         {tab === "settings" &&
           (data ? (

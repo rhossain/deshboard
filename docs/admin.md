@@ -64,6 +64,27 @@ than 20 matches for a search (as the site's search carries on into "Earlier head
 page view, and a search missed everything newer. On a phone it takes the whole screen; on a desktop it is a dialog; Esc closes it. When several are
 wanted, tap each and then "Add".
 
+**Saving from the board** (`src/components/admin-session.ts`, `ShareOptions.tsx`; `functions/api/admin/saved/*`;
+the **Saved** tab, `SavedView.tsx`). While you are signed in to the admin, the public board is a way to pick items
+too: the share sheet of every headline and video (Share on its card, on the home page, a section, Videos, Saved and
+an outlet's page) opens with an **Admin · Save** tile at the top, and one tap puts the item on the admin's saved
+list — "Saved for a social post", with Open the admin and Remove; saved again, it is refreshed, not doubled. On a
+phone the Share button normally opens the system share menu straight away; for the signed-in admin it opens the
+sheet instead (the system menu is in it, as "More"). The board knows you are signed in because the admin page, once
+Access let you in, leaves a mark in the browser (`localStorage` `bartaboard:admin`), and only then does a board page
+ask `/api/admin/ping` (once a page view, kept 10 minutes for the tab); for anyone else the board asks nothing and
+shows nothing. When the session has run out the mark is taken away, and the tile returns once you sign in to the admin
+again. The admin's **Saved** tab lists what was saved (newest first; headline or video, outlet, section, when published,
+when saved; "In a post · HH:MM" once it went into one, "Posted" when it went out in the last 12 hours): choose some —
+headlines or videos, not both; up to 10 — and **New Facebook post** or **New Instagram post** (headlines only, up to 9)
+opens the queue's composer with them as its cards, for the usual text, time, preview and checks; **Remove** takes one
+off the list (a post it went into keeps it). In the composer's picker the same items are marked **★ Saved** and the
+**★ Saved** chip shows only them, on the board or not (a headline's NewsItem is kept with it, so its picture is still
+looked up in the share index; a video's thumbnail is YouTube's). A saved item stays until removed, so a story can go
+out again another day. Table `saved_items` (migration 0004; one row an item, by kind and key: a headline's share key
+or the video's id). Apply it with the ops workflow's `d1-migrate` task before the first save, which otherwise answers
+"no such table".
+
 **Dead links** (`functions/api/admin/link.ts`, `src/components/admin/links.ts`). A card's Bartaboard link is
 followed to what it shares, as the deploy checks it: a headline's article at its outlet (404 or 410 is gone; any
 other answer passes, as some outlets refuse Cloudflare), a video on YouTube (private, deleted, or no longer playable
@@ -90,9 +111,9 @@ the Facebook or Instagram app will: the apps' own layout, type and colours, the 
 stand-ins with the same words until the next run draws them). Near enough to judge by; the apps may crop a little
 differently.
 
-**The layout.** On a desktop the sections are a sidebar, with the number of drafts to review (and failures) on
-Queue and quick Pause and Refresh buttons; on a phone they are a bar along the bottom. The section is in the address
-(`/admin/#history`), so a reload and the back button keep their place. Queue starts with today's counts (to review,
+**The layout.** On a desktop the sections (Queue, Saved, History, Settings, Health) are a sidebar, with the number of
+drafts to review (and failures) on Queue and quick Pause and Refresh buttons; on a phone they are a bar along the
+bottom. The section is in the address (`/admin/#history`), so a reload and the back button keep their place. Queue starts with today's counts (to review,
 approved, posted, failed, skipped), each a filter over the list.
 
 **FB_QUEUE** (repository variable) chooses the path:
@@ -123,7 +144,9 @@ step from the database. "Post now" in the admin works only when the last run was
 
 `posts` (every post from draft to posted; one live post a slot; each Facebook post once; a `version` that every change
 names, so an edit in the admin and a run never overwrite each other), `blocks` (what the picker leaves out, until
-when), `settings`, `audit` (every change, by whom: `panel:<email>`, `telegram`, `deploy`), `insights`, `runs`.
+when), `settings`, `audit` (every change, by whom: `panel:<email>`, `telegram`, `deploy`), `insights`, `runs`, `media`
+(Instagram's pictures), `saved_items` (headlines and videos saved from the board for a post, with the post each went
+into).
 
 ## Signing in
 

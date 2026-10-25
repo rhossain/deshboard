@@ -49,6 +49,7 @@ import { PinPicker, PinsButton } from "./PinPicker";
 import { useSaved, useSavedVideos } from "./saved";
 import { SavedList } from "./SavedList";
 import { AT_TOP_PX, PUBLISH_LAG_MS, RETRY_MS, UPDATE_EVERY_MS } from "./schedule";
+import { useAdminSession } from "./admin-session";
 import { type Shareable, ShareOptions, shareUrl, videoShareUrl } from "./ShareOptions";
 import { Logos, SourceCard, SourcePanel } from "./SourceCard";
 import { TopStories } from "./TopStories";
@@ -980,26 +981,32 @@ export function NewsBoard({
     if (window.scrollY > top) window.scrollTo({ top, behavior: "instant" });
   };
 
-  // Phones get the system share menu straight away; elsewhere (or if it's unavailable), the share sheet.
-  const share = useCallback((shared: Shareable) => {
-    if (window.matchMedia(PHONE).matches && typeof navigator.share === "function") {
-      navigator.share({ title: shared.title, url: shared.url }).catch(() => {});
-    } else {
-      setSharing(shared);
-    }
-  }, []);
+  // Phones get the system share menu straight away; elsewhere (or if it's unavailable), the share sheet. The admin,
+  // signed in, always gets the sheet: it carries "Save for a social post" (ShareOptions), and the system menu is in it.
+  const admin = useAdminSession();
+  const share = useCallback(
+    (shared: Shareable) => {
+      if (!admin && window.matchMedia(PHONE).matches && typeof navigator.share === "function") {
+        navigator.share({ title: shared.title, url: shared.url }).catch(() => {});
+      } else {
+        setSharing(shared);
+      }
+    },
+    [admin],
+  );
   const shareItem = useCallback(
     (item: NewsItem) =>
       share({
         title: item.title,
         url: shareUrl(item),
         sourceName: sourceById.get(item.sourceId)?.name ?? item.sourceName,
+        headline: item,
       }),
     [share, sourceById],
   );
   const shareVideo = useCallback(
     (video: Video, channelName: string) =>
-      share({ title: video.title, url: videoShareUrl(video.id), sourceName: channelName, video: true }),
+      share({ title: video.title, url: videoShareUrl(video.id), sourceName: channelName, video: true, clip: video }),
     [share],
   );
 

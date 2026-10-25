@@ -1,9 +1,9 @@
 /** The admin page's calls to /api/admin (functions/api/admin), and the shapes they answer with. */
-import type { Block, Card, Platform, Policy, SocialPost } from "@/lib/social-store";
+import type { Block, Card, NewSavedItem, Platform, Policy, SavedItem, SocialPost } from "@/lib/social-store";
 import type { QueueSettings } from "@/lib/social-settings";
 import type { Slot } from "@/lib/slot-table";
 
-export type { Block, Card, Platform, Policy, QueueSettings, Slot, SocialPost };
+export type { Block, Card, NewSavedItem, Platform, Policy, QueueSettings, SavedItem, Slot, SocialPost };
 
 export interface Run {
   at: string;
@@ -85,6 +85,11 @@ export const api = {
       json: { action, items: posts.map((p) => ({ id: p.id, version: p.version })), ...extra },
     }),
   unblock: (id: number) => call<{ ok: boolean }>(`/blocks/${id}`, { method: "DELETE" }),
+  /** The headlines and videos saved from the board for a post (functions/api/admin/saved), newest first. */
+  saved: () => call<{ items: SavedItem[] }>("/saved"),
+  /** Saves one from the board (or refreshes the one saved before under its key). */
+  save: (item: NewSavedItem) => call<{ item: SavedItem; created: boolean }>("/saved", { method: "POST", json: item }),
+  unsave: (id: string) => call<{ ok: boolean }>(`/saved/${id}`, { method: "DELETE" }),
 };
 
 const DHAKA = "Asia/Dhaka";

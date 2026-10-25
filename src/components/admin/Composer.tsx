@@ -15,6 +15,8 @@ const btnDanger = "h-10 rounded-full border border-danger/50 bg-danger-soft px-5
 
 interface Props {
   platform: Platform;
+  /** Cards to start with: from the admin's Saved list ("New post with these"). */
+  initialPicks?: Pick[];
   onDone: (post: SocialPost) => void;
   onError: (message: string) => void;
   onClose: () => void;
@@ -27,11 +29,11 @@ type Content = "news" | "video" | "headlines" | "roundup";
  * Facebook, 9 headlines on Instagram), or text and a link written here (Facebook). Its text follows the cards until
  * typed in; it goes out at its time, approved.
  */
-export function Composer({ platform, onDone, onError, onClose }: Props) {
+export function Composer({ platform, initialPicks, onDone, onError, onClose }: Props) {
   const instagram = platform === "instagram";
   const most = instagram ? IG_MAX_HEADLINES : FB_MAX_CARDS;
   const [mode, setMode] = useState<"pick" | "write">("pick");
-  const [picks, setPicks] = useState<Pick[]>([]);
+  const [picks, setPicks] = useState<Pick[]>(() => (initialPicks ?? []).slice(0, most));
   // The text the person typed, if they did; else it follows the cards and the time.
   const [typedText, setTypedText] = useState<string | null>(null);
   const [link, setLink] = useState("");

@@ -24,7 +24,8 @@ import {
 import type { PostRecord } from "../src/lib/page-posts";
 import { blockSets, MISSED_MS, queueAction, sameStories, slotsToDraft } from "../src/lib/social-queue";
 import { DEFAULT_SETTINGS, editable, queueSettings } from "../src/lib/social-settings";
-import { ActionError, approve, createFromItem, createManual, edit, postNow, reject, reopen, skip } from "../src/lib/social-actions";
+import { ActionError, approve, createFromItem, createManual, edit, postNow, reject, reopen, saveFromSite, savedItems, skip, unsave } from "../src/lib/social-actions";
+import { getSavedByKey } from "../src/lib/social-store";
 import { getPost, recordRun } from "../src/lib/social-store";
 import { previewOf, reviewButtons, reviewText } from "../src/lib/telegram-review";
 import { getMedia, hasMedia, MEDIA_PART, pruneMedia, putMedia } from "../src/lib/social-store";
@@ -565,6 +566,39 @@ async function main() {
     } finally {
       globalThis.fetch = real;
     }
+  });
+
+  await test("an item saved from the board is kept once by its key, refreshed when saved again, and marked used by the post it goes into", async () => {
+    const saved = { kind: "headline" as const, key: "k_saved1", title: "সংরক্ষিত শিরোনাম", source: "প্রথম আলো", sourceId: "prothomalo", link: "https://bartaboard.com/s/261025-k_saved1", section: "politics", time: "2026-10-25T06:00:00.000Z", item: { title: "সংরক্ষিত শিরোনাম", link: "https://www.prothomalo.com/x" } };
+    const first = await saveFromSite(ctx, saved);
+    assert.equal(first.created, true);
+    assert.equal(first.item.publishedAt, "2026-10-25T06:00:00.000Z");
+    assert.deepEqual(first.item.item, saved.item);
+    const again = await saveFromSite(ctx, { ...saved, title: "সংরক্ষিত শিরোনাম (নতুন)", picture: "https://img.example/p.jpg" });
+    assert.equal(again.created, false);
+    assert.equal(again.item.id, first.item.id);
+    assert.equal(again.item.title, "সংরক্ষিত শিরোনাম (নতুন)");
+    assert.equal(again.item.picture, "https://img.example/p.jpg");
+    // A video too; the list is newest first.
+    const clip = await saveFromSite(ctx, { kind: "video", key: "dQw4w9WgXcQ", title: "ভিডিও", source: "সময় টিভি", sourceId: "somoy", link: "https://bartaboard.com/s/youtu.be/dQw4w9WgXcQ", picture: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" });
+    assert.equal(clip.created, true);
+    const list = await savedItems(ctx);
+    assert.deepEqual(list.map((s) => s.key), ["dQw4w9WgXcQ", "k_saved1"]);
+    assert.equal(list.every((s) => s.usedAt === null), true);
+    // Refused: not a headline or video, an off-site link, no key.
+    await assert.rejects(saveFromSite(ctx, { ...saved, kind: "photo" as never }), ActionError);
+    await assert.rejects(saveFromSite(ctx, { ...saved, link: "https://www.prothomalo.com/x" }), ActionError);
+    await assert.rejects(saveFromSite(ctx, { ...saved, key: "" }), ActionError);
+    // Into a post: the saved row says which.
+    const post = await createFromItem(ctx, { card: { link: saved.link, title: saved.title, source: saved.source, sourceId: saved.sourceId, key: saved.key }, content: "news" });
+    const used = (await getSavedByKey(db, "headline", "k_saved1"))!;
+    assert.equal(used.postId, post.id);
+    assert.ok(used.usedAt);
+    assert.equal((await getSavedByKey(db, "video", "dQw4w9WgXcQ"))!.postId, null);
+    // Off the list; a second removal is refused.
+    await unsave(ctx, clip.item.id);
+    assert.deepEqual((await savedItems(ctx)).map((s) => s.key), ["k_saved1"]);
+    await assert.rejects(unsave(ctx, clip.item.id), (err: ActionError) => err.status === 404);
   });
 
   console.log(`\n${passed} passed`);

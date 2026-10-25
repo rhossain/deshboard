@@ -5,8 +5,8 @@ import { CATEGORIES, type Category } from "@/lib/categories";
 import { Highlight, SearchProvider } from "../Highlight";
 import { CloseIcon, SearchIcon } from "../ui";
 import { useSearch } from "../use-search";
-import { type Card, dhakaTime, PLATFORM_LABEL, relative } from "./api";
-import { cardOf, loadItems, loadOlderDay, olderDates, type PickItem, pictureFor, type Posted, recentlyPosted } from "./items";
+import { type Card, dhakaTime, PLATFORM_LABEL, relative, type SavedItem } from "./api";
+import { cardOf, loadItems, loadOlderDay, loadSaved, olderDates, type PickItem, pickItemOf, pictureFor, poolKey, type Posted, recentlyPosted } from "./items";
 import { checkLink, type LinkVerdict } from "./links";
 import { checkPicture, type PictureVerdict } from "./pictures";
 
@@ -68,8 +68,9 @@ const deferredKey = (q: string) => q.trim();
 /**
  * A search over the board's headlines and videos right now, and the last 30 days' headlines on request: the site's
  * own matching (docs/search.md: Bangla and English, other forms and spellings), suggestions as one types (outlets,
- * sections, headlines), filters by section, outlet and age. Picking makes each item's card. Full screen on a phone,
- * a dialog on a desktop; Esc closes it.
+ * sections, headlines), filters by section, outlet and age. What was saved from the board for a post (the admin's
+ * Saved list) is in the pool too, marked, on or off the board, and the "Saved" chip shows only that. Picking makes
+ * each item's card. Full screen on a phone, a dialog on a desktop; Esc closes it.
  */
 export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, title, label = "Add", onPick, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -79,6 +80,9 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
   const [items, setItems] = useState<PickItem[] | null>(null);
   const [posted, setPosted] = useState<Map<string, Posted>>(new Map());
   const [older, setOlder] = useState<PickItem[]>([]);
+  // The admin's saved list, by kind and key; and whether the list shows only those.
+  const [saved, setSaved] = useState<Map<string, SavedItem>>(new Map());
+  const [onlySaved, setOnlySaved] = useState(false);
   const [loadedDays, setLoadedDays] = useState(0);
   const [loadingDays, setLoadingDays] = useState(false);
   const [query, setQuery] = useState("");
@@ -90,7 +94,7 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
   const deferred = useDeferredValue(query);
   const search = useSearch(deferred);
   // How many rows are drawn, for the list as filtered now (a new filter or search starts over at PAGE).
-  const scope = JSON.stringify([deferredKey(deferred), show, section, source?.id, age, older.length]);
+  const scope = JSON.stringify([deferredKey(deferred), show, section, source?.id, age, older.length, onlySaved, saved.size]);
   const [limitFor, setLimitFor] = useState({ scope, limit: PAGE });
   const limit = limitFor.scope === scope ? limitFor.limit : PAGE;
   const setLimit = (f: (l: number) => number) => setLimitFor({ scope, limit: f(limit) });
@@ -128,6 +132,7 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
         setProblem("The board's headlines and videos didn't load: close this and open it again.");
       });
     recentlyPosted().then((map) => !off && setPosted(map));
+    loadSaved().then((list) => !off && setSaved(new Map(list.map((s) => [poolKey(s), s]))));
     return () => {
       off = true;
     };
@@ -146,21 +151,27 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
 
   const pool = useMemo(() => {
     if (!items) return [];
-    if (!older.length) return items;
-    const seen = new Set(items.map((it) => `${it.kind}-${it.key}`));
-    return [...items, ...older.filter((it) => !seen.has(`${it.kind}-${it.key}`))];
-  }, [items, older]);
+    const seen = new Set(items.map(poolKey));
+    const base = older.length ? [...items, ...older.filter((it) => !seen.has(poolKey(it)))] : items;
+    if (!saved.size) return base;
+    // Saved items still on the board are the board's rows, marked; the rest are made from what was saved.
+    for (const it of base) seen.add(poolKey(it));
+    const off = [...saved.values()].filter((s) => !seen.has(poolKey(s))).map(pickItemOf);
+    return [...base.map((it) => (saved.has(poolKey(it)) ? { ...it, saved: saved.get(poolKey(it)) } : it)), ...off];
+  }, [items, older, saved]);
+  const savedShown = useMemo(() => [...saved.values()].filter((s) => s.kind === show).length, [saved, show]);
 
   const span = AGES.find((a) => a[0] === age)![2];
   const shown = useMemo(
     () =>
       pool
         .filter((it) => it.kind === show)
+        .filter((it) => !onlySaved || !!it.saved)
         .filter((it) => !section || it.section === section)
         .filter((it) => !source || it.sourceId === source.id)
         .filter((it) => span === Infinity || (it.time && it.time >= now - span))
         .filter((it) => !search || search.matches(it.title) || (it.shownTitle && search.matches(it.shownTitle)) || search.matches(it.source) || search.matches(it.sourceEn) || fold(it.sourceId).includes(fold(deferred.trim()))),
-    [pool, show, section, source, span, now, search, deferred],
+    [pool, show, onlySaved, section, source, span, now, search, deferred],
   );
 
   // More rows as the list reaches its end.
@@ -332,7 +343,7 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
   }
 
   // As the site's search does, a search the board has few matches for carries on into the last days' files by itself.
-  const fewOnBoard = show === "headline" && !!items && !!deferred.trim() && !loadedDays && shown.length < AUTO_OLDER_BELOW;
+  const fewOnBoard = show === "headline" && !onlySaved && !!items && !!deferred.trim() && !loadedDays && shown.length < AUTO_OLDER_BELOW;
   useEffect(() => {
     if (!fewOnBoard || loadingDays) return;
     const t = setTimeout(() => void loadMoreDays(), 500);
@@ -507,6 +518,17 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
           </div>
 
           <div className="no-scrollbar -mx-4 mt-2.5 flex gap-1.5 overflow-x-auto px-4 sm:-mx-5 sm:px-5">
+            {saved.size > 0 && (
+              <button
+                type="button"
+                className={onlySaved ? chipOn : chipOff}
+                onClick={() => setOnlySaved((o) => !o)}
+                aria-pressed={onlySaved}
+                title="Saved from the board for a post (the admin's Saved list)"
+              >
+                ★ Saved ({savedShown})
+              </button>
+            )}
             {AGES.map(([id, name]) => (
               <button key={id} type="button" className={age === id ? chipOn : chipOff} onClick={() => setAge(id)} aria-pressed={age === id}>
                 {name}
@@ -542,7 +564,7 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
           {!items && <li className="px-4 py-6 text-sm text-muted">Loading the board…</li>}
           {items && shown.length === 0 && (
             <li className="px-4 py-6 text-sm text-muted">
-              Nothing matches{age !== "all" ? " in this time" : ""}
+              Nothing matches{onlySaved ? " on the saved list" : ""}{age !== "all" ? " in this time" : ""}
               {section || source ? " with these filters" : ""}
               {loadingDays ? ": looking in the older days…" : `.${show === "headline" && moreDays ? " Try the older days below." : ""}`}
             </li>
@@ -584,6 +606,14 @@ export function ItemPicker({ kind, exclude = [], inPost = 0, needsPicture, max, 
                       <span lang="bn" className="line-clamp-2 text-sm font-semibold leading-snug">
                         <Highlight text={it.title} />
                       </span>
+                      {it.saved && (
+                        <span
+                          className="mr-1 mt-1 inline-block rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent"
+                          title={`Saved from the board ${relative(it.saved.savedAt, now)}${it.saved.usedAt ? `; went into a post ${relative(it.saved.usedAt, now)}` : ""}`}
+                        >
+                          ★ Saved{it.saved.usedAt ? " · in a post" : ""}
+                        </span>
+                      )}
                       {went && <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold text-gold">{went}</span>}
                       {link === "checking" && on ? (
                         <span className="mt-1 block text-[11px] text-muted">Checking its link…</span>

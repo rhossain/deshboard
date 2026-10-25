@@ -469,3 +469,149 @@ export async function getMedia(db: Db, key: string): Promise<{ type: string; bas
 export async function pruneMedia(db: Db, before: string): Promise<number> {
   return (await db.run("DELETE FROM media WHERE created_at < ?", [before])).changes;
 }
+
+/**
+ * Headlines and videos saved from the public board for a post (migrations/0004_saved.sql): one row an item, by its
+ * kind and key; saving one again refreshes its row and keeps its place in the list.
+ */
+export type SavedKind = "headline" | "video";
+
+export interface SavedItem {
+  id: string;
+  kind: SavedKind;
+  /** The headline's share key or the video's id. */
+  key: string;
+  title: string;
+  /** The outlet or channel, in Bangla. */
+  source: string;
+  sourceId: string;
+  /** Its bartaboard.com link, as a card's. */
+  link: string;
+  picture: string | null;
+  section: string | null;
+  /** ISO; when it was published, when known. */
+  publishedAt: string | null;
+  /** The NewsItem or Video as the board had it. */
+  item: unknown | null;
+  note: string | null;
+  savedBy: string;
+  savedAt: string;
+  /** When it went into a post, and which. */
+  usedAt: string | null;
+  postId: string | null;
+}
+
+export type NewSavedItem = Pick<SavedItem, "kind" | "key" | "title" | "source" | "sourceId" | "link"> &
+  Partial<Pick<SavedItem, "picture" | "section" | "publishedAt" | "item" | "note">>;
+
+interface SavedRow {
+  id: string;
+  kind: string;
+  key: string;
+  title: string;
+  source: string;
+  source_id: string;
+  link: string;
+  picture: string | null;
+  section: string | null;
+  published_at: string | null;
+  item: string | null;
+  note: string | null;
+  saved_by: string;
+  saved_at: string;
+  used_at: string | null;
+  post_id: string | null;
+}
+
+function savedFromRow(r: SavedRow): SavedItem {
+  return {
+    id: r.id,
+    kind: r.kind as SavedKind,
+    key: r.key,
+    title: r.title,
+    source: r.source,
+    sourceId: r.source_id,
+    link: r.link,
+    picture: r.picture,
+    section: r.section,
+    publishedAt: r.published_at,
+    item: parse<unknown | null>(r.item, null),
+    note: r.note,
+    savedBy: r.saved_by,
+    savedAt: r.saved_at,
+    usedAt: r.used_at,
+    postId: r.post_id,
+  };
+}
+
+/**
+ * Saves an item, or refreshes the one saved before under the same kind and key (its title, link and picture as the
+ * board has them now; its place in the list, who saved it first and the post it went into are kept). Says which.
+ */
+export async function saveItem(db: Db, item: NewSavedItem, actor: string): Promise<{ item: SavedItem; created: boolean }> {
+  const before = await getSavedByKey(db, item.kind, item.key);
+  const at = nowIso();
+  const id = before?.id ?? newId("s");
+  await db.run(
+    `INSERT INTO saved_items (id, kind, key, title, source, source_id, link, picture, section, published_at, item, note, saved_by, saved_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (kind, key) DO UPDATE SET title = excluded.title, source = excluded.source, source_id = excluded.source_id,
+       link = excluded.link, picture = COALESCE(excluded.picture, saved_items.picture), section = COALESCE(excluded.section, saved_items.section),
+       published_at = COALESCE(excluded.published_at, saved_items.published_at), item = COALESCE(excluded.item, saved_items.item),
+       note = COALESCE(excluded.note, saved_items.note)`,
+    [
+      id,
+      item.kind,
+      item.key,
+      item.title,
+      item.source,
+      item.sourceId,
+      item.link,
+      item.picture ?? null,
+      item.section ?? null,
+      item.publishedAt ?? null,
+      item.item === undefined || item.item === null ? null : JSON.stringify(item.item),
+      item.note ?? null,
+      actor,
+      at,
+    ],
+  );
+  const saved = (await getSavedByKey(db, item.kind, item.key))!;
+  await audit(db, actor, before ? "save-again" : "save", saved.postId, { id: saved.id, kind: saved.kind, key: saved.key, title: saved.title.slice(0, 120) });
+  return { item: saved, created: !before };
+}
+
+export async function getSaved(db: Db, id: string): Promise<SavedItem | null> {
+  const row = await db.first<SavedRow>("SELECT * FROM saved_items WHERE id = ?", [id]);
+  return row ? savedFromRow(row) : null;
+}
+
+export async function getSavedByKey(db: Db, kind: SavedKind, key: string): Promise<SavedItem | null> {
+  const row = await db.first<SavedRow>("SELECT * FROM saved_items WHERE kind = ? AND key = ?", [kind, key]);
+  return row ? savedFromRow(row) : null;
+}
+
+/** Every saved item, newest first (up to `limit`). */
+export async function listSaved(db: Db, limit = 500): Promise<SavedItem[]> {
+  const rows = await db.all<SavedRow>("SELECT * FROM saved_items ORDER BY saved_at DESC, rowid DESC LIMIT ?", [limit]);
+  return rows.map(savedFromRow);
+}
+
+/** Takes a saved item off the list; false when it wasn't there. */
+export async function removeSaved(db: Db, id: string, actor: string): Promise<boolean> {
+  const before = await getSaved(db, id);
+  const { changes } = await db.run("DELETE FROM saved_items WHERE id = ?", [id]);
+  if (changes) await audit(db, actor, "unsave", before?.postId ?? null, { id, kind: before?.kind, key: before?.key, title: before?.title.slice(0, 120) });
+  return changes > 0;
+}
+
+/**
+ * Marks the saved items among `keys` (headlines' share keys and videos' ids) as having gone into post `postId`: the
+ * list shows them so, and the picker tells them apart. Items not saved are left alone.
+ */
+export async function markSavedUsed(db: Db, keys: string[], postId: string): Promise<number> {
+  const unique = [...new Set(keys.filter(Boolean))];
+  if (!unique.length) return 0;
+  const { changes } = await db.run(`UPDATE saved_items SET used_at = ?, post_id = ? WHERE key IN (${unique.map(() => "?").join(", ")})`, [nowIso(), postId, ...unique]);
+  return changes;
+}

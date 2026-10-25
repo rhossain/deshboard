@@ -21,8 +21,14 @@ import {
   getPost,
   insertPost,
   lastRunOf,
+  listSaved,
+  markSavedUsed,
+  type NewSavedItem,
   type Platform,
   type Policy,
+  removeSaved,
+  saveItem,
+  type SavedItem,
   type SocialPost,
   StaleError,
   updatePost,
@@ -200,7 +206,7 @@ export async function edit(ctx: ActionContext, id: string, version: number, e: E
     delete params.images;
     delete params.imagesKey;
   }
-  return change(
+  const changed = await change(
     ctx,
     post,
     {
@@ -217,6 +223,9 @@ export async function edit(ctx: ActionContext, id: string, version: number, e: E
     "edit",
     e,
   );
+  // A saved item added to the post is marked as used in it (the admin's Saved list says so).
+  if (e.cards) await markSavedUsed(ctx.db, cards.map((c) => c.key).filter((k): k is string => !!k), post.id);
+  return changed;
 }
 
 /**
@@ -411,6 +420,8 @@ export async function createFromItem(ctx: ActionContext, p: NewItemPost) {
     decidedAt: nowIso(),
   });
   if (!post) throw new ActionError(500, "not saved");
+  // The saved items among them are marked as used in this post (the admin's Saved list says so).
+  await markSavedUsed(ctx.db, keys, post.id);
   return post;
 }
 
@@ -456,4 +467,34 @@ export async function createManual(ctx: ActionContext, p: NewManualPost & { plat
   });
   if (!post) throw new ActionError(500, "not saved");
   return post;
+}
+
+/**
+ * Saves a headline or video picked on the public board (its share sheet, while signed in to the admin) for a post:
+ * checked as a card is (a bartaboard.com link, a title, its outlet or channel), and kept by its kind and key, so
+ * saving it again refreshes the one saved before. Says whether it is new.
+ */
+export async function saveFromSite(ctx: ActionContext, p: Partial<NewSavedItem> & { time?: string | number }): Promise<{ item: SavedItem; created: boolean }> {
+  if (p.kind !== "headline" && p.kind !== "video") throw new ActionError(400, "an item is a headline or a video");
+  const key = typeof p.key === "string" ? p.key.trim() : "";
+  if (!key || key.length > 80) throw new ActionError(400, "the item needs its key (a headline's share key or a video's id)");
+  const card = checkCard({ link: p.link ?? "", title: p.title ?? "", source: p.source ?? "", picture: p.picture ?? undefined, sourceId: p.sourceId, section: p.section ?? undefined, key }, false);
+  if (!card.sourceId) throw new ActionError(400, "the item needs its outlet's or channel's id");
+  const published = p.publishedAt ?? p.time;
+  const publishedAt = published !== undefined && published !== null && !Number.isNaN(Date.parse(String(published))) ? new Date(published).toISOString() : null;
+  const note = typeof p.note === "string" && p.note.trim() ? p.note.trim().slice(0, 500) : null;
+  const item = p.item !== undefined && p.item !== null && JSON.stringify(p.item).length <= 8000 ? p.item : null;
+  return saveItem(
+    ctx.db,
+    { kind: p.kind, key, title: card.title, source: card.source, sourceId: card.sourceId, link: card.link, picture: card.picture ?? null, section: card.section ?? null, publishedAt, item, note },
+    ctx.actor,
+  );
+}
+
+/** Every item saved for a post, newest first. */
+export const savedItems = (ctx: ActionContext) => listSaved(ctx.db);
+
+/** Takes an item off the saved list. */
+export async function unsave(ctx: ActionContext, id: string): Promise<void> {
+  if (!(await removeSaved(ctx.db, id, ctx.actor))) throw new ActionError(404, "this item isn't on the saved list any more");
 }

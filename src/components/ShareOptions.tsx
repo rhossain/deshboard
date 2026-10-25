@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { SHARE_TARGETS, shareText, shortSharePath, videoSharePath } from "@/lib/share";
+import { channelName, sourceName } from "@/lib/bn-names";
+import { SHARE_TARGETS, shareKey, shareText, shortSharePath, videoSharePath } from "@/lib/share";
 import { itemTime } from "@/lib/stories";
-import type { NewsItem } from "@/lib/types";
+import type { NewsItem, Video } from "@/lib/types";
+import { unmaskTitle } from "@/lib/video-stories";
+import { api, type NewSavedItem, type SavedItem } from "./admin/api";
+import { useAdminSession } from "./admin-session";
 import { useStrings } from "./locale";
 import { dhakaDay } from "./time";
-import { LinkIcon, ShareIcon } from "./ui";
+import { ArrowUpRightIcon, BookmarkIcon, LinkIcon, ShareIcon } from "./ui";
 
 // Brand marks from Simple Icons (CC0), 24×24.
 const BRAND_PATHS: Record<string, string> = {
@@ -40,6 +44,137 @@ export interface Shareable {
   /** The outlet or channel. */
   sourceName: string;
   video?: boolean;
+  /** The headline itself, for the admin's "Save for a social post". */
+  headline?: NewsItem;
+  /** The video itself, likewise. */
+  clip?: Video;
+}
+
+/** Links saved for a post are always the live site's: the admin's API takes only bartaboard.com links. */
+const SITE = "https://bartaboard.com";
+
+/** The item as the admin's saved list takes it (src/lib/social-actions.ts saveFromSite); null for a bare link. */
+export function savedItemOf(shared: Shareable): NewSavedItem | null {
+  if (shared.headline) {
+    const item = shared.headline;
+    const time = itemTime(item);
+    return {
+      kind: "headline",
+      key: shareKey(item.link),
+      title: item.title,
+      source: sourceName(item.sourceId, item.sourceName, "bn"),
+      sourceId: item.sourceId,
+      link: `${SITE}${shortSharePath(item.link, dhakaDay(time ?? Date.now()))}`,
+      ...(typeof item.image === "string" && item.image && { picture: item.image }),
+      section: item.category,
+      ...(time && { publishedAt: time }),
+      item,
+    };
+  }
+  if (shared.clip) {
+    const video = shared.clip;
+    return {
+      kind: "video",
+      key: video.id,
+      title: unmaskTitle(video.title),
+      source: channelName(video.channel, shared.sourceName, "bn"),
+      sourceId: video.channel,
+      link: `${SITE}${videoSharePath(video.id)}`,
+      picture: `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
+      publishedAt: video.publishedAt,
+      item: video,
+    };
+  }
+  return null;
+}
+
+type SaveState = { step: "idle" } | { step: "saving" } | { step: "saved"; item: SavedItem; created: boolean } | { step: "removed" } | { step: "failed"; why: string };
+
+/**
+ * For the admin, signed in (admin-session.ts): saves the headline or video to the admin's list, from where it goes
+ * into a Facebook or Instagram post (the admin's Saved tab, or the composer's picker under "Saved"). One tap; saved
+ * again, it is refreshed, not doubled; "Remove" takes it back off.
+ */
+function AdminSaveTile({ shared }: { shared: Shareable }) {
+  // Keyed by the item's link where it is rendered, so a new item in the sheet starts over.
+  const [state, setState] = useState<SaveState>({ step: "idle" });
+  const item = savedItemOf(shared);
+  if (!item) return null;
+
+  const save = async () => {
+    setState({ step: "saving" });
+    try {
+      const { item: saved, created } = await api.save(item);
+      setState({ step: "saved", item: saved, created });
+    } catch (err) {
+      setState({ step: "failed", why: (err as Error).message });
+    }
+  };
+  const remove = async (saved: SavedItem) => {
+    setState({ step: "saving" });
+    try {
+      await api.unsave(saved.id);
+      setState({ step: "removed" });
+    } catch (err) {
+      setState({ step: "failed", why: (err as Error).message });
+    }
+  };
+
+  const small = "text-xs font-semibold text-accent hover:underline";
+  return (
+    <div className="mb-4 rounded-2xl border border-accent/40 bg-accent-soft/40 px-4 py-3" aria-live="polite">
+      <div className="flex items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink">
+          <BookmarkIcon filled={state.step === "saved"} className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Admin</p>
+          {state.step === "saved" ? (
+            <p className="text-sm font-semibold">{state.created ? "Saved for a social post" : "Already on the saved list — refreshed"}</p>
+          ) : state.step === "removed" ? (
+            <p className="text-sm font-semibold">Taken off the saved list</p>
+          ) : state.step === "failed" ? (
+            <p className="text-sm font-semibold text-danger">Not saved: {state.why}</p>
+          ) : (
+            <p className="text-sm font-semibold">Save this {item.kind} for a social post</p>
+          )}
+        </div>
+        {state.step === "saved" || state.step === "removed" ? (
+          <a href="/admin/#saved" target="_blank" rel="noreferrer" className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-accent/50 px-3 text-xs font-semibold text-accent">
+            Open the admin <ArrowUpRightIcon className="h-3.5 w-3.5" />
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={save}
+            disabled={state.step === "saving"}
+            className="h-9 shrink-0 rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink transition active:scale-95 disabled:opacity-60"
+          >
+            {state.step === "saving" ? "Saving…" : state.step === "failed" ? "Try again" : "Save"}
+          </button>
+        )}
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        {state.step === "saved" ? (
+          <>
+            It is on the admin&rsquo;s Saved list, to go into a Facebook or Instagram post.{" "}
+            <button type="button" className={small} onClick={() => remove(state.item)}>
+              Remove
+            </button>
+          </>
+        ) : state.step === "removed" ? (
+          <>
+            Save it again if you change your mind.{" "}
+            <button type="button" className={small} onClick={save}>
+              Save again
+            </button>
+          </>
+        ) : (
+          "Kept in the admin's Saved list, for a Facebook or Instagram post — the composer offers it under \u201cSaved\u201d."
+        )}
+      </p>
+    </div>
+  );
 }
 
 /** Inside the share sheet: the headline or video, each social site, copy link, and the system share menu. */
@@ -48,6 +183,7 @@ export function ShareOptions({ shared }: { shared: Shareable }) {
   const text = shareText(title, sourceName);
   const [copied, setCopied] = useState(false);
   const t = useStrings();
+  const admin = useAdminSession();
   // Only rendered after a tap on Share, never on the server.
   const canNativeShare = typeof navigator.share === "function";
 
@@ -67,6 +203,7 @@ export function ShareOptions({ shared }: { shared: Shareable }) {
 
   return (
     <div>
+      {admin && <AdminSaveTile key={shared.url} shared={shared} />}
       <div className="rounded-2xl bg-surface-2 px-4 py-3">
         <p className="text-xs font-semibold text-accent">{sourceName}</p>
         <p className="mt-0.5 line-clamp-3 text-[15px] font-medium leading-[1.5]">{title}</p>
