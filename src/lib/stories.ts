@@ -394,8 +394,11 @@ function joinByCore(
   }
 }
 
-/** Groups headlines into stories covered by several outlets, the most covered lately first (see Story.heat). */
-export function findStories(items: NewsItem[], options: StoryOptions = {}): Story[] {
+/**
+ * The stories' headlines, grouped (see findStories): each story's, the lead first, then newest first, one per
+ * outlet. What the fetch writes to stories.json (src/lib/story-index.ts), so the board needn't group on a phone.
+ */
+export function clusterStories(items: NewsItem[], options: StoryOptions = {}): NewsItem[][] {
   const { minOutlets = 2, maxAgeMs = 36 * 3600_000, now = Date.now() } = options;
   const cutoff = new Date(now - maxAgeMs).toISOString();
 
@@ -409,15 +412,24 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
     docs.push({ item, words: keywords(item.title), source: item.sourceId });
   }
 
-  const stories: Story[] = [];
+  const clusters: NewsItem[][] = [];
   for (const cluster of clusterTitles(docs)) {
     if (cluster.length < minOutlets) continue;
     const [lead, ...rest] = cluster.map((i) => docs[i].item);
     rest.sort((a, b) => newestFirst(itemTime(a), itemTime(b)));
+    clusters.push([lead, ...rest]);
+  }
+  return clusters;
+}
+
+/** Stories from their grouped headlines (clusterStories), the most covered lately first (see Story.heat). */
+export function storiesOf(clusters: NewsItem[][], now = Date.now()): Story[] {
+  const stories: Story[] = [];
+  for (const [lead, ...rest] of clusters) {
     let latest: string | undefined;
     let heat = 0;
-    for (const i of cluster) {
-      const t = itemTime(docs[i].item);
+    for (const it of [lead, ...rest]) {
+      const t = itemTime(it);
       if (t && (!latest || t > latest)) latest = t;
       heat += t ? 0.5 ** (Math.max(now - Date.parse(t), 0) / HALF_LIFE_MS) : 1;
     }
@@ -427,8 +439,13 @@ export function findStories(items: NewsItem[], options: StoryOptions = {}): Stor
       const b = itemTime(first) ?? "\uffff";
       if (a < b || (a === b && it.link < first.link)) first = it;
     }
-    stories.push({ id: first.link, lead, items: [lead, ...rest], outlets: cluster.length, latest, heat });
+    stories.push({ id: first.link, lead, items: [lead, ...rest], outlets: rest.length + 1, latest, heat });
   }
-
   return stories.sort((a, b) => b.heat - a.heat || b.outlets - a.outlets || newestFirst(a.latest, b.latest));
+}
+
+/** Groups headlines into stories covered by several outlets, the most covered lately first (see Story.heat). */
+export function findStories(items: NewsItem[], options: StoryOptions = {}): Story[] {
+  const now = options.now ?? Date.now();
+  return storiesOf(clusterStories(items, { ...options, now }), now);
 }

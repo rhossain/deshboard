@@ -5,6 +5,7 @@
  * headline files packed, in public/data/v2: see packed.ts):
  *   news.json   the board's headlines (see NewsFeed)
  *   delta.json  how they differ from the last run's, for a board that has those (see FeedDelta)
+ *   stories.json the headlines grouped into stories, for Top stories (see src/lib/story-index.ts)
  *   head/<all|category>.json the newest of them for each page, read first (see NewsSeed)
  *   days/<date>.json every headline of the last 30 days, by day (see NewsDay, archive.ts)
  *   share/<date>/<shard>.json, share/meta.json the share index: those headlines by short-link key (share-lookup.ts)
@@ -38,6 +39,7 @@ import { getVideos } from "../src/lib/videos";
 import { ACTIVE_SOURCES, SOURCES } from "../src/lib/sources";
 import { buildShareIndex } from "../src/lib/share-index";
 import { SHARE_DIR } from "../src/lib/share-lookup";
+import { buildStoryIndex } from "../src/lib/story-index";
 import { flushStores } from "../src/lib/store";
 import { findPictures } from "../src/lib/pictures";
 import type { LogoShape, NewsDay, NewsFeed, NewsItem, SourceResult, VideoFeed } from "../src/lib/types";
@@ -267,6 +269,8 @@ async function writeFeed(feed: NewsFeed) {
   const packed = JSON.stringify(packFeed(feed));
   writeFileSync(path.join(DATA, "news.json"), packed);
   writeFileSync(path.join(DATA, "delta.json"), JSON.stringify(makeDelta(previous, feed)));
+  // Top stories' grouping, done here once rather than on every reader's phone.
+  writeFileSync(path.join(DATA, "stories.json"), JSON.stringify(buildStoryIndex(feed)));
   writeFileSync(LAST_FEED, packed);
 }
 

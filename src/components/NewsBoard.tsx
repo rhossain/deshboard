@@ -25,6 +25,7 @@ import { sectionIntro, VIDEOS_INTRO } from "@/lib/intros";
 import { boardHeading, categoryPath, categoryTitle, siteTitle, VIDEOS_PATH, videosTitle } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { countSince, findStories, itemTime, newestFirst, type Story } from "@/lib/stories";
+import { keyItems, STORIES_FILE, storiesFromIndex, type StoryIndex } from "@/lib/story-index";
 import { sourceName } from "@/lib/bn-names";
 import { type Locale, localePath } from "@/lib/i18n";
 import { STRINGS, type Strings } from "@/lib/strings";
@@ -786,28 +787,44 @@ export function NewsBoard({
     return mine.some(shows) && others.some(shows) ? mine.length : 0;
   }, [visibleSources, sourceRank, itemsBySource, filtering]);
 
-  // Stories are grouped across all outlets in the chosen language (deferred: grouping takes a moment
-  // on a phone); the other filters then pick stories with a matching headline. Grouped once Top has
-  // been opened, then kept when the reader leaves it, and only from every headline: the head file's few
-  // per source would group into different stories. Ages count from the build, not the clock, so the
+  // Stories are grouped across all outlets in the chosen language; the other filters then pick stories
+  // with a matching headline. Wanted once Top has been opened, then kept when the reader leaves it, and
+  // only from every headline: the head file's few per source would group into different stories. The
+  // grouping itself is the build's (stories.json, src/lib/story-index.ts): asked for as soon as Top is
+  // wanted, beside the whole feed, and used when it is the same build's; a board whose feed is of another
+  // build (one was made between the two files) groups for itself, as before stories.json — a few seconds
+  // on a phone (deferred, so the page keeps answering). Ages count from the build, not the clock, so the
   // minute's tick doesn't group everything again.
   const [storiesWanted, setStoriesWanted] = useState(view === "top");
   if (view === "top" && !storiesWanted) setStoriesWanted(true);
+  // The build's grouping, for the feed on show (`for`: its generatedAt): asked for once a build; null once
+  // asked and not had (a build the file doesn't match, or no file), when the board groups for itself.
+  const [storyIndex, setStoryIndex] = useState<{ for: string; index: StoryIndex | null } | null>(null);
+  useEffect(() => {
+    if (!storiesWanted || !generatedAt || storyIndex?.for === generatedAt) return;
+    const controller = new AbortController();
+    fetch(STORIES_FILE, { cache: "no-cache", signal: controller.signal })
+      .then((res) => (res.ok ? (res.json() as Promise<StoryIndex>) : null))
+      .then((index) => setStoryIndex({ for: generatedAt, index: index && index.generatedAt === generatedAt ? index : null }))
+      .catch(() => {
+        if (!controller.signal.aborted) setStoryIndex({ for: generatedAt, index: null });
+      });
+    return () => controller.abort();
+  }, [storiesWanted, generatedAt, storyIndex?.for]);
   const storyItems = useDeferredValue(allItems);
   const storyLang = useDeferredValue(lang);
   const storiesReady = storiesWanted && (whole || !!error);
   const storiesAt = Date.parse(generatedAt ?? "") || undefined;
-  const allStories = useMemo(
-    () =>
-      storiesReady
-        ? findStories(storyLang === "all" ? storyItems : storyItems.filter((it) => it.lang === storyLang), {
-            now: storiesAt,
-          })
-        : [],
-    [storiesReady, storyItems, storyLang, storiesAt],
-  );
-  // Grouping still to catch up with the language or feed just chosen.
-  const storiesPending = storyItems !== allItems || storyLang !== lang;
+  // The build's grouping once it is here for this feed; the board's own when there is none to be had.
+  const builtIndex = storyIndex?.for === generatedAt ? storyIndex.index : undefined;
+  const storyKeys = useMemo(() => (storiesReady && builtIndex ? keyItems(storyItems) : null), [storiesReady, builtIndex, storyItems]);
+  const allStories = useMemo(() => {
+    if (!storiesReady || builtIndex === undefined) return [];
+    if (builtIndex && storyKeys && storiesAt) return storiesFromIndex(builtIndex, storyKeys, storyLang, storiesAt);
+    return findStories(storyLang === "all" ? storyItems : storyItems.filter((it) => it.lang === storyLang), { now: storiesAt });
+  }, [storiesReady, builtIndex, storyKeys, storyItems, storyLang, storiesAt]);
+  // Grouping still to catch up with the language or feed just chosen, or the build's grouping still on its way.
+  const storiesPending = storyItems !== allItems || storyLang !== lang || (storiesReady && builtIndex === undefined);
   const stories = useMemo(() => {
     if (view !== "top") return NO_STORIES;
     const matches = allStories.filter((st) =>

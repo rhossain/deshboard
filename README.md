@@ -64,6 +64,10 @@ change of format, so a page still open on older code can't misread the files.
   runs of the ones the board already has. A board with the whole earlier feed downloads this, a few dozen KB,
   instead of the whole feed again; a board on any other build gets `news.json`. The fetch makes it against the
   live site's `news.json` (`SITE_URL`), or the last run's copy in `.data/board.json`.
+- `v2/stories.json` — the feed's headlines grouped into stories for Top stories (`StoryIndex`, `src/lib/story-index.ts`):
+  each Bangla and each English story as the share keys of its headlines, the lead first, with the build it is for.
+  About 30 KB compressed. The board fetches it when Top stories is opened, beside the whole feed, and uses it when
+  both are the same build's; otherwise it groups for itself (`findStories`), which takes a few seconds on a phone.
 - `v2/head/<all|section>.json` — for the board and each section page, every source's newest 8 headlines
   (a full card) with the whole feed's counts and headline ages (`NewsSeed`): about 40 KB compressed. The board
   loads this after the reader's first scroll or tap, and checks whichever file it has again every 10 minutes.
