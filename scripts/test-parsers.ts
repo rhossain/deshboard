@@ -3,7 +3,7 @@
  */
 import "./test-env";
 import assert from "node:assert/strict";
-import { categorize } from "../src/lib/categories";
+import { categorize } from "../src/lib/categorize";
 import { extractHeadlines } from "../src/lib/fetchers/html";
 import { parseFeed } from "../src/lib/fetchers/rss";
 import { parseNewsSitemap } from "../src/lib/fetchers/sitemap";

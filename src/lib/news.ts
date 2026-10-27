@@ -1,5 +1,5 @@
 import { withPictures } from "./archive";
-import { categorize, unmappedSection } from "./categories";
+import { categorize, unmappedSection } from "./categorize";
 import { stampFirstSeen } from "./first-seen";
 import { googleNewsFallback } from "./google-news";
 import { getHealth, recordHealth } from "./health";
