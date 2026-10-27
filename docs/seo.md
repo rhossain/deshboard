@@ -3,6 +3,14 @@
 Audited 11 October 2026 against the `static-export` branch and the live site at https://bartaboard.com.
 Companion to `docs/services.md` (which dashboard holds what) and `README.md` (`SITE_URL`, sitemap, robots).
 
+## Second audit (26 October 2026)
+
+A full SEO and performance re-audit of the live site and this branch, with 19 ranked issues and their fixes,
+is in [seo-audit-2026-10-26.md](seo-audit-2026-10-26.md). Headline: nothing on the site links to the
+81 outlet pages except `/sources/`, which is why Google dropped most of them; Bangla pages ship
+`<html lang="en">`; board pages carry 290 KB of JavaScript, 157 KB of fonts and 4,700+ DOM elements
+(208 prerendered popover menus). None of it is implemented yet.
+
 ## Progress (12 October 2026)
 
 Sections 1–3 are the audit as it stood on 11 October. Each issue in section 3 and each plan item in
