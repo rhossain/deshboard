@@ -316,15 +316,16 @@ export const SourceCard = memo(function SourceCard({
           )}
           {/* Where the rest of this outlet lives: its page here, and its own site. On phones the header is the
               fold's tap target, so this is the card's one link to its page there. */}
-          <p className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line px-4 py-2.5 text-xs">
-            <a href={outletHref} className="font-semibold text-accent hover:underline">
+          <p className="flex flex-wrap items-center justify-between gap-x-4 border-t border-line px-4 py-1.5 text-xs">
+            {/* Each link at least 24 px tall (a tap target), with the row no taller than before. */}
+            <a href={outletHref} className="inline-flex min-h-7 items-center font-semibold text-accent hover:underline">
               {t.moreFrom(sourceName(source.id, source.name, locale))} →
             </a>
             <a
               href={source.homepage}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-0.5 text-muted hover:text-foreground"
+              className="inline-flex min-h-7 items-center gap-0.5 text-muted hover:text-foreground"
             >
               {new URL(source.homepage).host.replace(/^www\./, "")}
               <ArrowUpRightIcon className="h-3 w-3" />
