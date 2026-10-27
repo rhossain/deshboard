@@ -35,8 +35,9 @@ latest headline instead.
 
 ## Run
 
-The site is static: `npm run fetch` collects the headlines into files, and `next build` exports the pages around
-them to `out/`. No Node.js is needed where it is hosted.
+The site is static: `npm run fetch` collects the headlines into files, and `npm run build` (`next build`, then
+`scripts/after-build.ts`, which writes `lang="bn"` into the Bangla pages) exports the pages around them to `out/`.
+No Node.js is needed where it is hosted.
 
 ```bash
 npm install

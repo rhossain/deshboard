@@ -5,7 +5,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && tsx scripts/after-build.ts",
     "start": "next start",
     "lint": "eslint",
     "check": "tsx scripts/check-sources.ts",

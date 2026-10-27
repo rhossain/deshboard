@@ -8,8 +8,9 @@ import { VIDEO_LAYOUT_SCRIPT } from "@/lib/video-layout";
 
 /**
  * One root layout serves both languages (the static 404 page, which shared links rely on, needs a
- * single one), so <html lang> says "en" in the HTML. Bangla pages wrap their content in lang="bn",
- * and this sets the whole document's language before it paints, for screen readers and the browser.
+ * single one), so Next writes <html lang="en"> on every page; scripts/after-build.ts rewrites it to "bn"
+ * on the exported Bangla pages. This script does the same in the browser for the pages that aren't
+ * exported under /bn/ (the 404 and share page), before they paint.
  */
 const LANG_SCRIPT = 'var p=location.pathname;if(p==="/bn"||p.indexOf("/bn/")===0)document.documentElement.lang="bn"';
 import { BackToTop } from "@/components/BackToTop";
