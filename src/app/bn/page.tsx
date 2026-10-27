@@ -1,6 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { NewsBoardFromUrl } from "@/components/NewsBoard";
 import { readSeed } from "@/lib/feed";
+import { feedLink } from "@/lib/rss";
 import { bnBoardJsonLd, faqJsonLd, INDEXABLE, localeAlternates, shareMetadata, siteDescription, siteTitle } from "@/lib/site";
 import { SOURCES } from "@/lib/sources";
 
@@ -11,7 +12,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return {
     title: { absolute: title },
     description,
-    alternates: localeAlternates("/", "bn"),
+    // The feeds are shared with the English pages (headlines are never translated).
+    alternates: { ...localeAlternates("/", "bn"), types: feedLink("/", "বাংলাদেশের সর্বশেষ খবর") },
     robots: INDEXABLE,
     ...(await shareMetadata(parent, { title, description, url: "/bn/", locale: "bn" })),
   };

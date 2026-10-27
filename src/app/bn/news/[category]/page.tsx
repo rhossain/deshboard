@@ -3,7 +3,9 @@ import { NewsBoardFromUrl } from "@/components/NewsBoard";
 import type { Category } from "@/lib/categories";
 import { readSeed } from "@/lib/feed";
 import { localePath } from "@/lib/i18n";
+import { feedLink } from "@/lib/rss";
 import {
+  bnNews,
   CATEGORY_PAGES,
   categoryDescription,
   categoryJsonLd,
@@ -32,7 +34,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return {
     title: { absolute: title },
     description,
-    alternates: localeAlternates(path, "bn"),
+    alternates: { ...localeAlternates(path, "bn"), types: feedLink(path, `আজকের ${bnNews(category)}`) },
     robots: INDEXABLE,
     ...(await shareMetadata(parent, { title, description, url: localePath(path, "bn"), locale: "bn" })),
   };

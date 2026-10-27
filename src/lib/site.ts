@@ -63,7 +63,8 @@ const BN_NEWS: Record<Exclude<Category, "other">, string> = {
   crime: "আইন-অপরাধের খবর",
   opinion: "মতামত ও কলাম",
 };
-const bnNews = (category: Category) => BN_NEWS[category as Exclude<Category, "other">];
+/** A section's news as Bangla says it: "খেলার খবর" for sports (for titles, headings and feed names). */
+export const bnNews = (category: Category) => BN_NEWS[category as Exclude<Category, "other">];
 /** A count in the page's digits: "59", "৫৯". */
 const n = (count: number, locale: Locale) => localDigits(String(count), locale);
 

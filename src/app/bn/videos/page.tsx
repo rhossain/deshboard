@@ -2,6 +2,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { VideosPageBoard } from "@/components/VideosPageBoard";
 import { readVideoSeed } from "@/lib/feed";
 import { localePath } from "@/lib/i18n";
+import { feedLink } from "@/lib/rss";
 import {
   INDEXABLE,
   localeAlternates,
@@ -20,7 +21,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return {
     title: { absolute: title },
     description,
-    alternates: localeAlternates(VIDEOS_PATH, "bn"),
+    alternates: { ...localeAlternates(VIDEOS_PATH, "bn"), types: feedLink(VIDEOS_PATH, "বাংলাদেশের টিভি সংবাদ ভিডিও") },
     robots: INDEXABLE,
     ...(await shareMetadata(parent, { title, description, url: localePath(VIDEOS_PATH, "bn"), locale: "bn" })),
   };
