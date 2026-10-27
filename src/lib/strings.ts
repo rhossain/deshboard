@@ -142,6 +142,8 @@ const en = {
   noHeadlines: "No headlines.",
   showLess: "Show less",
   showAll: (count: string) => `Show all ${count}`,
+  /** The card's link to the outlet's page here. */
+  moreFrom: (name: string) => `More from ${name}`,
   /** The panel a source card's "Show all" opens under the card's row. */
   allHeadlines: {
     label: "All headlines",
@@ -484,6 +486,7 @@ const bn: Strings = {
   noHeadlines: "কোনো শিরোনাম নেই।",
   showLess: "কম দেখুন",
   showAll: (count) => `সব ${count}টি দেখুন`,
+  moreFrom: (name) => `${possessive(name)} আরও খবর`,
   allHeadlines: {
     label: "সব শিরোনাম",
     summary: (count, name) => `${name}-এর ${count}টি শিরোনাম`,

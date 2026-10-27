@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, memo, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { sourceName } from "@/lib/bn-names";
+import { localePath } from "@/lib/i18n";
 import { fallbackNote, sourceProblem } from "@/lib/problems";
 import type { NewsFeed, NewsItem, NewsSource, SourceStatus } from "@/lib/types";
 import { ItemTime } from "./ItemTime";
@@ -79,6 +81,8 @@ export const SourceCard = memo(function SourceCard({
   const ref = useRef<HTMLElement>(null);
   const t = useStrings();
   const locale = useLocale();
+  // The outlet's page on Bartaboard (src/lib/directory.ts outletPath; spelt out here to keep the board's bundle lean).
+  const outletHref = localePath(`/sources/${source.id}/`, locale);
   if (filtering && items.length === 0) return null;
 
   const problem = sourceProblem(source, status, locale);
@@ -141,7 +145,8 @@ export const SourceCard = memo(function SourceCard({
         <div className={`relative min-w-0 ${collapsible ? "pointer-events-none" : ""}`}>
           {/* Under the board's "Headlines by newspaper" (or "Your news" / "Other news") heading. */}
           <h3 className="min-w-0">
-            <SourceLogo source={source} link={!collapsible} />
+            {/* The outlet's own page here (its profile and every headline); its website is linked at the card's foot. */}
+            <SourceLogo source={source} link={!collapsible} href={outletHref} />
           </h3>
           <p className="mt-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
             {t.kinds[source.kind] ?? source.kind} · {t.lang[source.lang]}
@@ -306,6 +311,22 @@ export const SourceCard = memo(function SourceCard({
               <ChevronIcon className={`h-4 w-4 transition duration-300 ${expanded ? "rotate-180" : ""}`} />
             </button>
           )}
+          {/* Where the rest of this outlet lives: its page here, and its own site. On phones the header is the
+              fold's tap target, so this is the card's one link to its page there. */}
+          <p className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line px-4 py-2.5 text-xs">
+            <a href={outletHref} className="font-semibold text-accent hover:underline">
+              {t.moreFrom(sourceName(source.id, source.name, locale))} →
+            </a>
+            <a
+              href={source.homepage}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 text-muted hover:text-foreground"
+            >
+              {new URL(source.homepage).host.replace(/^www\./, "")}
+              <ArrowUpRightIcon className="h-3 w-3" />
+            </a>
+          </p>
         </Fold>
       )}
     </article>
@@ -537,11 +558,14 @@ export function SourceLogo({
   source,
   size = "md",
   link = true,
+  href,
 }: {
   source: NewsSource;
   size?: "sm" | "md";
   /** False when the logo sits inside a larger tap target (a collapsible card header). */
   link?: boolean;
+  /** An address on this site to link to instead of the outlet's own website. */
+  href?: string;
 }) {
   const { logos, logoShapes } = useContext(Logos);
   const src = logos[source.id];
@@ -556,7 +580,7 @@ export function SourceLogo({
 
   return (
     <Tag
-      {...(link ? { href: source.homepage, target: "_blank", rel: "noopener noreferrer" } : {})}
+      {...(link ? (href ? { href } : { href: source.homepage, target: "_blank", rel: "noopener noreferrer" }) : {})}
       title={source.name}
       className={`flex min-w-0 items-center gap-2 font-semibold hover:text-accent ${sm ? "h-5 text-xs" : "h-9 text-[15px]"}`}
     >
