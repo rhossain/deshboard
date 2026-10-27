@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { ANALYTICS_TOKEN, KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
+import { ANALYTICS_TOKEN, FB_APP_ID, KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { OG_LOCALE } from "@/lib/i18n";
 import { THEME_SCRIPT } from "@/lib/theme";
 import { NEWS_DENSITY_SCRIPT } from "@/lib/news-density";
@@ -109,6 +109,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <head>
+        {/* Facebook reads it as a property, which metadata.other can't write (it writes name=). */}
+        <meta property="fb:app_id" content={FB_APP_ID} />
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: LANG_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: VIDEO_LAYOUT_SCRIPT }} />

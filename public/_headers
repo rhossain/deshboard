@@ -13,8 +13,11 @@
 /videos/feed.xml
   Content-Type: application/rss+xml; charset=utf-8
 
-# Next writes the share image and the home-screen icon without a file extension.
+# Next writes the share images (the site's, and each section, outlet, videos and about page's own) and the
+# home-screen icon without a file extension.
 /opengraph-image
+  Content-Type: image/png
+/*/opengraph-image
   Content-Type: image/png
 /apple-icon
   Content-Type: image/png

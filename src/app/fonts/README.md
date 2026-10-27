@@ -31,5 +31,7 @@ a build no longer fetches anything from Google. To add a weight (say 300), re-cu
 
 ## `og/`: the share image's fonts
 
-`src/app/opengraph-image.tsx` draws the share picture at build time with Satori, which reads TTF, not WOFF2.
+`src/lib/og-card.tsx` draws every page's share picture at build time with Satori, which reads TTF, not WOFF2.
 `og/` holds Fontsource's latin files for it (Sora 700, Inter 500 and 700; OFL), so the build fetches nothing.
+No Bangla font: Satori has no shaping engine, and Bangla set without one comes out with its vowel signs in
+the wrong places, so the pictures say their line in English (the pages' titles stay Bangla).

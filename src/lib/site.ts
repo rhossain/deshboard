@@ -19,6 +19,8 @@ export const SITE_URL = (process.env.SITE_URL ?? "http://localhost:3000").replac
  */
 export const ANALYTICS_TOKEN = SITE_URL === "https://bartaboard.com" ? "3863450a3aa6492697268bf75bc17f86" : null;
 export const SITE_NAME = "Bartaboard";
+/** The Facebook app the Page posts with (public; also FB_APP_ID in wrangler.toml): `fb:app_id` on every page, so Facebook's insights attribute shares of the site to it. */
+export const FB_APP_ID = "1100272322867711";
 // Search results cut titles at about 60 characters and descriptions at about 155, so the search
 // phrase comes first and the name last.
 export const SITE_TITLE = `Bangladesh News Today, Bangla & English | ${SITE_NAME}`;
