@@ -1,6 +1,17 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode, type KeyboardEvent, type ToggleEvent } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+  type KeyboardEvent,
+  type ToggleEvent,
+} from "react";
 import { flushSync } from "react-dom";
 import { useStrings } from "./locale";
 
@@ -246,11 +257,143 @@ export const DotsIcon = (p: { className?: string }) => (
 // A row is h-10, plus the menu's padding; used to flip the menu above the button near the bottom edge.
 const menuHeight = (rows: number) => rows * 40 + 16;
 
+/** What a headline's menu offers. */
+interface MenuActions {
+  saved: boolean;
+  onToggleSave: () => void;
+  onShare: () => void;
+  /** One more item after Save, such as pinning the video's channel. */
+  extra?: { label: string; icon: ReactNode; onSelect: () => void };
+}
+
+/** Places the menu under the dots (above them near the bottom edge), pinned to where they are now. */
+function placeMenu(el: HTMLElement, button: HTMLElement, rows: number) {
+  // Anchor to the dots, not the button: the button stretches to the full height of the headline row.
+  const r = button.firstElementChild?.getBoundingClientRect();
+  if (!r) return;
+  el.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+  if (r.bottom + menuHeight(rows) + 8 > window.innerHeight) {
+    el.style.top = "auto";
+    el.style.bottom = `${window.innerHeight - r.top + 6}px`;
+  } else {
+    el.style.bottom = "auto";
+    el.style.top = `${r.bottom + 6}px`;
+  }
+}
+
+const menuRow =
+  "flex h-10 w-full items-center gap-3 whitespace-nowrap rounded-lg px-3 text-left text-sm font-medium text-foreground outline-none transition hover:bg-surface-2 focus-visible:bg-surface-2";
+
+function MenuItems({ actions, close }: { actions: MenuActions; close: () => void }) {
+  const t = useStrings();
+  const run = (action: () => void) => () => {
+    close();
+    action();
+  };
+  return (
+    <>
+      <button type="button" role="menuitem" onClick={run(actions.onShare)} className={menuRow}>
+        <ShareIcon className="h-[18px] w-[18px] text-muted" />
+        {t.share}
+      </button>
+      <button type="button" role="menuitem" onClick={run(actions.onToggleSave)} className={menuRow}>
+        <BookmarkIcon filled={actions.saved} className={`h-[18px] w-[18px] ${actions.saved ? "text-gold" : "text-muted"}`} />
+        {actions.saved ? t.removeFromSaved : t.saveForLater}
+      </button>
+      {actions.extra && (
+        <button type="button" role="menuitem" onClick={run(actions.extra.onSelect)} className={menuRow}>
+          {actions.extra.icon}
+          {actions.extra.label}
+        </button>
+      )}
+    </>
+  );
+}
+
+/** Arrow keys move between the menu's items. */
+function menuKeys(e: KeyboardEvent<HTMLDivElement>) {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  e.preventDefault();
+  const all = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("[role=menuitem]"));
+  const at = all.indexOf(document.activeElement as HTMLElement);
+  all[(at + (e.key === "ArrowDown" ? 1 : all.length - 1)) % all.length]?.focus();
+}
+
+/** Closes the menu on any scroll or resize while it's open, rather than leaving it behind. */
+function useCloseOnScroll(open: boolean, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", close, { capture: true, passive: true });
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, { capture: true });
+      window.removeEventListener("resize", close);
+    };
+  }, [open, close]);
+}
+
+/** `open` takes the pressed dots (their id, for aria-expanded, and the element, to place the menu by). */
+const MenuHost = createContext<{ open: (id: string, button: HTMLButtonElement, actions: MenuActions) => void; openFor: string | null } | null>(
+  null,
+);
+
+/**
+ * One menu for every headline on the page. The board prerenders a few hundred headlines; a popover each
+ * was a few hundred empty elements in the page (and a longer first layout). With this around them, each
+ * ItemMenu is just its button, and the one popover here is opened beside whichever was pressed.
+ */
+export function ItemMenuHost({ children }: { children: ReactNode }) {
+  const menu = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState<{ id: string; button: HTMLButtonElement; actions: MenuActions } | null>(null);
+  // Which dots the menu last closed for, and when: a press on the open menu's own dots first closes it as
+  // a tap outside (light dismiss), then reaches the button, which must not open it again.
+  const closed = useRef<{ id: string; at: number } | null>(null);
+  const close = useCallback(() => menu.current?.hidePopover(), []);
+  useCloseOnScroll(!!state, close);
+
+  const open = useCallback((id: string, button: HTMLButtonElement, actions: MenuActions) => {
+    const el = menu.current;
+    if (!el) return;
+    if (closed.current?.id === id && Date.now() - closed.current.at < 400) return;
+    // Another headline's dots while open: the menu moves there.
+    if (el.matches(":popover-open")) el.hidePopover();
+    // Render the items before the menu shows, so it never appears empty.
+    flushSync(() => setState({ id, button, actions }));
+    placeMenu(el, button, actions.extra ? 3 : 2);
+    el.showPopover();
+    // The native popover sends focus back to the element focused before it opened, which is the dots.
+    el.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+  }, []);
+
+  return (
+    <MenuHost.Provider value={{ open, openFor: state?.id ?? null }}>
+      {children}
+      <div
+        ref={menu}
+        popover="auto"
+        role="menu"
+        onToggle={(e) => {
+          if (e.newState !== "closed") return;
+          setState((s) => {
+            if (s) closed.current = { id: s.id, at: Date.now() };
+            return null;
+          });
+        }}
+        onKeyDown={menuKeys}
+        className="fixed inset-auto m-0 min-w-48 rounded-xl border border-line bg-surface p-1 text-foreground shadow-card"
+      >
+        {state && <MenuItems actions={state.actions} close={close} />}
+      </div>
+    </MenuHost.Provider>
+  );
+}
+
 /**
  * The ⋮ menu beside a headline (never inside its link) with Share and Save. The menu is a native
  * popover, so it sits above cards that clip their overflow and closes on outside tap or Escape.
- * The dots turn gold while the headline is saved. Its items are only rendered while it's open: the
- * board has hundreds of these.
+ * The dots turn gold while the headline is saved. Inside an ItemMenuHost (the board) the menu itself is
+ * the host's, shared by every headline; on its own (a shared page) it brings its own, with its items
+ * rendered only while open.
  */
 export function ItemMenu({
   saved,
@@ -258,84 +401,47 @@ export function ItemMenu({
   onShare,
   extra,
   className = "",
-}: {
-  saved: boolean;
-  onToggleSave: () => void;
-  onShare: () => void;
-  /** One more item after Save, such as pinning the video's channel. */
-  extra?: { label: string; icon: ReactNode; onSelect: () => void };
-  className?: string;
-}) {
+}: MenuActions & { className?: string }) {
+  const host = useContext(MenuHost);
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
   const t = useStrings();
-
-  // The menu is pinned to where the button was; any scroll or resize closes it rather than leaving it behind.
-  useEffect(() => {
-    if (!open) return;
-    const close = () => menu.current?.hidePopover();
-    window.addEventListener("scroll", close, { capture: true, passive: true });
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("scroll", close, { capture: true });
-      window.removeEventListener("resize", close);
-    };
-  }, [open]);
+  const open = host ? host.openFor === id : ownOpen;
+  const close = useCallback(() => menu.current?.hidePopover(), []);
+  useCloseOnScroll(!host && ownOpen, close);
 
   const place = (e: ToggleEvent<HTMLDivElement>) => {
     if (e.newState !== "open") return;
     // Render the items before the menu shows, so it never appears empty.
-    flushSync(() => setOpen(true));
-    const el = menu.current;
-    // Anchor to the dots, not the button: the button stretches to the full height of the headline row.
-    const r = button.current?.firstElementChild?.getBoundingClientRect();
-    if (!el || !r) return;
-    el.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
-    if (r.bottom + menuHeight(extra ? 3 : 2) + 8 > window.innerHeight) {
-      el.style.top = "auto";
-      el.style.bottom = `${window.innerHeight - r.top + 6}px`;
-    } else {
-      el.style.bottom = "auto";
-      el.style.top = `${r.bottom + 6}px`;
-    }
+    flushSync(() => setOwnOpen(true));
+    if (menu.current && button.current) placeMenu(menu.current, button.current, extra ? 3 : 2);
   };
 
-  const items = () => Array.from(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? []);
-
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    e.preventDefault();
-    const all = items();
-    const at = all.indexOf(document.activeElement as HTMLElement);
-    all[(at + (e.key === "ArrowDown" ? 1 : all.length - 1)) % all.length]?.focus();
-  };
-
-  const run = (action: () => void) => () => {
-    menu.current?.hidePopover();
-    action();
-  };
-
-  const row =
-    "flex h-10 w-full items-center gap-3 whitespace-nowrap rounded-lg px-3 text-left text-sm font-medium text-foreground outline-none transition hover:bg-surface-2 focus-visible:bg-surface-2";
+  const dots = (
+    <button
+      ref={button}
+      type="button"
+      {...(host
+        ? { onClick: () => button.current && host.open(id, button.current, { saved, onToggleSave, onShare, extra }) }
+        : { popoverTarget: id })}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      aria-label={saved ? t.moreActionsSaved : t.moreActions}
+      title={t.moreActions}
+      className={`flex w-10 shrink-0 items-start justify-center pt-3 transition active:scale-90 ${
+        saved ? "text-gold" : open ? "text-foreground" : "text-muted hover:text-foreground"
+      } ${className}`}
+    >
+      <DotsIcon className="h-[18px] w-[18px]" />
+    </button>
+  );
+  if (host) return dots;
 
   return (
     <>
-      <button
-        ref={button}
-        type="button"
-        popoverTarget={id}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={saved ? t.moreActionsSaved : t.moreActions}
-        title={t.moreActions}
-        className={`flex w-10 shrink-0 items-start justify-center pt-3 transition active:scale-90 ${
-          saved ? "text-gold" : open ? "text-foreground" : "text-muted hover:text-foreground"
-        } ${className}`}
-      >
-        <DotsIcon className="h-[18px] w-[18px]" />
-      </button>
+      {dots}
       <div
         ref={menu}
         id={id}
@@ -344,30 +450,13 @@ export function ItemMenu({
         onBeforeToggle={place}
         onToggle={(e) => {
           const isOpen = e.newState === "open";
-          setOpen(isOpen);
-          if (isOpen) items()[0]?.focus();
+          setOwnOpen(isOpen);
+          if (isOpen) menu.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
         }}
-        onKeyDown={onKeyDown}
+        onKeyDown={menuKeys}
         className="fixed inset-auto m-0 min-w-48 rounded-xl border border-line bg-surface p-1 text-foreground shadow-card"
       >
-        {open && (
-          <>
-            <button type="button" role="menuitem" onClick={run(onShare)} className={row}>
-              <ShareIcon className="h-[18px] w-[18px] text-muted" />
-              {t.share}
-            </button>
-            <button type="button" role="menuitem" onClick={run(onToggleSave)} className={row}>
-              <BookmarkIcon filled={saved} className={`h-[18px] w-[18px] ${saved ? "text-gold" : "text-muted"}`} />
-              {saved ? t.removeFromSaved : t.saveForLater}
-            </button>
-            {extra && (
-              <button type="button" role="menuitem" onClick={run(extra.onSelect)} className={row}>
-                {extra.icon}
-                {extra.label}
-              </button>
-            )}
-          </>
-        )}
+        {ownOpen && <MenuItems actions={{ saved, onToggleSave, onShare, extra }} close={close} />}
       </div>
     </>
   );

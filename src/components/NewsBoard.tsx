@@ -22,6 +22,7 @@ import { usePlansVisible } from "@/lib/plans";
 import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
 import { sectionIntro, VIDEOS_INTRO } from "@/lib/intros";
+import { flushSync } from "react-dom";
 import { whenSettled } from "@/lib/settled";
 import { boardHeading, categoryPath, categoryTitle, siteTitle, VIDEOS_PATH, videosTitle } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
@@ -78,6 +79,7 @@ import {
   SunIcon,
   UserIcon,
   VideoIcon,
+  ItemMenuHost,
 } from "./ui";
 
 /**
@@ -1135,6 +1137,7 @@ export function NewsBoard({
     <LocaleProvider locale={locale}>
       <Logos value={logos}>
         <SearchProvider search={search}>
+        <ItemMenuHost>
           <div className="min-h-dvh pb-28 md:pb-16" lang={locale === "bn" ? "bn" : undefined}>
             {/* Fetch progress */}
             <div className="fixed inset-x-0 top-0 z-40 h-0.5" aria-hidden>
@@ -1759,6 +1762,7 @@ export function NewsBoard({
               </dl>
             </Sheet>
           </div>
+        </ItemMenuHost>
         </SearchProvider>
       </Logos>
     </LocaleProvider>
@@ -1918,13 +1922,19 @@ function FilterPopover({ count, children }: { count: number; children: React.Rea
         ref={panel}
         id={id}
         popover="auto"
-        onBeforeToggle={(e) => e.newState === "open" && place()}
+        onBeforeToggle={(e) => {
+          if (e.newState !== "open") return;
+          // Render the controls before the panel shows, so it never appears empty.
+          flushSync(() => setOpen(true));
+          place();
+        }}
         onToggle={(e) => setOpen(e.newState === "open")}
         role="dialog"
         aria-label={t.filters}
         className="fixed inset-auto m-0 w-80 space-y-5 rounded-2xl border border-line bg-surface p-5 text-foreground shadow-card"
       >
-        {children}
+        {/* Rendered only while open: the source list alone is 60-odd options, on every page otherwise. */}
+        {open && children}
       </div>
     </>
   );
