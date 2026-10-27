@@ -1,7 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { NewsBoardFromUrl } from "@/components/NewsBoard";
 import type { Category } from "@/lib/categories";
-import { readSeed } from "@/lib/feed";
+import { readSeed, seedForPage } from "@/lib/feed";
 import { localePath } from "@/lib/i18n";
 import { feedLink } from "@/lib/rss";
 import {
@@ -50,7 +50,7 @@ export default async function BanglaCategoryPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: categoryJsonLd(category, seed?.generatedAt, "bn") }}
       />
-      <NewsBoardFromUrl sources={SOURCES} seed={seed} category={category} locale="bn" />
+      <NewsBoardFromUrl sources={SOURCES} seed={seed && seedForPage(seed)} category={category} locale="bn" />
     </>
   );
 }

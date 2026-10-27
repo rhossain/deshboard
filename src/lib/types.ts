@@ -15,13 +15,18 @@ export interface NewsSource {
   kind: "Newspaper" | "Online" | "TV" | "Agency";
   homepage: string;
   method: Method;
+  /** Why it is read the way it is, or why it can't be (problems.ts explains the latter to readers). */
+  notes?: string;
+}
+
+/** Where and how the fetch reads a source (src/lib/source-feeds.ts); not part of what the pages carry. */
+export interface SourceFeed {
   /** Feed / sitemap / page URL. May contain `{YYYY-MM-DD}` (Dhaka date). */
   url?: string;
   /** HTML sources only: regex tested against the article URL's pathname. */
   articlePattern?: string;
   /** The feed writes Dhaka wall-clock time but labels it UTC; its dates are shifted back 6 hours. */
   dhakaTimeAsUtc?: boolean;
-  notes?: string;
 }
 
 export interface NewsItem {

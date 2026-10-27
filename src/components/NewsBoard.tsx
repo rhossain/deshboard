@@ -250,7 +250,7 @@ const noSubscribe = () => () => {};
  */
 export function NewsBoardFromUrl({
   sources,
-  seed,
+  seed: packedSeed,
   category,
   view,
   videoSeed,
@@ -258,7 +258,8 @@ export function NewsBoardFromUrl({
   locale = "en",
 }: {
   sources: NewsSource[];
-  seed?: NewsSeed;
+  /** The page's headlines, packed (see seedForPage): unpacked here, once. */
+  seed?: PackedSeed;
   category?: Category;
   /** The view a page of its own opens on (/videos/). */
   view?: View;
@@ -268,6 +269,7 @@ export function NewsBoardFromUrl({
   locale?: Locale;
 }) {
   const search = useSyncExternalStore(noSubscribe, () => openedWith, () => "");
+  const seed = useMemo(() => packedSeed && (unpackFeed(packedSeed) as NewsSeed), [packedSeed]);
   const initial = useMemo(() => {
     const filters = parseFilters(Object.fromEntries(new URLSearchParams(search)), new Set(sources.map((s) => s.id)));
     return { ...filters, ...(category && { category }), ...(view && { view }) };

@@ -774,14 +774,13 @@ test("source problems explain the technical reason", () => {
     kind: "Online",
     homepage: "https://s.test",
     method: "rss",
-    url: "https://s.test/feed",
     ...over,
   });
   const fine = source({});
   assert.equal(sourceProblem(fine), undefined);
   assert.equal(sourceProblem(fine, { sourceId: "s", ok: true } as SourceStatus), undefined);
 
-  const blocked = sourceProblem(source({ method: "unavailable", url: undefined, notes: "HTTP 402 on everything (bot blocking)" }));
+  const blocked = sourceProblem(source({ method: "unavailable", notes: "HTTP 402 on everything (bot blocking)" }));
   assert.match(blocked!.message, /^Not available\. The site is blocking automated access/);
   assert.equal(blocked!.detail, "HTTP 402 on everything (bot blocking)");
 

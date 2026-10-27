@@ -1,7 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { NewsBoardFromUrl } from "@/components/NewsBoard";
 import { feedLink } from "@/lib/rss";
-import { readSeed } from "@/lib/feed";
+import { readSeed, seedForPage } from "@/lib/feed";
 import {
   faqJsonLd,
   INDEXABLE,
@@ -28,7 +28,7 @@ export default function Home() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: siteJsonLd(seed?.generatedAt) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd() }} />
-      <NewsBoardFromUrl sources={SOURCES} seed={seed} />
+      <NewsBoardFromUrl sources={SOURCES} seed={seed && seedForPage(seed)} />
     </>
   );
 }

@@ -8,6 +8,7 @@ import { fetchText } from "./fetchers/http";
 import { parseFeed, type RawItem } from "./fetchers/rss";
 import { parseNewsSitemap } from "./fetchers/sitemap";
 import { canonicalLink, dedupeByLink, dhakaDate, addressKey, shiftDhakaAsUtc, titleKey } from "./fetchers/utils";
+import { feedOf } from "./source-feeds";
 import { ACTIVE_SOURCES, getSource } from "./sources";
 import { readStore, writeStoreSoon } from "./store";
 import { itemTime, newestFirst } from "./stories";
@@ -45,18 +46,19 @@ const cache = (g.__newsCache ??= new Map(Object.entries(readStore<Record<string,
 const inflight = (g.__newsInflight ??= new Map());
 
 async function fetchRaw(source: NewsSource): Promise<{ items: RawItem[]; url: string }> {
-  if (!source.url) throw new Error("No URL configured");
+  const feed = feedOf(source);
+  if (!feed.url) throw new Error("No URL configured");
 
   switch (source.method) {
     case "rss": {
-      const res = await fetchText(source.url, { accept: "application/rss+xml, application/xml, text/xml, */*" });
+      const res = await fetchText(feed.url, { accept: "application/rss+xml, application/xml, text/xml, */*" });
       return { items: parseFeed(res.text, res.url), url: res.url };
     }
     case "sitemap": {
       // Dated sitemaps (one file per day): try today, then yesterday.
-      const candidates = source.url.includes("{YYYY-MM-DD}")
-        ? [0, -1].map((d) => source.url!.replace("{YYYY-MM-DD}", dhakaDate(d)))
-        : [source.url];
+      const candidates = feed.url.includes("{YYYY-MM-DD}")
+        ? [0, -1].map((d) => feed.url!.replace("{YYYY-MM-DD}", dhakaDate(d)))
+        : [feed.url];
       let lastErr: unknown;
       for (const url of candidates) {
         try {
@@ -71,9 +73,9 @@ async function fetchRaw(source: NewsSource): Promise<{ items: RawItem[]; url: st
       throw lastErr;
     }
     case "html": {
-      if (!source.articlePattern) throw new Error("No articlePattern configured");
-      const res = await fetchText(source.url, { accept: "text/html,application/xhtml+xml" });
-      const items = extractHeadlines(res.text, res.url, source.articlePattern);
+      if (!feed.articlePattern) throw new Error("No articlePattern configured");
+      const res = await fetchText(feed.url, { accept: "text/html,application/xhtml+xml" });
+      const items = extractHeadlines(res.text, res.url, feed.articlePattern);
       if (!items.length) throw new Error("No headlines matched articlePattern (layout may have changed)");
       return { items, url: res.url };
     }
@@ -173,7 +175,7 @@ async function load(source: NewsSource): Promise<SourceResult> {
         unmapped.set(section, (unmapped.get(section) ?? 0) + 1);
       }
       // Google's dates are right; only the site's own feed has the Dhaka-time quirk.
-      const publishedAt = source.dhakaTimeAsUtc && !via ? shiftDhakaAsUtc(it.publishedAt) : it.publishedAt;
+      const publishedAt = feedOf(source).dhakaTimeAsUtc && !via ? shiftDhakaAsUtc(it.publishedAt) : it.publishedAt;
       return {
         ...it,
         // A time still ahead of now is a feed's time-zone mistake: it would sit atop Latest for hours.

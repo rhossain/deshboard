@@ -1,6 +1,6 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { NewsBoardFromUrl } from "@/components/NewsBoard";
-import { readSeed } from "@/lib/feed";
+import { readSeed, seedForPage } from "@/lib/feed";
 import { feedLink } from "@/lib/rss";
 import { bnBoardJsonLd, faqJsonLd, INDEXABLE, localeAlternates, shareMetadata, siteDescription, siteTitle } from "@/lib/site";
 import { SOURCES } from "@/lib/sources";
@@ -26,7 +26,7 @@ export default function BanglaHome() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: bnBoardJsonLd(seed?.generatedAt) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd("bn") }} />
-      <NewsBoardFromUrl sources={SOURCES} seed={seed} locale="bn" />
+      <NewsBoardFromUrl sources={SOURCES} seed={seed && seedForPage(seed)} locale="bn" />
     </>
   );
 }

@@ -2,7 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { Category } from "./categories";
 import { dedupeByLink } from "./fetchers/utils";
-import { DATA_DIR, type PackedFeed, unpackFeed } from "./packed";
+import { DATA_DIR, type PackedFeed, type PackedSeed, packFeed, unpackFeed } from "./packed";
 import { seedResults } from "./site";
 import { ageSteps, itemTime } from "./stories";
 import type { NewsFeed, NewsSeed, VideoFeed } from "./types";
@@ -14,6 +14,23 @@ import type { NewsFeed, NewsSeed, VideoFeed } from "./types";
 export function readSeed(category?: Category): NewsSeed | undefined {
   const feed = readFeed();
   return feed && toSeed(feed, category);
+}
+
+/**
+ * The seed as the page carries it to the browser (NewsBoardFromUrl's `seed` prop): packed, since the page's
+ * React payload repeats every prerendered headline, and without the fetch's own record (where it read each
+ * source), which the board has no use for. The seed is prerendered as HTML too; this is the copy React hydrates from.
+ */
+export function seedForPage(seed: NewsSeed): PackedSeed {
+  const packed = packFeed(seed);
+  return {
+    ...packed,
+    results: packed.results.map((r) => {
+      const { fetchedUrl, ...rest } = r;
+      void fetchedUrl;
+      return rest;
+    }),
+  };
 }
 
 /** Part of `feed` for a page (see NewsSeed); `fullCards` as in seedResults. */
