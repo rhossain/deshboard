@@ -10,33 +10,26 @@ export const contentType = "image/png";
 // Rendered once at build time (static export).
 export const dynamic = "force-static";
 
-const FONT_CDN = "https://cdn.jsdelivr.net/fontsource/fonts";
+/**
+ * The fonts for the image as TTF (the renderer can't read WOFF2), from the repository (src/app/fonts/og,
+ * Fontsource's latin files): nothing is fetched at build time, so a CDN outage can't fail a deploy.
+ * Latin text only: these have no Bangla glyphs.
+ */
+const font = (file: string) => readFile(path.join(process.cwd(), "src/app/fonts/og", file));
 
-/** One of the site's fonts as TTF (the image renderer can't read WOFF2); null if unreachable. */
-async function loadFont(file: string): Promise<ArrayBuffer | null> {
-  try {
-    const res = await fetch(`${FONT_CDN}/${file}`);
-    return res.ok ? await res.arrayBuffer() : null;
-  } catch {
-    return null;
-  }
-}
-
-// The preview shown when a Bartaboard link is shared (Facebook, WhatsApp, X, Slack…), rendered at
-// build time. Without the fonts it falls back to the renderer's built-in one. Latin text only:
-// these fonts have no Bangla glyphs.
+// The preview shown when a Bartaboard link is shared (Facebook, WhatsApp, X, Slack…), rendered at build time.
 export default async function OpengraphImage() {
   const [icon, sora, inter, interMedium] = await Promise.all([
     readFile(path.join(process.cwd(), "public/brand/bartaboard-icon-512.png")),
-    loadFont("sora@latest/latin-700-normal.ttf"),
-    loadFont("inter@latest/latin-700-normal.ttf"),
-    loadFont("inter@latest/latin-500-normal.ttf"),
+    font("sora-700-latin.ttf"),
+    font("inter-700-latin.ttf"),
+    font("inter-500-latin.ttf"),
   ]);
   const fonts = [
-    sora && { name: "Sora", data: sora, weight: 700 as const },
-    inter && { name: "Inter", data: inter, weight: 700 as const },
-    interMedium && { name: "Inter", data: interMedium, weight: 500 as const },
-  ].filter((f) => !!f);
+    { name: "Sora", data: sora, weight: 700 as const },
+    { name: "Inter", data: inter, weight: 700 as const },
+    { name: "Inter", data: interMedium, weight: 500 as const },
+  ];
 
   return new ImageResponse(
     <div

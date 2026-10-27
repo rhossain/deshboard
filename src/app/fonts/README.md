@@ -28,3 +28,8 @@ EOF
 Why: the two preloaded files went from 157 KB to 112 KB (Noto Sans Bengali 108 → 76 KB, Inter 48 → 36 KB), and
 a build no longer fetches anything from Google. To add a weight (say 300), re-cut from the full files with
 `(300, 700)` and change `weight: "400 700"` in the layout.
+
+## `og/`: the share image's fonts
+
+`src/app/opengraph-image.tsx` draws the share picture at build time with Satori, which reads TTF, not WOFF2.
+`og/` holds Fontsource's latin files for it (Sora 700, Inter 500 and 700; OFL), so the build fetches nothing.
