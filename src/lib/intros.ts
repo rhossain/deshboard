@@ -9,6 +9,8 @@ import { ACTIVE_SOURCES } from "./sources";
  * first; they also give search engines a little text of the site's own.
  */
 export interface Intro {
+  /** One sentence under the page's heading, in the page's language: what the page is, before the headlines. */
+  lead: { en: string; bn: string };
   en: string[];
   bn: string;
   bnPage: string[];
@@ -25,6 +27,10 @@ const SORTED_BN =
   "আর প্রতিটি শিরোনাম সরাসরি সেই পত্রিকার খবরে নিয়ে যায়।";
 
 export const BOARD_INTRO: Intro = {
+  lead: {
+    en: `The latest headlines from ${ACTIVE_SOURCES.length} Bangladeshi newspapers and news sites, Bangla and English, refreshed every 15 minutes.`,
+    bn: `বাংলাদেশের ${SOURCES_BN}টি পত্রিকা ও নিউজ সাইটের সর্বশেষ শিরোনাম, বাংলা ও ইংরেজিতে, প্রতি ১৫ মিনিটে হালনাগাদ।`,
+  },
   en: [
     `Bartaboard gathers the latest Bangladesh news from ${ACTIVE_SOURCES.length} newspapers and news sites, Bangla ` +
       "and English, on one page: Prothom Alo, The Daily Star, bdnews24, Jugantor, Dhaka Tribune and more.",
@@ -41,6 +47,10 @@ export const BOARD_INTRO: Intro = {
 };
 
 export const VIDEOS_INTRO: Intro = {
+  lead: {
+    en: `The last day's news videos from ${CHANNELS.length} Bangladeshi TV channels on YouTube, newest first.`,
+    bn: `ইউটিউবে বাংলাদেশের ${CHANNELS_BN}টি টিভি চ্যানেলের গত এক দিনের সংবাদ ভিডিও, নতুনগুলো আগে।`,
+  },
   en: [
     `The last day's news videos from ${CHANNELS.length} Bangladeshi TV channels on YouTube, newest first: Jamuna ` +
       "TV, Somoy TV, Channel 24, Ekattor TV, BBC News Bangla and more.",
@@ -109,7 +119,8 @@ const SECTION: Record<Exclude<Category, "other">, { en: string; bn: string }> = 
 export function sectionIntro(category: Category | ""): Intro {
   if (!category || category === "other") return BOARD_INTRO;
   const { en, bn } = SECTION[category];
-  return { en: [en, SORTED], bn, bnPage: [bn, SORTED_BN] };
+  // The section's own sentence is the lead under the heading; the foot keeps what is the same on every section.
+  return { lead: { en, bn }, en: [SORTED], bn, bnPage: [SORTED_BN] };
 }
 
 /** Questions on the board, in the page's language. */

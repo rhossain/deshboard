@@ -1198,7 +1198,7 @@ export function NewsBoard({
               </div>
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-1.5 sm:mt-4">
-                <h1 className="text-balance text-[13px] font-medium text-muted sm:text-sm">
+                <h1 className="text-balance text-[15px] font-semibold sm:text-base">
                   {boardHeading(categoryPath(category) ? category : "", view === "videos", locale)}
                 </h1>
 
@@ -1249,6 +1249,13 @@ export function NewsBoard({
                   </span>
                 </div>
               </div>
+
+              {/* What the page is, in a line, before the headlines (the rest is at the foot, see PageNotes). */}
+              {(view === "videos" || sectionOf(view) === "news") && (
+                <p className="mt-1.5 max-w-3xl text-balance text-[13px] leading-relaxed text-muted sm:text-sm">
+                  {(view === "videos" ? VIDEOS_INTRO : sectionIntro(categoryPath(category) ? category : "")).lead[locale]}
+                </p>
+              )}
 
               {outage && (
                 <p role="status" className="mt-3 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
