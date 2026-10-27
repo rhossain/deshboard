@@ -36,6 +36,23 @@ export const KEYWORDS = [
   "সর্বশেষ সংবাদ",
 ];
 
+/**
+ * When each kind of page first went live (structured data's datePublished; dateModified is the latest
+ * headline). The site itself went live on 4 October 2026 (FOUNDED).
+ */
+export const FOUNDED = "2026-10-04";
+export const FIRST_PUBLISHED = {
+  board: FOUNDED,
+  section: "2026-10-06",
+  sources: "2026-10-11",
+  outlet: "2026-10-11",
+  videos: "2026-10-11",
+  about: "2026-10-11",
+  bn: "2026-10-12",
+} as const;
+/** The address readers write to (the About, privacy and terms pages say so). */
+export const CONTACT_EMAIL = "support@bartaboard.com";
+
 /** For indexable pages: allow large image previews and full snippets in search results. */
 export const INDEXABLE = { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 } as const;
 
@@ -332,6 +349,7 @@ export function categoryJsonLd(category: Category, updated?: string, locale: Loc
         name: categoryTitle(category, locale),
         description: categoryDescription(category, locale),
         inLanguage: LANG_TAG[locale],
+        datePublished: locale === "bn" ? FIRST_PUBLISHED.bn : FIRST_PUBLISHED.section,
         dateModified: updated,
         isPartOf: { "@id": `${SITE_URL}/#website` },
       },
@@ -356,6 +374,7 @@ export function bnBoardJsonLd(updated?: string): string {
     name: siteTitle("bn"),
     description: siteDescription("bn"),
     inLanguage: "bn",
+    datePublished: FIRST_PUBLISHED.bn,
     dateModified: updated,
     isPartOf: { "@id": `${SITE_URL}/#website` },
   });
@@ -383,6 +402,7 @@ export function sourcesJsonLd(groups: DirectoryGroup[], locale: Locale = "en"): 
         name: sourcesTitle(locale),
         description: sourcesDescription(locale),
         inLanguage: locale === "bn" ? "bn" : ["en", "bn"],
+        datePublished: locale === "bn" ? FIRST_PUBLISHED.bn : FIRST_PUBLISHED.sources,
         isPartOf: { "@id": `${SITE_URL}/#website` },
         mainEntity: {
           "@type": "ItemList",
@@ -425,6 +445,7 @@ export function outletJsonLd(o: Outlet, entry: DirectoryEntry, updated?: string,
         description: outletDescription(o, locale),
         // The page's own language (its interface and its profile); the headlines carry their own lang.
         inLanguage: locale,
+        datePublished: locale === "bn" ? FIRST_PUBLISHED.bn : FIRST_PUBLISHED.outlet,
         dateModified: updated,
         isPartOf: { "@id": `${SITE_URL}/#website` },
         about: {
@@ -464,6 +485,7 @@ export function aboutJsonLd(locale: Locale = "en"): string {
     name: aboutTitle(locale),
     description: aboutDescription(locale),
     inLanguage: LANG_TAG[locale],
+    datePublished: locale === "bn" ? FIRST_PUBLISHED.bn : FIRST_PUBLISHED.about,
     isPartOf: { "@id": `${SITE_URL}/#website` },
     about: { "@id": `${SITE_URL}/#organization` },
   });
@@ -490,6 +512,7 @@ export function videosJsonLd(updated?: string, locale: Locale = "en"): string {
         name: videosTitle(locale),
         description: videosDescription(locale),
         inLanguage: locale === "bn" ? "bn" : ["bn", "en"],
+        datePublished: locale === "bn" ? FIRST_PUBLISHED.bn : FIRST_PUBLISHED.videos,
         dateModified: updated,
         isPartOf: { "@id": `${SITE_URL}/#website` },
       },
@@ -515,6 +538,7 @@ export function siteJsonLd(updated?: string): string {
         name: SITE_NAME,
         description: SITE_DESCRIPTION,
         inLanguage: ["en", "bn"],
+        datePublished: FIRST_PUBLISHED.board,
         dateModified: updated,
         publisher: { "@id": `${SITE_URL}/#organization` },
       },
@@ -522,8 +546,12 @@ export function siteJsonLd(updated?: string): string {
         "@type": "Organization",
         "@id": `${SITE_URL}/#organization`,
         name: SITE_NAME,
+        alternateName: "বার্তাবোর্ড",
         url: `${SITE_URL}/`,
         logo: `${SITE_URL}/brand/bartaboard-icon-512.png`,
+        foundingDate: FOUNDED,
+        email: CONTACT_EMAIL,
+        contactPoint: { "@type": "ContactPoint", email: CONTACT_EMAIL, contactType: "customer support", availableLanguage: ["en", "bn"] },
         sameAs: SOCIAL_LINKS.map((l) => l.href),
       },
     ],

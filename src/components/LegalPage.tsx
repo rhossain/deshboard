@@ -3,7 +3,7 @@ import { type Locale, localePath } from "@/lib/i18n";
 import { InfoPage } from "./InfoPage";
 
 /** Where people reach whoever runs Bartaboard; also the support address on Google's sign-in screen. */
-export const CONTACT_EMAIL = "support@bartaboard.com";
+export { CONTACT_EMAIL } from "@/lib/site";
 
 /**
  * The privacy and terms pages: a plain column of text under the logo. `path` is the English address;
