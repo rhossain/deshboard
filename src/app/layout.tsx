@@ -12,6 +12,11 @@ import { VIDEO_LAYOUT_SCRIPT } from "@/lib/video-layout";
  * on the exported Bangla pages. This script does the same in the browser for the pages that aren't
  * exported under /bn/ (the 404 and share page), before they paint.
  */
+/** The pages prefetched as a reader heads for their link; `search: ""` leaves the board's own filtered views (?view=…) alone. */
+const PREFETCHED = ["/", "/news/*", "/sources/*", "/videos/", "/about/", "/bn/", "/bn/news/*", "/bn/sources/*", "/bn/videos/", "/bn/about/"];
+const SPECULATION_RULES = JSON.stringify({
+  prefetch: [{ where: { href_matches: PREFETCHED.map((pathname) => ({ pathname, search: "" })) }, eagerness: "moderate" }],
+});
 const LANG_SCRIPT = 'var p=location.pathname;if(p==="/bn"||p.indexOf("/bn/")===0)document.documentElement.lang="bn"';
 import { BackToTop } from "@/components/BackToTop";
 import { CloudflareAnalytics } from "@/components/CloudflareAnalytics";
@@ -108,6 +113,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: LANG_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: VIDEO_LAYOUT_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: NEWS_DENSITY_SCRIPT }} />
+        {/* Browsers that support it fetch a page's HTML as the reader's pointer settles on its link (or starts a
+            tap), so the section, outlet and videos pages open without the round trip. Prefetch only, never
+            prerender: a prerendered page would run the board, count a visit and report a page view unseen. */}
+        <script type="speculationrules" dangerouslySetInnerHTML={{ __html: SPECULATION_RULES }} />
       </head>
       <body className="min-h-full">
         {children}
