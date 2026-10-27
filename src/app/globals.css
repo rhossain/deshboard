@@ -96,9 +96,10 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --shadow-card: var(--shadow);
-  /* Inter for Latin, Noto Sans Bengali for Bangla, then system fonts with Bangla coverage. */
+  /* Inter for Latin (the accented-Latin file first: it has a unicode-range and no fallback face, so it only
+     answers for its own characters), Noto Sans Bengali for Bangla, then system fonts with Bangla coverage. */
   --font-sans:
-    var(--font-inter), var(--font-bengali), ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Kohinoor Bangla",
+    var(--font-inter-ext), var(--font-inter), var(--font-bengali), ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Kohinoor Bangla",
     "Nirmala UI", "Noto Sans Bengali", Roboto, Helvetica, Arial, sans-serif;
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
