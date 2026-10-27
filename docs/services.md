@@ -44,8 +44,9 @@ and styloviz project; leave them alone.
 - **Zero Trust** (team `bartaboard.cloudflareaccess.com`, Free plan up to 50 users): one Access application,
   "Bartaboard admin", on `bartaboard.com/admin` and `bartaboard.com/api/admin`, policy "Owner only" (one email),
   login by one-time email code, 24-hour sessions. Set up by the ops workflow's `access-setup`.
-- **Web Analytics** (Analytics & Logs → Web Analytics): site `bartaboard.com`, no cookies. The beacon is in the
-  page itself (`ANALYTICS_TOKEN` in `src/lib/site.ts`, loaded only when `SITE_URL` is `https://bartaboard.com`);
+- **Web Analytics** (Analytics & Logs → Web Analytics): site `bartaboard.com`, no cookies. The beacon is loaded by
+  `src/components/CloudflareAnalytics.tsx` once the page has settled (`ANALYTICS_TOKEN` in `src/lib/site.ts`, set only
+  when `SITE_URL` is `https://bartaboard.com`);
   Manage site is set to **Enable with JS Snippet installation**: "Disable" refuses the beacon's reports (CORS errors in
   the console), and "Enable" would inject a second copy and count visits twice.
 - **Redirect rule** (Rules → Redirect Rules): `https://www.*` → `https://${1}`, 301, query string kept. Plain http

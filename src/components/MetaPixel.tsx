@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { allowed, META_PIXEL_ID } from "@/lib/consent";
 import { landingParam } from "@/lib/landing";
+import { whenSettled } from "@/lib/settled";
 import { currentVisit } from "@/lib/visits";
 import { useConsentState } from "./ConsentBanner";
 
@@ -94,9 +95,11 @@ export function MetaPixel() {
   useEffect(() => {
     // Counted on every page, whether or not the Pixel runs (the return prompt uses it too).
     currentVisit();
-    if (!META_PIXEL_ID) return;
-    if (ok && !started) start(META_PIXEL_ID);
-    else if (started && !ok) {
+    const id = META_PIXEL_ID;
+    if (!id) return;
+    // Loaded once the page has settled: fbevents.js is a large script, and nothing of it is for the first look.
+    if (ok && !started) return whenSettled(() => start(id), 4000);
+    if (started && !ok) {
       window.fbq?.("consent", "revoke");
       clearCookies();
       started = false;

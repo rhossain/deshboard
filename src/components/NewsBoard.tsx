@@ -22,6 +22,7 @@ import { usePlansVisible } from "@/lib/plans";
 import { sourceProblem } from "@/lib/problems";
 import { dedupeByLink } from "@/lib/fetchers/utils";
 import { sectionIntro, VIDEOS_INTRO } from "@/lib/intros";
+import { whenSettled } from "@/lib/settled";
 import { boardHeading, categoryPath, categoryTitle, siteTitle, VIDEOS_PATH, videosTitle } from "@/lib/site";
 import { isFetched } from "@/lib/sources";
 import { countSince, findStories, itemTime, newestFirst, type Story } from "@/lib/stories";
@@ -149,26 +150,6 @@ function nextUpdate(generatedAt: string, now: number, locale: Locale): string {
   const t = STRINGS[locale];
   const due = Date.parse(generatedAt) + UPDATE_EVERY_MS;
   return due > now ? t.nextAround(dhakaClock(due, locale)) : t.nextDue;
-}
-
-/**
- * Runs `fn` once the page has loaded and the browser is idle (at most `timeout` ms after loading).
- * Returns a function that cancels it.
- */
-function whenSettled(fn: () => void, timeout = 2000): () => void {
-  let idle: number | undefined;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const wait = () => {
-    if (typeof requestIdleCallback === "function") idle = requestIdleCallback(fn, { timeout });
-    else timer = setTimeout(fn, 200);
-  };
-  if (document.readyState === "complete") wait();
-  else window.addEventListener("load", wait, { once: true });
-  return () => {
-    window.removeEventListener("load", wait);
-    if (idle !== undefined) cancelIdleCallback(idle);
-    clearTimeout(timer);
-  };
 }
 
 /** The reader doing anything at all: the first scroll, tap, click or key press. */

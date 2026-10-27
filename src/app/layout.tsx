@@ -14,6 +14,7 @@ import { VIDEO_LAYOUT_SCRIPT } from "@/lib/video-layout";
  */
 const LANG_SCRIPT = 'var p=location.pathname;if(p==="/bn"||p.indexOf("/bn/")===0)document.documentElement.lang="bn"';
 import { BackToTop } from "@/components/BackToTop";
+import { CloudflareAnalytics } from "@/components/CloudflareAnalytics";
 import { ConsentBanner } from "@/components/ConsentBanner";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { MetaPixel } from "@/components/MetaPixel";
@@ -112,15 +113,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <BackToTop />
         <ConsentBanner />
+        {/* Analytics, all three once the page has settled (src/lib/settled.ts), not alongside hydration. */}
         <GoogleAnalytics />
         <MetaPixel />
-        {ANALYTICS_TOKEN && (
-          <script
-            defer
-            src="https://static.cloudflareinsights.com/beacon.min.js"
-            data-cf-beacon={JSON.stringify({ token: ANALYTICS_TOKEN })}
-          />
-        )}
+        <CloudflareAnalytics token={ANALYTICS_TOKEN} />
       </body>
     </html>
   );

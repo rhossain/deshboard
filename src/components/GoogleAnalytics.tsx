@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { allowed, GA_ID } from "@/lib/consent";
 import { LANDING_URL, stillOnLanding } from "@/lib/landing";
+import { whenSettled } from "@/lib/settled";
 import { useConsentState } from "./ConsentBanner";
 
 declare global {
@@ -58,9 +59,11 @@ export function GoogleAnalytics() {
   const state = useConsentState();
   const ok = GA_ID != null && state.region != null && allowed("analytics");
   useEffect(() => {
-    if (!GA_ID) return;
-    if (ok && !started) start(GA_ID);
-    else if (started) {
+    const id = GA_ID;
+    if (!id) return;
+    // Loaded once the page has settled: gtag.js is a large script, and nothing of it is for the first look.
+    if (ok && !started) return whenSettled(() => start(id), 4000);
+    if (started) {
       window.gtag?.("consent", "update", { analytics_storage: ok ? "granted" : "denied" });
       if (!ok) clearCookies();
     }
