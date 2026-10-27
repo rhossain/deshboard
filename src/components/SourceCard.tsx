@@ -45,6 +45,7 @@ export const SourceCard = memo(function SourceCard({
   onExpand,
   pinned = false,
   onTogglePin,
+  eager = false,
 }: {
   source: NewsSource;
   status?: SourceStatus;
@@ -77,6 +78,8 @@ export const SourceCard = memo(function SourceCard({
   /** One of the reader's own sources (see pinned.ts), shown first. */
   pinned?: boolean;
   onTogglePin?: (sourceId: string) => void;
+  /** The first cards on the page: their logo is in view on every screen, so it isn't lazy. */
+  eager?: boolean;
 }) {
   const ref = useRef<HTMLElement>(null);
   const t = useStrings();
@@ -146,7 +149,7 @@ export const SourceCard = memo(function SourceCard({
           {/* Under the board's "Headlines by newspaper" (or "Your news" / "Other news") heading. */}
           <h3 className="min-w-0">
             {/* The outlet's own page here (its profile and every headline); its website is linked at the card's foot. */}
-            <SourceLogo source={source} link={!collapsible} href={outletHref} />
+            <SourceLogo source={source} link={!collapsible} href={outletHref} eager={eager} />
           </h3>
           <p className="mt-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
             {t.kinds[source.kind] ?? source.kind} · {t.lang[source.lang]}
@@ -559,6 +562,7 @@ export function SourceLogo({
   size = "md",
   link = true,
   href,
+  eager = false,
 }: {
   source: NewsSource;
   size?: "sm" | "md";
@@ -566,6 +570,8 @@ export function SourceLogo({
   link?: boolean;
   /** An address on this site to link to instead of the outlet's own website. */
   href?: string;
+  /** In view as the page opens: fetched with the page rather than lazily. */
+  eager?: boolean;
 }) {
   const { logos, logoShapes } = useContext(Logos);
   const src = logos[source.id];
@@ -589,10 +595,11 @@ export function SourceLogo({
         <img
           src={src}
           alt={kind === "logo" ? source.name : ""}
-          // Its measured size reserves its width; lazy, so the logos don't compete with the page itself.
+          // Its measured size reserves its width; lazy (but for the first cards), so the logos don't compete
+          // with the page itself.
           width={shape?.width}
           height={shape?.height}
-          loading="lazy"
+          loading={eager ? "eager" : "lazy"}
           decoding="async"
           onError={() => setFailed(true)}
           className={

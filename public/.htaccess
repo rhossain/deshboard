@@ -40,9 +40,10 @@ AddType application/manifest+json .webmanifest
   <FilesMatch "\.(js|css|woff2)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
-  # Outlets' logos keep their address when they change (at most weekly, see scripts/fetch-news.ts).
+  # Outlets' logos keep their address when they change (at most weekly, see scripts/fetch-news.ts): kept a
+  # week, then shown while a newer one is checked for.
   <FilesMatch "\.(png|jpe?g|gif|webp|avif|ico|svg)$">
-    Header set Cache-Control "public, max-age=86400"
+    Header set Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
   </FilesMatch>
   # Outlets' logos are third-party files served from this site: an SVG opened directly must not run scripts.
   <FilesMatch "\.svg$">

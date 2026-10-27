@@ -1544,6 +1544,8 @@ export function NewsBoard({
                         onExpand={expandCard}
                         pinned={pinnedIds.has(s.id)}
                         onTogglePin={toggleSourcePin}
+                        // One column on phones, three on a wide screen: the first three are in view somewhere.
+                        eager={i < 3}
                       />
                       {i === panelAfter &&
                         openSource &&

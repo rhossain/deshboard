@@ -23,13 +23,15 @@
 /_next/static/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Outlets' logos keep their address when they change (at most weekly, see scripts/fetch-news.ts).
+# Outlets' logos keep their address when they change (at most weekly, see scripts/fetch-news.ts): a browser
+# keeps one a week, and for a day after that shows its copy while it checks for a newer one. Not immutable:
+# the address never changes, so a reader would otherwise keep an old logo for a year.
 # They are third-party files served from this site: one opened directly must not run scripts.
 /logos/*
-  Cache-Control: public, max-age=86400
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
   Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox
 /brand/*
-  Cache-Control: public, max-age=86400
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
 # The headlines as data (the board's feed, 30 days of day files): other sites' titles for the board and the
 # search to read, not pages for search engines.
