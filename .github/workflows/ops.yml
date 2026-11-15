@@ -19,13 +19,21 @@ on:
           - whoami            # the token's account, KV namespaces, Pages projects and the bartaboard project's bindings
           - d1-create         # the D1 database bartaboard-social (prints its id for wrangler.toml); does nothing if it exists
           - d1-migrate        # applies migrations/ to the remote database (wrangler.toml)
+          - d1-query          # runs one SQL statement (arg) on the remote database and reports the rows
+          - d1-import-history # copies the Page's posting history (.social/facebook.json, from the deploy's cache) into D1
           - access-setup      # the Zero Trust organisation (arg: team name), the /admin application and its policy
-          - pages-secrets     # copies FB_PAGE_TOKEN, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET to the Pages project
+          - access-login-page # the sign-in page's look and its notice that only the owner is authorized
+          - pages-secrets     # copies FB_PAGE_TOKEN, FB_APP_SECRET, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET to the Pages project
           - telegram-chat-id  # who has messaged the bot (their chat ids), to set TELEGRAM_ADMIN_CHAT_ID
           - telegram-webhook  # points the bot at https://bartaboard.com/api/telegram
+          - telegram-test     # the bot sends TELEGRAM_ADMIN_CHAT_ID a test message
+          - d1-token-check    # SOCIAL_DB_TOKEN (the deploy's D1-only token) can read the database through the API
+          - d1-backup         # exports the database with SOCIAL_DB_TOKEN, as the deploy's daily backup does, as this run's artifact
           - fb-token-check    # whose token FB_PAGE_TOKEN is, its scopes and expiry
+          - ig-check          # the Instagram account connected to the Page, whether the token may post to it, its allowance
+          - bulletin-try      # makes one video bulletin from the live board (scripts, voice, render) and sends it to Telegram; posts nothing (arg: stories, 3 to 6)
       arg:
-        description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard)"
+        description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard; d1-query: the SQL; bulletin-try: how many stories)"
         required: false
         type: string
 
@@ -39,7 +47,8 @@ permissions:
 jobs:
   ops:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # bulletin-try renders a video (about five minutes); everything else is done in one or two.
+    timeout-minutes: 30
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_OPS_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -48,6 +57,8 @@ jobs:
       PROJECT: bartaboard
       D1_NAME: bartaboard-social
       SITE: https://bartaboard.com
+      # What each task found, for the run's summary page and (the laptop can't read run logs) a notice annotation.
+      REPORT: /tmp/ops-report.md
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -80,30 +91,52 @@ jobs:
         if: inputs.task == 'whoami'
         run: |
           $WRANGLER whoami
-          echo "## KV namespaces" >> "$GITHUB_STEP_SUMMARY"
-          $WRANGLER kv namespace list | jq -r '.[] | "- \(.title): `\(.id)`"' | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "## D1 databases" >> "$GITHUB_STEP_SUMMARY"
-          $WRANGLER d1 list --json | jq -r '.[] | "- \(.name): `\(.uuid)`"' | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "## Pages project $PROJECT (production bindings)" >> "$GITHUB_STEP_SUMMARY"
+          echo "## KV namespaces" >> "$REPORT"
+          $WRANGLER kv namespace list | jq -r '.[] | "- \(.title): `\(.id)`"' | tee -a "$REPORT"
+          echo "## D1 databases" >> "$REPORT"
+          $WRANGLER d1 list --json | jq -r '.[] | "- \(.name): `\(.uuid)`"' | tee -a "$REPORT"
+          echo "## Pages project $PROJECT (production bindings)" >> "$REPORT"
           cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT" \
-            | jq '{domains, production_branch, config: (.deployment_configs.production | {kv_namespaces, d1_databases, env_vars: ((.env_vars // {}) | with_entries(.value = (.value.type // "plain_text")))})}' \
-            | sed 's/^/    /' | tee -a "$GITHUB_STEP_SUMMARY"
+            | jq '{domains, production_branch, config: (.deployment_configs.production | {compatibility_date, compatibility_flags, kv_namespaces, d1_databases, env_vars: ((.env_vars // {}) | with_entries(.value = (.value.type // "plain_text")))})}' \
+            | sed 's/^/    /' | tee -a "$REPORT"
 
       - name: d1-create
         if: inputs.task == 'd1-create'
         run: |
           existing=$($WRANGLER d1 list --json | jq -r --arg n "$D1_NAME" '.[] | select(.name == $n) | .uuid')
           if [ -n "$existing" ]; then
-            echo "$D1_NAME exists: $existing" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "$D1_NAME exists: $existing" | tee -a "$REPORT"
           else
-            $WRANGLER d1 create "$D1_NAME" --location apac | tee -a "$GITHUB_STEP_SUMMARY"
+            $WRANGLER d1 create "$D1_NAME" --location apac | tee -a "$REPORT"
           fi
 
       - name: d1-migrate
         if: inputs.task == 'd1-migrate'
         run: |
           $WRANGLER d1 migrations list "$D1_NAME" --remote
-          $WRANGLER d1 migrations apply "$D1_NAME" --remote | tee -a "$GITHUB_STEP_SUMMARY"
+          $WRANGLER d1 migrations apply "$D1_NAME" --remote | tee -a "$REPORT"
+
+      - name: d1-query
+        if: inputs.task == 'd1-query'
+        env:
+          SQL: ${{ inputs.arg }}
+        run: |
+          $WRANGLER d1 execute "$D1_NAME" --remote --json --command "$SQL" > /tmp/out.json
+          { echo '```'; jq -c '.[] | .results[]' /tmp/out.json | head -100; echo '```'; } | tee -a "$REPORT"
+
+      # The history the deploy's Facebook step keeps in its own cache (deploy.yml, facebook-posts-*): a cache made on
+      # main can be restored from any branch.
+      - if: inputs.task == 'd1-import-history'
+        uses: actions/cache/restore@v4
+        with:
+          path: .social
+          key: facebook-posts-import-${{ github.run_id }}
+          restore-keys: facebook-posts-
+      - name: d1-import-history
+        if: inputs.task == 'd1-import-history'
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsx scripts/social-import-history.ts
 
       # The Zero Trust organisation (team) is created once, named by `arg`, with the one-time-PIN login Cloudflare
       # turns on by default: the admin signs in with a code sent to ADMIN_EMAIL. The application covers /admin and
@@ -125,7 +158,17 @@ jobs:
               "$(jq -nc --arg name "$TEAM" --arg d "$TEAM.cloudflareaccess.com" '{name: $name, auth_domain: $d, is_ui_read_only: false}')")
             domain=$(echo "$org" | jq -r '.auth_domain')
           fi
-          echo "team domain: $domain" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "team domain: $domain" | tee -a "$REPORT"
+
+          # How the admin signs in: a one-time code sent to the address (what the dashboard turns on by itself; an
+          # organisation made through the API starts with no login method at all). Google can be added later.
+          idps=$(cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/identity_providers")
+          if [ "$(echo "$idps" | jq 'length')" = "0" ]; then
+            cf POST "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/identity_providers" '{"name": "Email code", "type": "onetimepin", "config": {}}' > /dev/null
+            echo "login method: created (one-time code by email)" | tee -a "$REPORT"
+          else
+            echo "login methods: $(echo "$idps" | jq -c '[.[] | {name, type}]')" | tee -a "$REPORT"
+          fi
 
           apps=$(cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/apps?per_page=100")
           app=$(echo "$apps" | jq -c '.[] | select(.name == "Bartaboard admin")')
@@ -143,7 +186,7 @@ jobs:
               "enable_binding_cookie": false,
               "skip_interstitial": true
             }')
-            echo "created the application" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "created the application" | tee -a "$REPORT"
           fi
           app_id=$(echo "$app" | jq -r '.id'); aud=$(echo "$app" | jq -r '.aud')
 
@@ -151,9 +194,9 @@ jobs:
           if [ "$(echo "$policies" | jq 'length')" = "0" ]; then
             cf POST "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/apps/$app_id/policies" \
               "$(jq -nc --arg e "$ADMIN_EMAIL" '{name: "Owner only", decision: "allow", precedence: 1, include: [{email: {email: $e}}]}')" > /dev/null
-            echo "created the policy: allow $ADMIN_EMAIL" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "created the policy: allow $ADMIN_EMAIL" | tee -a "$REPORT"
           else
-            echo "policies: $(echo "$policies" | jq -c '[.[] | {name, decision, include}]')" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "policies: $(echo "$policies" | jq -c '[.[] | {name, decision, include}]')" | tee -a "$REPORT"
           fi
           {
             echo "## wrangler.toml"
@@ -162,20 +205,36 @@ jobs:
             echo "CF_ACCESS_TEAM_DOMAIN = \"$domain\""
             echo "CF_ACCESS_AUD = \"$aud\""
             echo '```'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$REPORT"
+
+      # The sign-in page everyone reaching /admin sees (Zero Trust → Settings → Custom pages → Login page). A code is
+      # only ever sent to the address the policy allows; the page says so, so nobody else waits for one.
+      - name: access-login-page
+        if: inputs.task == 'access-login-page'
+        run: |
+          org=$(cf GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/organizations")
+          body=$(echo "$org" | jq -c '{name, auth_domain, is_ui_read_only, ui_read_only_toggle_reason, user_seat_expiration_inactive_time, auto_redirect_to_identity, session_duration, warp_auth_session_duration, allow_authenticate_via_warp, custom_pages} + {login_design: {
+            background_color: "#f6f4ef",
+            text_color: "#17191c",
+            logo_path: "https://bartaboard.com/brand/bartaboard-icon-512.png",
+            header_text: "Bartaboard admin · Authorized access only",
+            footer_text: "This area is restricted to Bartaboard'"'"'s owner. If you are not authorized, no code will be sent to your email and you cannot sign in. Readers: bartaboard.com"
+          }} | with_entries(select(.value != null))')
+          cf PUT "/accounts/$CLOUDFLARE_ACCOUNT_ID/access/organizations" "$body" | jq -c '.login_design' | tee -a "$REPORT"
 
       - name: pages-secrets
         if: inputs.task == 'pages-secrets'
         env:
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
         run: |
-          for name in FB_PAGE_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET; do
+          for name in FB_PAGE_TOKEN FB_APP_SECRET TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET; do
             value=${!name}
             if [ -z "$value" ]; then echo "::warning::$name is not set as a repository secret; skipped"; continue; fi
             printf '%s' "$value" | $WRANGLER pages secret put "$name" --project-name "$PROJECT"
-            echo "- $name set" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "- $name set" | tee -a "$REPORT"
           done
           $WRANGLER pages secret list --project-name "$PROJECT"
 
@@ -185,11 +244,11 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
           me=$(curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getMe")
-          echo "bot: $(echo "$me" | jq -r '.result | "@\(.username) (\(.first_name))"')" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "bot: $(echo "$me" | jq -r '.result | "@\(.username) (\(.first_name))"')" | tee -a "$REPORT"
           # getUpdates only answers while no webhook is set; the chats that wrote to the bot, newest last.
           curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getUpdates" \
             | jq -r '.result[] | .message // .my_chat_member // empty | .chat | "- chat id `\(.id)` (\(.type)): \(.first_name // .title // "") \(.last_name // "") @\(.username // "-")"' \
-            | sort -u | tee -a "$GITHUB_STEP_SUMMARY"
+            | sort -u | tee -a "$REPORT"
 
       - name: telegram-webhook
         if: inputs.task == 'telegram-webhook'
@@ -203,7 +262,41 @@ jobs:
             --data-urlencode 'allowed_updates=["message","callback_query"]' \
             --data-urlencode "drop_pending_updates=true" | jq '{ok, description}'
           curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo" \
-            | jq '.result | {url, pending_update_count, last_error_date, last_error_message}' | tee -a "$GITHUB_STEP_SUMMARY"
+            | jq '.result | {url, pending_update_count, last_error_date, last_error_message}' | tee -a "$REPORT"
+
+      - name: telegram-test
+        if: inputs.task == 'telegram-test'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
+          TEXT: "${{ inputs.arg || 'Bartaboard admin — the bot can reach you. Drafts to review will arrive here.' }}"
+        run: |
+          curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$CHAT" --data-urlencode "text=$TEXT" \
+            | jq -c '{ok, message_id: .result.message_id, error: .description}' | tee -a "$REPORT"
+
+      - name: d1-token-check
+        if: inputs.task == 'd1-token-check'
+        env:
+          SOCIAL_DB_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
+        run: |
+          db=$(grep -A3 'binding = "SOCIAL_DB"' wrangler.toml | sed -n 's/.*database_id = "\(.*\)"/\1/p')
+          curl -sS -X POST "$CF_API/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$db/query" -H "Authorization: Bearer $SOCIAL_DB_TOKEN" \
+            -H 'Content-Type: application/json' --data '{"sql": "SELECT count(*) AS posts FROM posts"}' \
+            | jq -c '{success, rows: .result[0].results, errors}' | tee -a "$REPORT"
+
+      - name: d1-backup
+        if: inputs.task == 'd1-backup'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
+        run: |
+          $WRANGLER d1 export "$D1_NAME" --remote --output social-db.sql
+          echo "exported: $(wc -l < social-db.sql) lines, $(grep -c '^INSERT INTO \"posts\"\|^INSERT INTO posts' social-db.sql) posts" | tee -a "$REPORT"
+      - if: inputs.task == 'd1-backup'
+        uses: actions/upload-artifact@v4
+        with:
+          name: social-db
+          path: social-db.sql
+          retention-days: 7
 
       - name: fb-token-check
         if: inputs.task == 'fb-token-check'
@@ -212,10 +305,73 @@ jobs:
           FB_PAGE_ID: ${{ vars.FB_PAGE_ID }}
         run: |
           G=https://graph.facebook.com/v23.0
-          echo "token holder: $(curl -sS "$G/me?fields=id,name&access_token=$FB_PAGE_TOKEN" | jq -c '{id, name, error: .error.message}')" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "token holder: $(curl -sS "$G/me?fields=id,name&access_token=$FB_PAGE_TOKEN" | jq -c '{id, name, error: .error.message}')" | tee -a "$REPORT"
           curl -sS "$G/debug_token?input_token=$FB_PAGE_TOKEN&access_token=$FB_PAGE_TOKEN" \
             | jq '.data | {type, app_id, is_valid, expires_at: (if .expires_at == 0 then "never" else (.expires_at | todate) end), data_access_expires_at: (.data_access_expires_at // 0 | if . == 0 then "never" else todate end), scopes, error: .error.message}' \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+            | tee -a "$REPORT"
           if [ -n "$FB_PAGE_ID" ]; then
-            echo "page: $(curl -sS "$G/$FB_PAGE_ID?fields=id,name,fan_count&access_token=$FB_PAGE_TOKEN" | jq -c '{id, name, fan_count, error: .error.message}')" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "page: $(curl -sS "$G/$FB_PAGE_ID?fields=id,name,fan_count&access_token=$FB_PAGE_TOKEN" | jq -c '{id, name, fan_count, error: .error.message}')" | tee -a "$REPORT"
           fi
+
+      # Instagram (docs/instagram.md): the professional account connected to the Page, as the Page's token sees it;
+      # whether the system user's token has instagram_basic and instagram_content_publish; and the 24-hour allowance.
+      - name: ig-check
+        if: inputs.task == 'ig-check'
+        env:
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
+        run: |
+          G=https://graph.facebook.com/v23.0
+          scopes=$(curl -sS "$G/debug_token?input_token=$FB_PAGE_TOKEN&access_token=$FB_PAGE_TOKEN" | jq -r '.data.scopes // [] | join(",")')
+          for s in instagram_basic instagram_content_publish pages_read_engagement; do
+            case ",$scopes," in *",$s,"*) echo "✓ token has $s" ;; *) echo "✗ token lacks $s" ;; esac
+          done | tee -a "$REPORT"
+          PAGE_TOKEN=$(curl -sS "$G/$FB_PAGE_ID?fields=access_token&access_token=$FB_PAGE_TOKEN" | jq -r '.access_token // empty')
+          T=${PAGE_TOKEN:-$FB_PAGE_TOKEN}
+          linked=$(curl -sS "$G/$FB_PAGE_ID?fields=instagram_business_account%7Bid,username,name,followers_count%7D&access_token=$T")
+          echo "connected account: $(echo "$linked" | jq -c '{account: .instagram_business_account, error: .error.message}')" | tee -a "$REPORT"
+          IG=${IG_USER_ID:-$(echo "$linked" | jq -r '.instagram_business_account.id // empty')}
+          if [ -n "$IG" ]; then
+            echo "allowance: $(curl -sS "$G/$IG/content_publishing_limit?fields=quota_usage,config&access_token=$T" | jq -c '{data, error: .error.message}')" | tee -a "$REPORT"
+          else
+            echo "No Instagram account is connected to the Page yet (docs/instagram.md, Setting up)." | tee -a "$REPORT"
+          fi
+
+      # One bulletin, start to finish, with the real services (docs/bulletin.md): stories from the live board, a
+      # script for each from its article (Claude), the voice (ElevenLabs), the render (Chrome and ffmpeg, both on the
+      # runner or installed here), then the video to the admin's Telegram chat. Nothing is queued or posted. The
+      # spec, the clips and the video are this run's artifact for three days.
+      - name: bulletin-try
+        if: inputs.task == 'bulletin-try'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
+          BULLETIN_STORIES: ${{ inputs.arg }}
+          BULLETIN_MODEL: ${{ vars.BULLETIN_MODEL }}
+          BULLETIN_VOICE_ID: ${{ vars.BULLETIN_VOICE_ID }}
+          BULLETIN_VOICE_MODEL: ${{ vars.BULLETIN_VOICE_MODEL }}
+          ANTHROPIC_WORKSPACE_ID: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+          google-chrome --version || true
+          npm ci --no-audit --no-fund
+          npx tsx scripts/make-bulletin.ts
+      - if: always() && inputs.task == 'bulletin-try'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bulletin-try
+          path: .bulletin
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Report
+        if: always()
+        run: |
+          [ -s "$REPORT" ] || { echo "nothing reported"; exit 0; }
+          cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          # One annotation holds the whole report: newlines and percent signs escaped as the runner expects.
+          msg=$(head -c 3800 "$REPORT" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')
+          echo "::notice title=ops ${{ inputs.task }}::$msg"

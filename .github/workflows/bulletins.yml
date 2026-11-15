@@ -1,0 +1,61 @@
+name: Bulletins
+
+# Makes one video bulletin (docs/bulletin.md): the voice, the render and the preview to the admin's Telegram chat.
+# Started by the deploy's "Video bulletins" step (scripts/run-bulletins.ts plan) for each approved bulletin that is
+# due, with its id; it can also be started by hand for a bulletin that is waiting to be made. Apart from the deploy
+# because a render takes about five minutes, which the timed run has no room for.
+#
+# This same file also lives on main (the deploy starts it there): from either branch it runs static-export's code.
+#
+# Variable: BULLETINS (dry or on; off or unset, nothing happens). Secrets: ELEVENLABS_API_KEY, SOCIAL_DB_TOKEN,
+# TELEGRAM_BOT_TOKEN. Optional variables: BULLETIN_VOICE_ID, BULLETIN_VOICE_MODEL.
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: The bulletin's id (b_…)
+        required: true
+        type: string
+
+concurrency:
+  group: bulletins
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  make:
+    if: contains(fromJSON('["dry","on"]'), vars.BULLETINS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: static-export
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Make the bulletin
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+          npx tsx scripts/run-bulletins.ts make "$BULLETIN_ID"
+        env:
+          BULLETIN_ID: ${{ inputs.id }}
+          BULLETINS: ${{ vars.BULLETINS }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          BULLETIN_VOICE_ID: ${{ vars.BULLETIN_VOICE_ID }}
+          BULLETIN_VOICE_MODEL: ${{ vars.BULLETIN_VOICE_MODEL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          SOCIAL_DB_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bulletin
+          path: .bulletin
+          retention-days: 3
+          if-no-files-found: ignore
