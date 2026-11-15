@@ -21,6 +21,7 @@ import {
   nextLineBn,
   SECTION_COLORS,
 } from "../src/lib/bulletin";
+import { BULLETIN_FRESH_MS, pickBulletin } from "../src/lib/bulletin-pick";
 import { articleText, figures, parseDraft, scaled, unsupportedFigures, visualOf, writeScript } from "../src/lib/bulletin-script";
 import {
   approveBulletin,
@@ -41,6 +42,7 @@ import {
 } from "../src/lib/bulletin-store";
 import { findVoice, speak, wordTimes } from "../src/lib/elevenlabs";
 import type { PostChoice } from "../src/lib/page-posts";
+import type { Story } from "../src/lib/stories";
 import type { Db, SqlValue } from "../src/lib/social-db";
 import { DEFAULT_SETTINGS, queueSettings } from "../src/lib/social-settings";
 import type { NewsItem } from "../src/lib/types";
@@ -185,6 +187,44 @@ test("the renderer's spec", () => {
   assert.equal(spec.stories[0].color, SECTION_COLORS.business);
   assert.equal("audio" in spec.stories[0], false);
   assert.equal(bulletinSpec(at, [{ ...draftStory(choice()), audio: "s1.mp3" }]).stories[0].audio, "s1.mp3");
+  // Word times go with their clip, never without one.
+  const words: [number, number][] = [[0, 0.4]];
+  assert.deepEqual(bulletinSpec(at, [{ ...draftStory(choice()), audio: "s1.mp3", words }]).stories[0].words, words);
+  assert.equal("words" in bulletinSpec(at, [{ ...draftStory(choice()), words }]).stories[0], false);
+});
+
+// ---------- which stories a bulletin takes ----------
+
+const NOW = Date.parse("2026-11-15T08:00:00.000Z");
+function story(id: string, title: string, category: NewsItem["category"], outlets = 3, ageMs = 30 * 60_000): Story {
+  const at = new Date(NOW - ageMs).toISOString();
+  const items = Array.from({ length: outlets }, (_, i) => ({ ...item(i ? `${title} (${i})` : title, `${id}-o${i}`, `Outlet ${i}`, category), link: `https://example.com/${id}/${i}`, publishedAt: at }));
+  return { id: items[0].link, lead: items[0], items, outlets, heat: outlets, latest: at };
+}
+
+test("the picker: fresh, covered, careful, two a section, no story twice", () => {
+  const ranked = [
+    story("a", "বাজেট ঘোষণা করলেন অর্থমন্ত্রী", "business", 9),
+    story("b", "রেমিট্যান্স বেড়েছে চার মাসে", "business", 8),
+    story("c", "শেয়ারবাজারে সূচকের বড় উত্থান", "business", 7),
+    story("d", "টস জিতে ব্যাটিংয়ে বাংলাদেশ", "sports", 7),
+    story("e", "কলেজছাত্রীকে ধর্ষণের অভিযোগ", "crime", 7),
+    story("f", "নির্বাচন নিয়ে সম্পাদকীয়", "opinion", 6),
+    story("g", "পুরোনো খবর এখনও ঘুরছে", "national", 6, BULLETIN_FRESH_MS + 60_000),
+    story("h", "দুই outlet-এর খবর", "national", 2),
+    story("i", "স্টারশিপ ফিরল টাওয়ারে", "tech", 5),
+    story("j", "ঢাকায় শীতের আগমন", "national", 4),
+    story("k", "বাজেট ঘোষণা করলেন অর্থমন্ত্রী আজ", "politics", 4),
+  ];
+  const { picks, alternatives } = pickBulletin(ranked, { now: NOW, count: 5 });
+  const ids = (list: PostChoice[]) => list.map((c) => c.story.id.split("/")[3]);
+  // c is a third business story; e sensitive; f opinion; g stale; h has two outlets; k is a's story again.
+  assert.deepEqual(ids(picks), ["a", "b", "d", "i", "j"]);
+  assert.deepEqual(ids(alternatives), ["c"]);
+  assert.equal(picks[0].item, ranked[0].lead);
+  assert.equal(picks[0].outlets, 9);
+  assert.deepEqual(ids(pickBulletin(ranked, { now: NOW, count: 3, exclude: new Set([ranked[0].id]) }).picks), ["b", "c", "d"]);
+  assert.deepEqual(pickBulletin([], { now: NOW, count: 5 }).picks, []);
 });
 
 // ---------- the script writer and the voice, against stand-in services ----------

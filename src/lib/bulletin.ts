@@ -49,6 +49,8 @@ export interface BulletinStory {
   visual: BulletinVisual;
   /** The voice clip, once made: a path beside the spec. */
   audio?: string;
+  /** Each word's start and end in the clip (seconds), from the voice service; the captions follow them. */
+  words?: [number, number][];
 }
 
 /** What scripts/render-bulletin.mjs reads. */
@@ -68,6 +70,7 @@ export interface BulletinSpec {
     script: string;
     visual: BulletinVisual;
     audio?: string;
+    words?: [number, number][];
   }[];
 }
 
@@ -218,6 +221,7 @@ export function bulletinSpec(at: number, stories: BulletinStory[], options: { ti
       script: s.script,
       visual: s.visual,
       ...(s.audio ? { audio: s.audio } : {}),
+      ...(s.audio && s.words?.length ? { words: s.words } : {}),
     })),
   };
 }

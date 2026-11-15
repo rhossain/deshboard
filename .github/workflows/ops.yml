@@ -31,8 +31,9 @@ on:
           - d1-backup         # exports the database with SOCIAL_DB_TOKEN, as the deploy's daily backup does, as this run's artifact
           - fb-token-check    # whose token FB_PAGE_TOKEN is, its scopes and expiry
           - ig-check          # the Instagram account connected to the Page, whether the token may post to it, its allowance
+          - bulletin-try      # makes one video bulletin from the live board (scripts, voice, render) and sends it to Telegram; posts nothing (arg: stories, 3 to 6)
       arg:
-        description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard; d1-query: the SQL)"
+        description: "Argument for the task (access-setup: the Zero Trust team name, e.g. bartaboard; d1-query: the SQL; bulletin-try: how many stories)"
         required: false
         type: string
 
@@ -46,7 +47,8 @@ permissions:
 jobs:
   ops:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # bulletin-try renders a video (about five minutes); everything else is done in one or two.
+    timeout-minutes: 30
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_OPS_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -335,6 +337,35 @@ jobs:
           else
             echo "No Instagram account is connected to the Page yet (docs/instagram.md, Setting up)." | tee -a "$REPORT"
           fi
+
+      # One bulletin, start to finish, with the real services (docs/bulletin.md): stories from the live board, a
+      # script for each from its article (Claude), the voice (ElevenLabs), the render (Chrome and ffmpeg, both on the
+      # runner or installed here), then the video to the admin's Telegram chat. Nothing is queued or posted. The
+      # spec, the clips and the video are this run's artifact for three days.
+      - name: bulletin-try
+        if: inputs.task == 'bulletin-try'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
+          BULLETIN_STORIES: ${{ inputs.arg }}
+          BULLETIN_MODEL: ${{ vars.BULLETIN_MODEL }}
+          BULLETIN_VOICE_ID: ${{ vars.BULLETIN_VOICE_ID }}
+          BULLETIN_VOICE_MODEL: ${{ vars.BULLETIN_VOICE_MODEL }}
+          ANTHROPIC_WORKSPACE_ID: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+          google-chrome --version || true
+          npm ci --no-audit --no-fund
+          npx tsx scripts/make-bulletin.ts
+      - if: always() && inputs.task == 'bulletin-try'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bulletin-try
+          path: .bulletin
+          retention-days: 3
+          if-no-files-found: ignore
 
       - name: Report
         if: always()

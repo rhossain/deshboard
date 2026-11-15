@@ -2,7 +2,7 @@
 
 A bulletin is a 60–90 second vertical video (1080×1920) of four to six stories from the board: an opener, the list of headlines, one segment per story with its own graphic, an AI Bangla voice with word-by-word captions, and a closer. It has no presenter; the voice is labelled "AI কণ্ঠ" on screen. The plan and the decisions behind it are in the project doc `video-bulletin-plan.md`.
 
-Status: the **renderer**, the bulletins **table** and **store**, the **settings**, the **script writer** and the **voice** call are built (this page). The run that ties them together (pick, write, voice, render, preview, post), the admin editor and publishing are not built yet.
+Status: the **renderer**, the bulletins **table** and **store**, the **settings**, the **picker**, the **script writer**, the **voice** call and a **try run** that chains them and sends the video to Telegram are built (this page). The queue's own run (draft at the lead, render at the lock, post at the time), the admin editor and publishing are not built yet.
 
 ## When bulletins go out
 
@@ -18,14 +18,27 @@ These settings sit beside the Page's own lead (40 minutes) and lock (5 minutes),
 - `migrations/0005_bulletin.sql`: the `bulletins` table, one row a bulletin: draft → approved → rendering → ready → posting → posted, or rejected, skipped, failed, dry. One live bulletin per time of the table; none of that for ones made by hand. Apply with the ops workflow's `d1-migrate`.
 - `src/lib/bulletin.ts`: the times (`bulletinSlots`, `bulletinsToDraft`, `bulletinLockAt`), Bangla labels (`clockBn`, `dateLineBn`, `nextLineBn`), each section's colour, a story as the picker drafts it (`draftStory`: the headline as the script and the outlets carrying it as the graphic, both true without reading the article), what stops a bulletin (`bulletinProblems`) and the renderer's spec (`bulletinSpec`).
 - `src/lib/bulletin-store.ts`: the rows and what a person does to one: `createBulletin` (by hand, for now or any time ahead), `editBulletin` (stories, scripts, caption, time; closed at the lock for the table's, open for one made by hand; an approved one whose script changes goes back to draft), `approveBulletin`, `rejectBulletin`, `skipBulletin`, `reopenBulletin`. Every change is made against the version read and written to the audit log.
-- `npm run test:bulletin`: 26 checks of all of this, on the real schema.
+- `npm run test:bulletin`: 27 checks of all of this, on the real schema.
 
 ## Scripts and voice
 
 - `src/lib/bulletin-script.ts`: `writeScript` reads the story's article and asks Claude (the Claude API, `ANTHROPIC_API_KEY`; model `claude-sonnet-5-5` unless told otherwise) for the script, the short line and the graphic, from the article alone. The reply must be the JSON asked for, lengths are capped, and every figure in the script and the graphic must be in the article or the headline ("১ হাজার ১৪৬" and "১,১৪৬" count as the same number). Anything wrong, and the story keeps its headline draft and says why. A person approves every script before it is voiced.
 - `src/lib/elevenlabs.ts`: `findVoice` and `speak` (ElevenLabs, `ELEVENLABS_API_KEY`; voice "Subhajit", model `eleven_v4`): the clip and each word's time, which the renderer takes as a story's `words`.
 
-Neither has been run against the real services yet: the keys live in GitHub's secrets, so the first real run is in Actions.
+Neither can be run from the laptop: the keys live in GitHub's secrets, so real runs are in Actions.
+
+## Trying the whole chain
+
+The ops workflow's **`bulletin-try`** task (Actions → Ops → Run workflow, branch `static-export`, task `bulletin-try`; `arg`: how many stories, 3 to 6) makes one bulletin from the live board and sends it to the admin's Telegram chat, with the scripts in a second message. Nothing is queued and nothing is posted.
+
+1. **Pick** (`src/lib/bulletin-pick.ts`): the most covered fresh stories (three outlets or more, a report in the last three hours), nothing sensitive, no opinion, two a section at most, no story twice.
+2. **Scripts**: each story's article is read and Claude writes its script; a story whose script can't be trusted keeps its headline draft, and the report says why.
+3. **Voice**: one clip a story, with word times.
+4. **Render**, then **Telegram**. The spec, the clips and the video are also the run's artifact for three days.
+
+A step that can't be done says so and the rest carries on: without `ANTHROPIC_API_KEY` the stories keep their headline drafts; without `ELEVENLABS_API_KEY`, or when the voice isn't among the account's voices, the bulletin is silent with estimated captions. Repository variables can replace the defaults: `BULLETIN_MODEL`, `BULLETIN_VOICE_ID`, `BULLETIN_VOICE_MODEL`, `ANTHROPIC_WORKSPACE_ID` (needed only with a key that isn't tied to one workspace).
+
+`scripts/make-bulletin.ts` is the run; `BULLETIN_FEED=<news.json>` reads a saved feed in place of the site's.
 
 ## Rendering one
 
