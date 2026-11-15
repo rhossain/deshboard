@@ -9,6 +9,7 @@
  */
 import { load } from "cheerio";
 import { type BulletinStory, type BulletinVisual, MAX_SCRIPT_CHARS } from "./bulletin";
+import { USER_AGENT } from "./fetchers/http";
 
 export const SCRIPT_MODEL = "claude-sonnet-5-5";
 const API = "https://api.anthropic.com/v1/messages";
@@ -36,6 +37,12 @@ export interface ScriptResult {
 /** The article's own text from its page: the paragraphs of its <article> (or of the page), without menus and scripts. */
 export function articleText(html: string): string {
   const $ = load(html);
+  // Pages drawn by a script often still carry the article for search engines (schema.org's articleBody).
+  let structured = "";
+  $('script[type="application/ld+json"]').each((_, el) => {
+    const body = articleBodyOf($(el).text());
+    if (body.length > structured.length) structured = body;
+  });
   $("script, style, noscript, nav, header, footer, aside, form, figure, iframe").remove();
   const paragraphs = (root: ReturnType<typeof $>) =>
     root
@@ -49,7 +56,30 @@ export function articleText(html: string): string {
     if (ps.join(" ").length > best.join(" ").length) best = ps;
   });
   if (best.join(" ").length < MIN_ARTICLE_CHARS) best = paragraphs($("body"));
-  return best.join("\n").slice(0, ARTICLE_CHARS);
+  const text = best.join("\n");
+  return (text.length >= MIN_ARTICLE_CHARS || text.length >= structured.length ? text : structured).slice(0, ARTICLE_CHARS);
+}
+
+/** The longest articleBody in a page's structured data (JSON-LD), as plain text; "" when it has none. */
+function articleBodyOf(json: string): string {
+  let best = "";
+  const walk = (node: unknown) => {
+    if (Array.isArray(node)) node.forEach(walk);
+    else if (node && typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) {
+        if (key === "articleBody" && typeof value === "string") {
+          const text = load(`<div>${value}</div>`).text().replace(/\s+/g, " ").trim();
+          if (text.length > best.length) best = text;
+        } else walk(value);
+      }
+    }
+  };
+  try {
+    walk(JSON.parse(json));
+  } catch {
+    // Not JSON: nothing to read.
+  }
+  return best;
 }
 
 const SYSTEM = `You write short Bangla scripts for a news bulletin video, read aloud by a voice and shown as captions.
@@ -57,7 +87,7 @@ const SYSTEM = `You write short Bangla scripts for a news bulletin video, read a
 Rules:
 - Use only facts stated in the article given. Add nothing from your own knowledge: no background, no guesses, no opinion.
 - Write in standard Bangladeshi Bangla, in plain spoken news style.
-- "script": two sentences, at most 40 words in all. The first sentence carries the main fact. Write figures exactly as the article gives them.
+- "script": two short sentences, at most 30 words in all. The first sentence carries the main fact. Write figures exactly as the article gives them.
 - "short": the story in at most 8 words, for a list of headlines.
 - "visual": one graphic, the type that fits the article best:
   {"type":"number","label":"what the figure is, 2-4 words","value":1146,"unit":"e.g. কোটি ডলার","chips":["up to 2 short facts"]} when one figure is the story. "value" is a plain number in Latin digits.
@@ -174,7 +204,12 @@ export function unsupportedFigures(draft: { script: string; visual: BulletinVisu
 }
 
 async function readArticle(link: string, fetchImpl: typeof fetch): Promise<string> {
-  const res = await fetchImpl(link, { headers: { "User-Agent": "Mozilla/5.0 (compatible; Bartaboard/1.0; +https://bartaboard.com)", Accept: "text/html" }, signal: AbortSignal.timeout(15_000) });
+  // As the board's own fetch asks for pages (fetchers/http.ts): some outlets answer nothing else.
+  const res = await fetchImpl(link, {
+    headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml", "Accept-Language": "bn-BD,bn;q=0.9,en;q=0.8" },
+    redirect: "follow",
+    signal: AbortSignal.timeout(15_000),
+  });
   if (!res.ok) throw new Error(`the article answered ${res.status}`);
   return articleText(await res.text());
 }
@@ -197,18 +232,31 @@ async function ask(story: BulletinStory, article: string, { apiKey, model = SCRI
 }
 
 /**
- * The story with a script written from its article. Whatever goes wrong (the article can't be read, the API refuses,
- * the reply isn't usable, a figure isn't in the article), the story comes back as it was, with the reason.
+ * The story with a script written from its article: the credited outlet's, or, when that can't be read, the first of
+ * the other outlets' reports that can (that outlet is then credited, and the warnings say so). Whatever else goes
+ * wrong (the API refuses, the reply isn't usable, a figure isn't in the article), the story comes back as it was, with
+ * the reason.
  */
 export async function writeScript(story: BulletinStory, options: ScriptOptions): Promise<ScriptResult> {
   const keep = (why: string): ScriptResult => ({ story, written: false, warnings: [why] });
-  let article: string;
-  try {
-    article = await readArticle(story.link, options.fetchImpl ?? fetch);
-  } catch (e) {
-    return keep(`Couldn't read the article: ${(e as Error).message}.`);
+  const candidates = [{ link: story.link, source: story.source, sourceId: story.sourceId }, ...(story.reports ?? [])];
+  const unread: string[] = [];
+  let article = "";
+  let from = candidates[0];
+  for (const candidate of candidates) {
+    try {
+      const text = await readArticle(candidate.link, options.fetchImpl ?? fetch);
+      if (text.length >= MIN_ARTICLE_CHARS) {
+        article = text;
+        from = candidate;
+        break;
+      }
+      unread.push(`${candidate.source}: no article text on its page`);
+    } catch (e) {
+      unread.push(`${candidate.source}: ${(e as Error).message}`);
+    }
   }
-  if (article.length < MIN_ARTICLE_CHARS) return keep("The article's text couldn't be found on its page.");
+  if (!article) return keep(`No article could be read (${unread.join("; ")}).`);
   let reply: string;
   try {
     reply = await ask(story, article, options);
@@ -219,5 +267,21 @@ export async function writeScript(story: BulletinStory, options: ScriptOptions):
   if (!draft) return keep("The script writer's reply wasn't usable.");
   const made = unsupportedFigures(draft, article, story.headline);
   if (made.length) return keep(`The script had figures the article doesn't (${made.join(", ")}), so it was left out.`);
-  return { story: { ...story, ...draft }, written: true, warnings: [] };
+  const moved = from !== candidates[0];
+  return {
+    story: {
+      ...story,
+      ...draft,
+      ...(moved
+        ? {
+            link: from.link,
+            source: from.source,
+            sourceId: from.sourceId,
+            reports: candidates.filter((c) => c !== from),
+          }
+        : {}),
+    },
+    written: true,
+    warnings: moved ? [`Written from ${from.source}'s report and credited to it (${unread.join("; ")}).`] : [],
+  };
 }

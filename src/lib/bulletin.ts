@@ -13,6 +13,8 @@ export { BULLETIN_LEAD_MINUTES, BULLETIN_LOCK_MINUTES, BULLETIN_STORIES, BULLETI
 
 /** What the renderer takes (its headline list has room for six). */
 export const MAX_STORIES = 6;
+/** Other outlets' reports kept with a story, for when the credited article can't be read. */
+export const OTHER_REPORTS = 4;
 /** About 25 seconds of speech: longer and a story stops being a bulletin item. */
 export const MAX_SCRIPT_CHARS = 360;
 
@@ -44,6 +46,12 @@ export interface BulletinStory {
   sourceId: string;
   /** Other outlets carrying the story. */
   more: number;
+  /**
+   * A few of those outlets' own reports of it: when the credited article can't be read (a page that needs a browser,
+   * a site that turns scripts away), the script is written from the first of these that can, and that outlet is
+   * credited instead.
+   */
+  reports?: { link: string; source: string; sourceId: string }[];
   /** What the voice says. */
   script: string;
   visual: BulletinVisual;
@@ -168,9 +176,12 @@ const sentence = (text: string) => (/[।?!]$/.test(text.trim()) ? text.trim() :
  */
 export function draftStory({ story, item, outlets }: PostChoice): BulletinStory {
   const names: string[] = [];
+  const reports: NonNullable<BulletinStory["reports"]> = [];
   for (const it of [item, ...story.items]) {
     const name = sourceName(it.sourceId, it.sourceName, "bn");
-    if (!names.includes(name)) names.push(name);
+    if (names.includes(name)) continue;
+    names.push(name);
+    if (it.sourceId !== item.sourceId && reports.length < OTHER_REPORTS) reports.push({ link: it.link, source: name, sourceId: it.sourceId });
   }
   return {
     key: story.id,
@@ -183,6 +194,7 @@ export function draftStory({ story, item, outlets }: PostChoice): BulletinStory 
     more: Math.max(0, outlets - 1),
     script: sentence(item.title),
     visual: { type: "points", title: "যেসব সংবাদমাধ্যমে", items: names.slice(0, 3) },
+    ...(reports.length ? { reports } : {}),
   };
 }
 

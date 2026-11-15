@@ -73,7 +73,8 @@ async function main(): Promise<number> {
       const r = await writeScript(story, { apiKey: claude, model, workspaceId: env.ANTHROPIC_WORKSPACE_ID?.trim() || undefined });
       next.push(r.story);
       if (r.written) written++;
-      else say(`- Story ${i + 1} kept its headline draft. ${r.warnings.join(" ")}`);
+      if (!r.written) say(`- Story ${i + 1} kept its headline draft. ${r.warnings.join(" ")}`);
+      else if (r.warnings.length) say(`- Story ${i + 1}: ${r.warnings.join(" ")}`);
     }
     stories = next;
     say(`- Scripts: ${written} of ${stories.length} written by ${model}`);

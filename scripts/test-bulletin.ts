@@ -157,6 +157,9 @@ test("a story as the picker drafts it", () => {
   assert.equal(s.more, 2);
   assert.equal(s.sourceId, "prothomalo");
   assert.ok(s.source.length > 0);
+  // The other outlets' reports, for when the credited article can't be read.
+  assert.deepEqual(s.reports?.map((r) => r.sourceId), ["jugantor", "kalerkantho"]);
+  assert.equal(s.reports?.[0].link, "https://example.com/jugantor");
   assert.equal(s.visual.type, "points");
   if (s.visual.type === "points") {
     assert.equal(s.visual.items.length, 3);
@@ -324,12 +327,47 @@ async function scripts() {
     assert.equal(b.written, false);
     const c = await writeScript(story, { apiKey: "k", fetchImpl: services(GOOD, [], "<html><body><p>ছোট</p></body></html>") });
     assert.equal(c.written, false);
-    assert.match(c.warnings[0], /couldn't be found/);
+    assert.match(c.warnings[0], /No article could be read .*no article text on its page/);
     const refused = (async (input: RequestInfo | URL) =>
       String(input).startsWith("https://api.anthropic.com/") ? new Response(JSON.stringify({ error: { message: "credit balance is too low" } }), { status: 400 }) : new Response(ARTICLE)) as typeof fetch;
     const d = await writeScript(story, { apiKey: "k", fetchImpl: refused });
     assert.equal(d.written, false);
     assert.match(d.warnings[0], /400: credit balance is too low/);
+  });
+
+  await test("an article that can't be read: another outlet's report is used, and credited", async () => {
+    const seen: Parameters<typeof services>[1] = [];
+    const asked: string[] = [];
+    const base = services(GOOD, seen);
+    const picky = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!url.startsWith("https://api.anthropic.com/")) asked.push(url);
+      if (url === "https://example.com/prothomalo") return new Response("blocked", { status: 403 });
+      if (url === "https://example.com/jugantor") return new Response("<html><body><div id='app'></div></body></html>");
+      return base(input, init);
+    }) as typeof fetch;
+    const r = await writeScript(story, { apiKey: "k", fetchImpl: picky });
+    assert.equal(r.written, true);
+    assert.deepEqual(asked, ["https://example.com/prothomalo", "https://example.com/jugantor", "https://example.com/kalerkantho"]);
+    assert.equal(r.story.sourceId, "kalerkantho");
+    assert.equal(r.story.link, "https://example.com/kalerkantho");
+    assert.notEqual(r.story.source, story.source);
+    assert.equal(r.story.more, story.more);
+    assert.equal(r.story.script, GOOD.script);
+    assert.deepEqual(r.story.reports?.map((x) => x.sourceId), ["prothomalo", "jugantor"]);
+    assert.match(r.warnings[0], /credited to it .*403.*no article text/);
+    // The page asks for pages as the board's own fetch does.
+    const none = (async () => new Response("no", { status: 403 })) as typeof fetch;
+    const lost = await writeScript(story, { apiKey: "k", fetchImpl: none });
+    assert.equal(lost.written, false);
+    assert.equal(lost.story, story);
+  });
+
+  await test("a page drawn by a script: the article from its structured data", () => {
+    const body = "চলতি অর্থবছরের প্রথম চার মাসে দেশে ১ হাজার ১৪৬ কোটি ডলারের প্রবাসী আয় এসেছে বলে জানিয়েছে বাংলাদেশ ব্যাংক। ".repeat(3);
+    const page = `<html><head><script type="application/ld+json">${JSON.stringify({ "@graph": [{ "@type": "NewsArticle", articleBody: `<p>${body}</p>` }] })}</script></head><body><div id="root"></div></body></html>`;
+    assert.equal(articleText(page), body.trim());
+    assert.equal(articleText("<html><head><script type='application/ld+json'>{broken</script></head><body></body></html>"), "");
   });
 
   await test("each word's time from the voice's character times", () => {
