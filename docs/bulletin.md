@@ -2,7 +2,22 @@
 
 A bulletin is a 60–90 second vertical video (1080×1920) of four to six stories from the board: an opener, the list of headlines, one segment per story with its own graphic, an AI Bangla voice with word-by-word captions, and a closer. It has no presenter; the voice is labelled "AI কণ্ঠ" on screen. The plan and the decisions behind it are in the project doc `video-bulletin-plan.md`.
 
-Status: the **renderer** is built (this page). Choosing stories, drafting scripts, the voice step, the admin editor and publishing are not built yet.
+Status: the **renderer**, the bulletins **table**, the **settings** and the rules for times and specs are built (this page). Choosing stories in a run, drafting scripts with an AI model, the voice step, the admin editor and publishing are not built yet.
+
+## When bulletins go out
+
+- **The table:** three a day, 10:00, 16:00 and 21:00 Dhaka (`bulletinTimes` in the admin's settings replaces them).
+- **By hand:** a bulletin can also be made for any time, outside the table (`kind` manual). It takes no slot, so it never collides with the table's, and it is reviewed, rendered and posted the same way.
+- **Timeline:** the draft is made 60 minutes before its time (`bulletinLeadMinutes`); edits close 30 minutes before (`bulletinLockMinutes`, always at least ten minutes less than the lead), because the voice, the render and the preview need that long.
+- **Stories:** five a bulletin (`bulletinStories`, 3 to 6); the renderer takes up to six.
+
+These settings sit beside the Page's own lead (40 minutes) and lock (5 minutes), which they leave alone.
+
+## The table and the rules
+
+- `migrations/0005_bulletin.sql`: the `bulletins` table, one row a bulletin: draft → approved → rendering → ready → posting → posted, or rejected, skipped, failed, dry. One live bulletin per time of the table; none of that for ones made by hand. Apply with the ops workflow's `d1-migrate`.
+- `src/lib/bulletin.ts`: the times (`bulletinSlots`, `bulletinsToDraft`, `bulletinLockAt`), Bangla labels (`clockBn`, `dateLineBn`, `nextLineBn`), each section's colour, a story as the picker drafts it (`draftStory`: the headline as the script and the outlets carrying it as the graphic, both true without reading the article), what stops a bulletin (`bulletinProblems`) and the renderer's spec (`bulletinSpec`).
+- `npm run test:bulletin`: 13 checks of the above, the table included.
 
 ## Rendering one
 

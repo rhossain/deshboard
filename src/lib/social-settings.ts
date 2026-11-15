@@ -2,6 +2,7 @@
  * The admin's settings for the Page's queue, as stored in the settings table (social-store.ts readSettings) and
  * changed in the admin; whatever is missing or malformed falls back to the defaults below.
  */
+import { BULLETIN_LEAD_MINUTES, BULLETIN_LOCK_MINUTES, BULLETIN_STORIES } from "./bulletin-defaults";
 import type { Slot } from "./slot-table";
 import type { Policy } from "./social-store";
 
@@ -26,6 +27,14 @@ export interface QueueSettings {
    * (instagram-post.ts IG_DEFAULT_TIMES). Instagram uses the other settings (pause, policy, lead, lock) as they are.
    */
   instagramTimes: string[] | null;
+  /** Video bulletins' times of day ("HH:MM", Dhaka); null: bulletin.ts BULLETIN_TIMES (10:00, 16:00, 21:00). */
+  bulletinTimes: string[] | null;
+  /** How long before its time a bulletin's draft is made. Bulletins keep their own lead and lock: they need rendering. */
+  bulletinLeadMinutes: number;
+  /** Edits to a bulletin close this long before its time (the voice, the render and the preview take it); at least ten minutes less than the lead. */
+  bulletinLockMinutes: number;
+  /** Stories in a bulletin the picker makes (3 to 6). */
+  bulletinStories: number;
 }
 
 export const DEFAULT_SETTINGS: QueueSettings = {
@@ -36,6 +45,10 @@ export const DEFAULT_SETTINGS: QueueSettings = {
   slots: null,
   editLockMinutes: 5,
   instagramTimes: null,
+  bulletinTimes: null,
+  bulletinLeadMinutes: BULLETIN_LEAD_MINUTES,
+  bulletinLockMinutes: BULLETIN_LOCK_MINUTES,
+  bulletinStories: BULLETIN_STORIES,
 };
 
 const POLICIES: Policy[] = ["manual", "auto_unless_rejected", "auto"];
@@ -52,6 +65,17 @@ export function queueSettings(raw: Record<string, unknown>): QueueSettings {
   const times = Array.isArray(raw.instagramTimes)
     ? [...new Set((raw.instagramTimes as unknown[]).filter((t): t is string => typeof t === "string" && TIME.test(t)))].sort()
     : [];
+  const bulletinTimes = Array.isArray(raw.bulletinTimes)
+    ? [...new Set((raw.bulletinTimes as unknown[]).filter((t): t is string => typeof t === "string" && TIME.test(t)))].sort()
+    : [];
+  const bLead = Number(raw.bulletinLeadMinutes);
+  const bulletinLead = Number.isFinite(bLead) && bLead >= 30 && bLead <= 360 ? bLead : DEFAULT_SETTINGS.bulletinLeadMinutes;
+  const bLock = Number(raw.bulletinLockMinutes);
+  const bulletinLock =
+    Number.isInteger(bLock) && bLock >= 10 && bLock <= 60 && bLock <= bulletinLead - 10
+      ? bLock
+      : Math.min(DEFAULT_SETTINGS.bulletinLockMinutes, bulletinLead - 10);
+  const bStories = Number(raw.bulletinStories);
   return {
     paused: raw.paused === true,
     slotPolicy: policy(raw.slotPolicy, DEFAULT_SETTINGS.slotPolicy),
@@ -60,6 +84,10 @@ export function queueSettings(raw: Record<string, unknown>): QueueSettings {
     slots: slots.length ? slots : null,
     editLockMinutes: raw.editLockMinutes !== undefined && Number.isInteger(lock) && lock >= 0 && lock <= 30 ? lock : DEFAULT_SETTINGS.editLockMinutes,
     instagramTimes: times.length ? times.slice(0, 12) : null,
+    bulletinTimes: bulletinTimes.length ? bulletinTimes.slice(0, 8) : null,
+    bulletinLeadMinutes: bulletinLead,
+    bulletinLockMinutes: bulletinLock,
+    bulletinStories: Number.isInteger(bStories) && bStories >= 3 && bStories <= 6 ? bStories : DEFAULT_SETTINGS.bulletinStories,
   };
 }
 

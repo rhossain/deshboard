@@ -16,7 +16,8 @@
     "post:instagram": "tsx scripts/post-instagram.ts",
     "package": "bash scripts/package.sh",
     "test:social": "tsx scripts/test-social-store.ts",
-    "bulletin:render": "node scripts/render-bulletin.mjs"
+    "bulletin:render": "node scripts/render-bulletin.mjs",
+    "test:bulletin": "tsx scripts/test-bulletin.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",
