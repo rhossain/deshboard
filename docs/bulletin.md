@@ -2,7 +2,7 @@
 
 A bulletin is a 60–90 second vertical video (1080×1920) of four to six stories from the board: an opener, the list of headlines, one segment per story with its own graphic, an AI Bangla voice with word-by-word captions, and a closer. It has no presenter; the voice is labelled "AI কণ্ঠ" on screen. The plan and the decisions behind it are in the project doc `video-bulletin-plan.md`.
 
-Status: the **renderer**, the bulletins **table**, the **settings** and the rules for times and specs are built (this page). Choosing stories in a run, drafting scripts with an AI model, the voice step, the admin editor and publishing are not built yet.
+Status: the **renderer**, the bulletins **table** and **store**, the **settings**, the **script writer** and the **voice** call are built (this page). The run that ties them together (pick, write, voice, render, preview, post), the admin editor and publishing are not built yet.
 
 ## When bulletins go out
 
@@ -17,7 +17,15 @@ These settings sit beside the Page's own lead (40 minutes) and lock (5 minutes),
 
 - `migrations/0005_bulletin.sql`: the `bulletins` table, one row a bulletin: draft → approved → rendering → ready → posting → posted, or rejected, skipped, failed, dry. One live bulletin per time of the table; none of that for ones made by hand. Apply with the ops workflow's `d1-migrate`.
 - `src/lib/bulletin.ts`: the times (`bulletinSlots`, `bulletinsToDraft`, `bulletinLockAt`), Bangla labels (`clockBn`, `dateLineBn`, `nextLineBn`), each section's colour, a story as the picker drafts it (`draftStory`: the headline as the script and the outlets carrying it as the graphic, both true without reading the article), what stops a bulletin (`bulletinProblems`) and the renderer's spec (`bulletinSpec`).
-- `npm run test:bulletin`: 13 checks of the above, the table included.
+- `src/lib/bulletin-store.ts`: the rows and what a person does to one: `createBulletin` (by hand, for now or any time ahead), `editBulletin` (stories, scripts, caption, time; closed at the lock for the table's, open for one made by hand; an approved one whose script changes goes back to draft), `approveBulletin`, `rejectBulletin`, `skipBulletin`, `reopenBulletin`. Every change is made against the version read and written to the audit log.
+- `npm run test:bulletin`: 26 checks of all of this, on the real schema.
+
+## Scripts and voice
+
+- `src/lib/bulletin-script.ts`: `writeScript` reads the story's article and asks Claude (the Claude API, `ANTHROPIC_API_KEY`; model `claude-sonnet-5-5` unless told otherwise) for the script, the short line and the graphic, from the article alone. The reply must be the JSON asked for, lengths are capped, and every figure in the script and the graphic must be in the article or the headline ("১ হাজার ১৪৬" and "১,১৪৬" count as the same number). Anything wrong, and the story keeps its headline draft and says why. A person approves every script before it is voiced.
+- `src/lib/elevenlabs.ts`: `findVoice` and `speak` (ElevenLabs, `ELEVENLABS_API_KEY`; voice "Subhajit", model `eleven_v4`): the clip and each word's time, which the renderer takes as a story's `words`.
+
+Neither has been run against the real services yet: the keys live in GitHub's secrets, so the first real run is in Actions.
 
 ## Rendering one
 
@@ -54,6 +62,7 @@ Each story:
 | `source`, `more` | The outlet credited, and how many other outlets carry the story |
 | `script` | What the voice says. Captions are this text, four words at a time |
 | `audio` | The voice clip, a path relative to the spec. Without it the story is silent and its timing estimated |
+| `words` | Each word's start and end in the clip, in seconds (`[[0, 0.31], …]`), from the voice service. Without it, or when it doesn't have one pair per word of `script`, the timing is estimated |
 | `visual` | The graphic, one of the four below |
 
 Graphics:

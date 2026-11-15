@@ -141,8 +141,11 @@ for (const story of spec.stories) {
   story.visual ??= { type: "points", items: [] };
   const file = story.audio ? path.resolve(specDir, story.audio) : null;
   if (file && !fs.existsSync(file)) throw new Error(`voice clip not found: ${file}`);
-  const { wt, speech } = timings(story.script, file ? probe(file) : null);
-  story.wt = wt;
+  const clip = file ? probe(file) : null;
+  const { wt, speech } = timings(story.script, clip);
+  // The voice's own word times (story.words, seconds from the clip's start), when it gave one for every word.
+  const own = Array.isArray(story.words) && story.words.length === story.script.trim().split(/\s+/).length;
+  story.wt = own ? round(story.words.map(([a, b]) => [VOICE_AT + a, VOICE_AT + b])) : wt;
   story.dur = Math.round(Math.max(MIN_STORY, VOICE_AT + speech + VOICE_TAIL) * FPS) / FPS;
   voices.push(file);
 }
