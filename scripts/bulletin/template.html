@@ -47,7 +47,7 @@ body{font-family:NSB,sans-serif;font-weight:500;color:#ebe8e2;position:relative}
 .ai{display:flex;align-items:center;gap:14px;font-size:26px;color:#999da4;font-weight:700;letter-spacing:1px}
 .eq{display:flex;gap:5px;align-items:flex-end;height:30px}
 .eq u{display:block;width:7px;border-radius:3px;height:30px;transform-origin:bottom}
-.cap{margin-top:18px;font-size:54px;line-height:86px;font-weight:700;color:#6f737a;white-space:nowrap}
+.cap{margin-top:18px;font-size:54px;line-height:86px;height:86px;font-weight:700;color:#6f737a;white-space:nowrap;overflow:hidden}
 .cap span{padding:2px 12px;margin-left:-12px;border-radius:14px}
 .cap span.done{color:#fff}
 .cap span.now{color:#0b0d0f}
@@ -114,6 +114,9 @@ const rise=(el,k,dy=40)=>st(el,k,`translateY(${(1-k)*dy}px)`);
 const root=$('#scenes');
 function mk(html){const d=document.createElement('div');d.className='scene';d.innerHTML=html;root.appendChild(d);return d}
 function width(text,px){const m=$('#measure');m.style.fontSize=px+'px';m.textContent=text;return m.getBoundingClientRect().width}
+// A caption line's width at full size: its words, the spaces between, and each word's highlight padding.
+const CAP_PX=54,CAP_MAX=872;
+function capWidth(ws){return width(ws.join(' '),CAP_PX)+ws.length*14}
 // Breaks a headline into at most three lines that fit the column, shrinking the type when it has to.
 function wrap(text){
  for(const px of [66,60,54,48]){
@@ -182,15 +185,21 @@ function build(){
  run=mk(`<div class="rtitle">এই বুলেটিনে</div><div class="rsub">${bn(n)}টি খবর · এক মিনিটে</div>`+
   STORIES.map((s,i)=>`<div class="row" style="top:${470+i*step}px;height:${rh}px"><div class="bar" style="background:${s.color}"></div><div class="n" style="background:${s.color};top:${(rh-100)/2}px">${bn(i+1)}</div><div class="s" style="color:${s.color};top:${rh/2-78}px">${esc(s.section)}</div><div class="h" style="top:${rh/2-32}px">${esc(s.short||s.headline)}</div></div>`).join(''));
  storyEls=STORIES.map((s,i)=>{
-  const words=s.script.split(/\s+/);const chunks=[];for(let k=0;k<words.length;k+=4)chunks.push(words.slice(k,k+4));
-  if(chunks.length>1&&chunks[chunks.length-1].length<2){const l=chunks.pop();chunks[chunks.length-1].push(...l)}
+  // Captions: up to four words at a time, and never more than fit on the line. The line's size is settled here,
+  // once per group of words, so it cannot change from frame to frame while the group is on screen.
+  const words=s.script.split(/\s+/);const chunks=[];let cur=[];
+  for(const w of words){if(cur.length&&(cur.length>=4||capWidth([...cur,w])>CAP_MAX)){chunks.push(cur);cur=[]}cur.push(w)}
+  if(cur.length)chunks.push(cur);
+  if(chunks.length>1&&chunks[chunks.length-1].length<2){const l=chunks[chunks.length-1],b=chunks[chunks.length-2];
+   if(b.length<4&&capWidth([...b,...l])<=CAP_MAX){chunks.pop();b.push(...l)}}
+  const sizes=chunks.map(c=>{const w=capWidth(c);return w>CAP_MAX?Math.floor(CAP_PX*CAP_MAX/w):CAP_PX});
   const w=wrap(s.headline),lh=Math.round(w.px*1.4);
   const el=mk(`<div class="meta"><div class="num" style="color:${s.color}">${bn(String(i+1).padStart(2,'0'))}<small> / ${bn(String(n).padStart(2,'0'))}</small></div><div class="pill" style="background:${s.color}">${esc(s.section)}</div></div>
    <div class="card">${visual(s.visual,s.color)}</div>
    <div class="hl" style="font-size:${w.px}px;line-height:${lh}px">${w.lines.map(l=>`<div style="height:${lh}px"><span>${esc(l)}</span></div>`).join('')}</div>
    <div class="src" style="top:${1016+w.lines.length*lh+26}px"><i style="background:${s.color}"></i>সূত্র: <b>${esc(s.source)}</b>${s.more>0?` · আরও ${bn(s.more)}টি সংবাদমাধ্যমে`:''}</div>
    <div class="capwrap"><div class="ai"><div class="eq">${('<u style="background:'+s.color+'"></u>').repeat(5)}</div>AI কণ্ঠ</div><div class="cap"></div></div>`);
-  return {el,s,words,chunks};
+  return {el,s,words,chunks,sizes};
  });
  close=mk(`
   <img id="c_mark" class="abs" src="__BRAND__/bartaboard-mark.svg" style="left:420px;top:470px;width:240px">
@@ -207,7 +216,7 @@ function setCap(o,t){
  let ci=0,base=0;const wj=Math.min(wi,o.words.length-1);
  for(let c=0;c<o.chunks.length;c++){if(wj<base+o.chunks[c].length){ci=c;break}base+=o.chunks[c].length}
  cap.innerHTML=o.chunks[ci].map((w,j)=>{const g=base+j;return `<span class="${g<wi?'done':g===wi?'now':''}" ${g===wi?`style="background:${o.s.color}"`:''}>${esc(w)}</span>`}).join(' ');
- const over=cap.scrollWidth/888;cap.style.fontSize=over>1?Math.floor(54/over)+'px':'54px';
+ cap.style.fontSize=o.sizes[ci]+'px';
 }
 window.render=function(T){
  $('#grid').style.transform=`translate(${-(T*14)%120}px,${-(T*9)%120}px)`;
