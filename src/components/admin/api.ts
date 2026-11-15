@@ -1,4 +1,6 @@
 /** The admin page's calls to /api/admin (functions/api/admin), and the shapes they answer with. */
+import type { BulletinStory } from "@/lib/bulletin";
+import type { Bulletin } from "@/lib/bulletin-store";
 import type { Block, Card, NewSavedItem, Platform, Policy, SavedItem, SocialPost } from "@/lib/social-store";
 import type { QueueSettings } from "@/lib/social-settings";
 import type { Slot } from "@/lib/slot-table";
@@ -25,6 +27,15 @@ export interface QueueData {
   blocks: Block[];
   runs: Run[];
   posts: SocialPost[];
+}
+
+/** The Bulletins tab's data (functions/api/admin/bulletins). */
+export interface BulletinsData {
+  now: string;
+  /** Whether bulletins are posted (else made and previewed only). */
+  live: boolean;
+  settings: QueueSettings;
+  bulletins: Bulletin[];
 }
 
 export interface Health {
@@ -90,6 +101,13 @@ export const api = {
   /** Saves one from the board (or refreshes the one saved before under its key). */
   save: (item: NewSavedItem) => call<{ item: SavedItem; created: boolean }>("/saved", { method: "POST", json: item }),
   unsave: (id: string) => call<{ ok: boolean }>(`/saved/${id}`, { method: "DELETE" }),
+  /** Video bulletins (docs/bulletin.md): the last day's and the coming two days'. */
+  bulletins: () => call<BulletinsData>("/bulletins"),
+  /** One made by hand: for `at`, or for as soon as it is approved; `write` has the run write its scripts first. */
+  createBulletin: (p: { stories: BulletinStory[]; at?: string; write?: boolean }) => call<Bulletin>("/bulletins", { method: "POST", json: p }),
+  editBulletin: (b: Bulletin, e: { stories?: BulletinStory[]; caption?: string; at?: string }) =>
+    call<Bulletin>(`/bulletins/${b.id}`, { method: "PATCH", json: { version: b.version, ...e } }),
+  bulletinAction: (b: Bulletin, action: string) => call<Bulletin>(`/bulletins/${b.id}/${action}`, { method: "POST", json: { version: b.version } }),
 };
 
 const DHAKA = "Asia/Dhaka";

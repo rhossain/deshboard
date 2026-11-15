@@ -21,6 +21,7 @@ import {
   nextLineBn,
   SECTION_COLORS,
 } from "../src/lib/bulletin";
+import { guard, storiesOf } from "../src/lib/bulletin-admin";
 import { BULLETIN_FRESH_MS, pickBulletin } from "../src/lib/bulletin-pick";
 import { bulletinStep, MANUAL_STALE_MS, RENDER_LIMIT_MS } from "../src/lib/bulletin-queue";
 import { articleText, figures, parseDraft, scaled, SCRIPT_WORDS, spelled, unsupportedFigures, visualOf, writeScript } from "../src/lib/bulletin-script";
@@ -43,6 +44,7 @@ import {
 } from "../src/lib/bulletin-store";
 import { findVoice, speak, wordTimes } from "../src/lib/elevenlabs";
 import type { PostChoice } from "../src/lib/page-posts";
+import { ActionError } from "../src/lib/social-actions";
 import { bulletinButtons, bulletinReviewText } from "../src/lib/telegram-bulletin";
 import type { Story } from "../src/lib/stories";
 import type { Db, SqlValue } from "../src/lib/social-db";
@@ -603,6 +605,43 @@ async function table() {
     assert.match(bulletinReviewText({ ...skipped, decidedBy: "auto" }, o), /nobody approved it in time/);
     assert.match(bulletinReviewText({ ...skipped, status: "dry" }, o), /nothing was posted/);
     assert.match(bulletinReviewText({ ...made, kind: "manual", slot: null }, o), /by hand · trial\n📝 Draft, made by hand/);
+  });
+
+  await test("what the admin page sends becomes stories nothing else needs to doubt", async () => {
+    const good = stories[0];
+    const sent = { ...good, script: `  ${good.script}  `, audio: "/etc/passwd", words: [[0, 1]], section: "nonsense", more: 500, extra: true };
+    const [s] = storiesOf([sent]);
+    assert.equal(s.script, good.script);
+    assert.equal(s.section, "other");
+    assert.equal(s.more, 99);
+    assert.equal("audio" in s, false);
+    assert.equal("words" in s, false);
+    assert.equal("extra" in s, false);
+    assert.deepEqual(s.visual, good.visual);
+    assert.deepEqual(s.reports, good.reports);
+    assert.throws(() => storiesOf("x"), ActionError);
+    assert.throws(() => storiesOf([{ ...good, visual: { type: "chart" } }]), /graphic/);
+    assert.throws(() => storiesOf([{ ...good, link: "javascript:alert(1)" }]), /link/);
+    assert.throws(() => storiesOf(Array.from({ length: 7 }, () => good)), /6 stories/);
+    // A bulletin's own refusals become the API's answers.
+    await assert.rejects(guard(() => createBulletin(db, { stories: [] }, "panel:test", now)), (e: unknown) => e instanceof ActionError && e.status === 400);
+    const b = await createBulletin(db, { stories }, "panel:test", now);
+    await approveBulletin(db, b.id, b.version, "panel:test");
+    await assert.rejects(guard(() => approveBulletin(db, b.id, b.version, "panel:test")), (e: unknown) => e instanceof ActionError && e.status === 409);
+  });
+
+  await test("a bulletin made by hand whose scripts the run writes: not approvable until they are in", async () => {
+    const b = await createBulletin(db, { stories, write: true }, "panel:test", now);
+    assert.equal(b.locked, false);
+    assert.equal(b.edited, false);
+    await assert.rejects(approveBulletin(db, b.id, b.version, "panel:test"), /still being written/);
+    // The run writes them and locks it.
+    const written = await updateBulletin(db, b.id, b.version, { stories: [{ ...stories[0], script: "লেখা স্ক্রিপ্ট।" }], locked: true }, "run", "bulletin.scripts");
+    assert.equal(written.status, "draft");
+    const approved = await approveBulletin(db, b.id, written.version, "panel:test");
+    assert.equal(approved.status, "approved");
+    assert.equal(approved.stories[0].script, "লেখা স্ক্রিপ্ট।");
+    assert.equal(bulletinStep(approved, 30, now + 60_000), "make");
   });
 
   await test("the run's steps: rendering, ready, posted", async () => {

@@ -214,9 +214,15 @@ function checkStories(stories: BulletinStory[]) {
 
 /**
  * A bulletin made by hand, for any time: now (`at` omitted: it is rendered and goes out as soon as it is approved) or
- * a time ahead. It holds no slot of the table, so it never collides with the table's own.
+ * a time ahead. It holds no slot of the table, so it never collides with the table's own. With `write`, its scripts
+ * start as the headlines and the next run writes them from the articles before it can be approved.
  */
-export async function createBulletin(db: Db, input: { stories: BulletinStory[]; at?: string; caption?: string; note?: string }, actor: string, now = Date.now()): Promise<Bulletin> {
+export async function createBulletin(
+  db: Db,
+  input: { stories: BulletinStory[]; at?: string; caption?: string; note?: string; /** The run writes the scripts from the articles first. */ write?: boolean },
+  actor: string,
+  now = Date.now(),
+): Promise<Bulletin> {
   checkStories(input.stories);
   const at = input.at ? Date.parse(input.at) : now;
   if (Number.isNaN(at)) throw new BulletinError("That time isn't a date.");
@@ -228,8 +234,9 @@ export async function createBulletin(db: Db, input: { stories: BulletinStory[]; 
     stories: input.stories,
     caption: input.caption ?? "",
     note: input.note ?? null,
-    locked: true,
-    edited: true,
+    // Not locked while its scripts are still the run's to write (scripts/run-bulletins.ts); the run locks it after.
+    locked: !input.write,
+    edited: !input.write,
     createdBy: actor,
   });
   if (!bulletin) throw new BulletinError("The bulletin could not be saved.");
@@ -285,6 +292,7 @@ async function decide(db: Db, id: string, version: number, status: BulletinStatu
 export async function approveBulletin(db: Db, id: string, version: number, actor: string): Promise<Bulletin> {
   const current = await getBulletin(db, id);
   if (!current || current.version !== version) throw new StaleBulletin(id, current);
+  if (current.kind === "manual" && !current.locked) throw new BulletinError("Its scripts are still being written; they arrive with the next run.");
   checkStories(current.stories);
   return decide(db, id, version, "approved", actor, "bulletin.approve");
 }

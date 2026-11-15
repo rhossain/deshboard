@@ -78,6 +78,7 @@ async function plan(db: Db): Promise<void> {
   const recent = await listBulletins(db, { from: new Date(now - 20 * 3600_000).toISOString(), to: new Date(now + 26 * 3600_000).toISOString(), limit: 200 });
 
   // 1. Drafts for the table's bulletins that are an hour off.
+  // (2. scripts for bulletins made by hand; 3. what is due.)
   for (const at of bulletinsToDraft(now, times, settings.bulletinLeadMinutes)) {
     const slot = new Date(at).toISOString();
     if (await bulletinForSlot(db, slot)) continue;
@@ -110,8 +111,35 @@ async function plan(db: Db): Promise<void> {
     say(`- ${clockBn(at)}: drafted with ${stories.length} stories${notes.length ? ` (${notes.length} notes)` : ""}`);
   }
 
-  // 2. What is due among those waiting.
-  const waiting = await listBulletins(db, { statuses: ["draft", "approved", "rendering"], from: new Date(now - 24 * 3600_000).toISOString(), limit: 50 });
+  // 2. Bulletins made by hand in the admin that asked for their scripts to be written.
+  const span = { statuses: ["draft", "approved", "rendering"] as Bulletin["status"][], from: new Date(now - 24 * 3600_000).toISOString(), limit: 50 };
+  for (const b of await listBulletins(db, span)) {
+    if (b.kind !== "manual" || b.status !== "draft" || b.locked) continue;
+    const notes: string[] = [];
+    const key = env.ANTHROPIC_API_KEY?.trim();
+    let stories = b.stories;
+    if (!key) notes.push("No script writer (ANTHROPIC_API_KEY): the scripts are the headlines.");
+    else {
+      const written: BulletinStory[] = [];
+      for (const [i, story] of stories.entries()) {
+        const r = await writeScript(story, { apiKey: key, model: env.BULLETIN_MODEL?.trim() || SCRIPT_MODEL, workspaceId: env.ANTHROPIC_WORKSPACE_ID?.trim() || undefined });
+        written.push(r.story);
+        if (!r.written) notes.push(`Story ${i + 1} is its headline only. ${r.warnings.join(" ")}`);
+        else if (r.warnings.length) notes.push(`Story ${i + 1}: ${r.warnings.join(" ")}`);
+      }
+      stories = written;
+    }
+    try {
+      const ready = await updateBulletin(db, b.id, b.version, { stories, locked: true, note: notes.join(" ") || null }, "run", "bulletin.scripts");
+      await syncBulletinTelegram(db, ready, tg, review);
+      say(`- by hand, ${clockBn(Date.parse(b.scheduledAt))}: scripts written${notes.length ? ` (${notes.length} notes)` : ""}`);
+    } catch (e) {
+      say(`- ${b.id}: ${(e as Error).message}`);
+    }
+  }
+
+  // 3. What is due among those waiting.
+  const waiting = await listBulletins(db, span);
   for (const b of waiting) {
     const step = bulletinStep(b, settings.bulletinLockMinutes, now);
     if (step === "wait") continue;

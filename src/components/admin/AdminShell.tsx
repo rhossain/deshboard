@@ -6,12 +6,13 @@ import { markAdminSeen } from "../admin-session";
 import { BartaboardLogo } from "../BartaboardLogo";
 import { ArrowUpRightIcon, BookmarkIcon, ClockIcon, ListIcon, SlidersIcon } from "../ui";
 import { api, PLATFORM_LABEL, type Platform, type QueueData, type SocialPost } from "./api";
+import { BulletinsView } from "./BulletinsView";
 import type { Pick } from "./ItemPicker";
 import { HealthView, HistoryView, SettingsView } from "./OtherViews";
 import { QueueView } from "./QueueView";
 import { SavedView } from "./SavedView";
 
-type Tab = "queue" | "saved" | "history" | "settings" | "health";
+type Tab = "queue" | "bulletins" | "saved" | "history" | "settings" | "health";
 
 const PulseIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
@@ -19,8 +20,16 @@ const PulseIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   </svg>
 );
 
+const FilmIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <rect x="3.5" y="5" width="17" height="14" rx="3" />
+    <path d="M10 9.2v5.6l4.6-2.8z" />
+  </svg>
+);
+
 const TABS: { id: Tab; label: string; icon: (p: { className?: string }) => ReactNode; blurb: string }[] = [
   { id: "queue", label: "Queue", icon: ListIcon, blurb: "Today's and tomorrow's posts: review, edit, add." },
+  { id: "bulletins", label: "Bulletins", icon: FilmIcon, blurb: "Video bulletins: scripts to edit and approve, and new ones for any time." },
   { id: "saved", label: "Saved", icon: BookmarkIcon, blurb: "Headlines and videos you saved on the board, for a post." },
   { id: "history", label: "History", icon: ClockIcon, blurb: "What went out, and what didn't." },
   { id: "settings", label: "Settings", icon: SlidersIcon, blurb: "Policies, times and what's left out." },
@@ -237,6 +246,7 @@ export function AdminShell() {
           ) : (
             <p className="text-sm text-muted">Loading the queue…</p>
           ))}
+        {tab === "bulletins" && <BulletinsView onError={onError} onNotice={setNotice} />}
         {tab === "saved" && <SavedView onStartPost={startPost} onError={onError} />}
         {tab === "history" && <HistoryView onError={onError} />}
         {tab === "settings" &&

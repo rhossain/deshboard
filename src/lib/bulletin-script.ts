@@ -8,7 +8,9 @@
  * and says why (`warnings`).
  */
 import { load } from "cheerio";
-import { type BulletinStory, type BulletinVisual, MAX_SCRIPT_CHARS } from "./bulletin";
+import { type BulletinStory, type BulletinVisual, MAX_SCRIPT_CHARS, visualOf } from "./bulletin";
+
+export { visualOf };
 import { USER_AGENT } from "./fetchers/http";
 
 export const SCRIPT_MODEL = "claude-sonnet-5-5";
@@ -102,45 +104,6 @@ const userMessage = (story: BulletinStory, article: string) =>
   `Headline: ${story.headline}\nOutlet: ${story.source}\n\nArticle:\n${article}`;
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
-const list = (v: unknown, n: number, max: number) => (Array.isArray(v) ? v.map((x) => str(x, max)).filter(Boolean).slice(0, n) : []);
-
-/** The graphic as the renderer takes it, or null when the reply's isn't one. */
-export function visualOf(v: unknown): BulletinVisual | null {
-  if (!v || typeof v !== "object") return null;
-  const o = v as Record<string, unknown>;
-  if (o.type === "number") {
-    const value = typeof o.value === "number" && Number.isFinite(o.value) ? o.value : str(o.value, 14);
-    const label = str(o.label, 40);
-    return value !== "" && label ? { type: "number", label, value, unit: str(o.unit, 24), chips: list(o.chips, 2, 26) } : null;
-  }
-  if (o.type === "quote") {
-    const text = str(o.text, 110);
-    const by = str(o.by, 40);
-    return text && by ? { type: "quote", text, by, chips: list(o.chips, 2, 26) } : null;
-  }
-  if (o.type === "versus") {
-    const side = (s: unknown) => {
-      const x = (s ?? {}) as Record<string, unknown>;
-      const name = str(x.name, 22);
-      const code = str(x.code, 3).toUpperCase();
-      return name && /^[A-Z]{2,3}$/.test(code) ? { name, code } : null;
-    };
-    const a = side(o.a);
-    const b = side(o.b);
-    const facts = Array.isArray(o.facts)
-      ? o.facts
-          .map((f) => ({ k: str((f as Record<string, unknown>)?.k, 14), v: str((f as Record<string, unknown>)?.v, 16) }))
-          .filter((f) => f.k && f.v)
-          .slice(0, 3)
-      : [];
-    return a && b ? { type: "versus", title: str(o.title, 44), a, b, facts } : null;
-  }
-  if (o.type === "points") {
-    const items = list(o.items, 3, 44);
-    return items.length >= 2 ? { type: "points", title: str(o.title, 28) || undefined, items } : null;
-  }
-  return null;
-}
 
 /** The reply as { script, short, visual }, or null when it isn't the JSON asked for. */
 export function parseDraft(reply: string): { script: string; short: string; visual: BulletinVisual } | null {

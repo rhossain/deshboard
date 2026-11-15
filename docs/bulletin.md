@@ -2,7 +2,7 @@
 
 A bulletin is a 60–90 second vertical video (1080×1920) of four to six stories from the board: an opener, the list of headlines, one segment per story with its own graphic, an AI Bangla voice with word-by-word captions, and a closer. It has no presenter; the voice is labelled "AI কণ্ঠ" on screen. The plan and the decisions behind it are in the project doc `video-bulletin-plan.md`.
 
-Status: the **renderer**, the bulletins **table** and **store**, the **settings**, the **picker**, the **script writer**, the **voice** call and a **try run** that chains them and sends the video to Telegram and the **queue** (drafts an hour ahead, review on Telegram, the video made at the lock and sent as a preview) are built (this page). Posting to the Page and the admin's screens are not built yet.
+Status: the **renderer**, the bulletins **table** and **store**, the **settings**, the **picker**, the **script writer**, the **voice** call and a **try run** that chains them and sends the video to Telegram and the **queue** (drafts an hour ahead, review on Telegram, the video made at the lock and sent as a preview) are built (this page). The admin's **Bulletins tab** is built too. Posting to the Page is not built yet.
 
 ## When bulletins go out
 
@@ -18,7 +18,7 @@ These settings sit beside the Page's own lead (40 minutes) and lock (5 minutes),
 - `migrations/0005_bulletin.sql`: the `bulletins` table, one row a bulletin: draft → approved → rendering → ready → posting → posted, or rejected, skipped, failed, dry. One live bulletin per time of the table; none of that for ones made by hand. Apply with the ops workflow's `d1-migrate`.
 - `src/lib/bulletin.ts`: the times (`bulletinSlots`, `bulletinsToDraft`, `bulletinLockAt`), Bangla labels (`clockBn`, `dateLineBn`, `nextLineBn`), each section's colour, a story as the picker drafts it (`draftStory`: the headline as the script and the outlets carrying it as the graphic, both true without reading the article), what stops a bulletin (`bulletinProblems`) and the renderer's spec (`bulletinSpec`).
 - `src/lib/bulletin-store.ts`: the rows and what a person does to one: `createBulletin` (by hand, for now or any time ahead), `editBulletin` (stories, scripts, caption, time; closed at the lock for the table's, open for one made by hand; an approved one whose script changes goes back to draft), `approveBulletin`, `rejectBulletin`, `skipBulletin`, `reopenBulletin`. Every change is made against the version read and written to the audit log.
-- `npm run test:bulletin`: 33 checks of all of this, on the real schema.
+- `npm run test:bulletin`: 35 checks of all of this, on the real schema.
 
 ## Scripts and voice
 
@@ -41,6 +41,18 @@ Neither can be run from the laptop: the keys live in GitHub's secrets, so real r
 `src/lib/bulletin-queue.ts` holds the rule for what a run does with a bulletin at a given moment (`bulletinStep`).
 
 To switch it on: push `static-export`; copy `deploy.yml`, `ops.yml` and `bulletins.yml` to `main` (the timer starts the deploy there, and the deploy starts Bulletins there); run the ops task `d1-migrate` (migration 0005); set the variable `BULLETINS` to `dry`.
+
+## In the admin
+
+The **Bulletins** tab (`src/components/admin/BulletinsView.tsx`, `/admin/#bulletins`) lists the last day's bulletins and the coming two days'.
+
+- **A draft**: every story's script, its line in the headline list and its graphic's text can be changed; stories can be reordered or removed. Save, then Approve (or Reject, Skip). An approved bulletin whose stories change goes back to draft. Scheduled ones close at the lock; the card says when.
+- **New bulletin**: the board's most covered fresh stories, picked in the browser as the run picks them; tick up to six, choose "as soon as it is approved" or a time, and whether the scripts are written from the articles (by the next run, within 15 minutes) or start as the headlines for you to write. It holds no slot of the table.
+- **Times and timing**: the day's times, the draft lead, the lock and the number of stories.
+
+The API is `functions/api/admin/bulletins` (list and create; one bulletin: read and edit; `:action`: approve, reject, skip, reopen), behind the same door as the rest. `src/lib/bulletin-admin.ts` makes what the browser sends into stories the store can trust (texts capped, the graphic one the renderer draws, no voice clips or word times) and keeps the Telegram message in step.
+
+A bulletin made for "now" still waits for the timed runs: its scripts with the next one, its video with the one after it is approved, so up to about half an hour in all.
 
 ## Trying the whole chain
 
