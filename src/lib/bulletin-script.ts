@@ -165,6 +165,17 @@ export function figures(text: string): string[] {
   return (latin(text).match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, "").replace(/\.0+$/, "")).filter((n) => n.length > 0);
 }
 
+/** Small numbers as Bangla writes them out. নয় is left out on its own: it is far more often "not" than nine. */
+const NUMBER_WORDS: Record<string, number> = { এক: 1, দুই: 2, দু: 2, তিন: 3, চার: 4, পাঁচ: 5, ছয়: 6, সাত: 7, আট: 8, নয়: 9, দশ: 10 };
+const COUNTED = /(?<![\u0980-\u09FF])(এক|দুই|দু|তিন|চার|পাঁচ|ছয়|সাত|আট|নয়|দশ)(টি|টা|জন|জনের|জনকে)?(?![\u0980-\u09FF])/g;
+
+/** The numbers a text writes as words ("দুটি রিং" → "2"), so a script that says "২টি" is not taken for an invention. */
+export function spelled(text: string): string[] {
+  const found = new Set<string>();
+  for (const m of text.matchAll(COUNTED)) if (m[1] !== "নয়" || m[2]) found.add(String(NUMBER_WORDS[m[1]]));
+  return [...found];
+}
+
 const SCALES: Record<string, number> = { হাজার: 1e3, লাখ: 1e5, লক্ষ: 1e5 };
 const SCALED = /(\d+(?:\.\d+)?)\s*(হাজার|লাখ|লক্ষ)(?:\s+(\d+)(?![\d.]|\s*(?:হাজার|লাখ|লক্ষ)))?/g;
 
@@ -184,11 +195,12 @@ export function scaled(text: string): { values: string[]; rest: string } {
 
 /**
  * The figures in the draft that neither the article nor the headline has: a made-up number is the worst mistake a
- * script can make. A figure counts as the article's whether it is written out ("১ হাজার ১৪৬") or in digits ("১,১৪৬").
+ * script can make. A figure counts as the article's whether it is written out ("১ হাজার ১৪৬", "দুটি") or in digits
+ * ("১,১৪৬", "২টি").
  */
 export function unsupportedFigures(draft: { script: string; visual: BulletinVisual }, article: string, headline: string): string[] {
   const source = `${article} ${headline}`;
-  const known = new Set([...figures(source), ...scaled(source).values]);
+  const known = new Set([...figures(source), ...scaled(source).values, ...spelled(source)]);
   const v = draft.visual;
   const shown =
     v.type === "number"
@@ -214,7 +226,13 @@ async function readArticle(link: string, fetchImpl: typeof fetch): Promise<strin
   return articleText(await res.text());
 }
 
-async function ask(story: BulletinStory, article: string, { apiKey, model = SCRIPT_MODEL, workspaceId, fetchImpl = fetch }: ScriptOptions): Promise<string> {
+/** A script past this many words is sent back once to be shortened: it was asked for in 30. */
+export const SCRIPT_WORDS = 34;
+const wordsIn = (text: string) => text.trim().split(/\s+/).length;
+
+type Turn = { role: "user" | "assistant"; content: string };
+
+async function ask(story: BulletinStory, article: string, { apiKey, model = SCRIPT_MODEL, workspaceId, fetchImpl = fetch }: ScriptOptions, more: Turn[] = []): Promise<string> {
   const res = await fetchImpl(API, {
     method: "POST",
     headers: {
@@ -223,7 +241,7 @@ async function ask(story: BulletinStory, article: string, { apiKey, model = SCRI
       "content-type": "application/json",
       ...(workspaceId ? { "anthropic-workspace-id": workspaceId } : {}),
     },
-    body: JSON.stringify({ model, max_tokens: 700, system: SYSTEM, messages: [{ role: "user", content: userMessage(story, article) }] }),
+    body: JSON.stringify({ model, max_tokens: 700, system: SYSTEM, messages: [{ role: "user", content: userMessage(story, article) }, ...more] }),
     signal: AbortSignal.timeout(60_000),
   });
   const body = (await res.json().catch(() => null)) as { content?: { type: string; text?: string }[]; error?: { message?: string } } | null;
@@ -263,8 +281,24 @@ export async function writeScript(story: BulletinStory, options: ScriptOptions):
   } catch (e) {
     return keep(`No script: ${(e as Error).message}.`);
   }
-  const draft = parseDraft(reply);
+  let draft = parseDraft(reply);
   if (!draft) return keep("The script writer's reply wasn't usable.");
+  const notes: string[] = [];
+  if (wordsIn(draft.script) > SCRIPT_WORDS) {
+    // Too long for a bulletin item: asked once to cut it. A shorter one that holds up replaces it; otherwise the long one stays.
+    try {
+      const again = parseDraft(
+        await ask(story, article, options, [
+          { role: "assistant", content: reply },
+          { role: "user", content: `The script is ${wordsIn(draft.script)} words. Cut it to at most 28 words in two short sentences: keep the main fact and at most two figures. Reply with the same JSON object.` },
+        ]),
+      );
+      if (again && wordsIn(again.script) < wordsIn(draft.script) && !unsupportedFigures(again, article, story.headline).length) draft = again;
+    } catch {
+      // The first draft stands.
+    }
+    if (wordsIn(draft.script) > SCRIPT_WORDS) notes.push(`The script is long (${wordsIn(draft.script)} words).`);
+  }
   const made = unsupportedFigures(draft, article, story.headline);
   if (made.length) return keep(`The script had figures the article doesn't (${made.join(", ")}), so it was left out.`);
   const moved = from !== candidates[0];
@@ -282,6 +316,6 @@ export async function writeScript(story: BulletinStory, options: ScriptOptions):
         : {}),
     },
     written: true,
-    warnings: moved ? [`Written from ${from.source}'s report and credited to it (${unread.join("; ")}).`] : [],
+    warnings: [...(moved ? [`Written from ${from.source}'s report and credited to it (${unread.join("; ")}).`] : []), ...notes],
   };
 }

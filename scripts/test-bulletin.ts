@@ -22,7 +22,7 @@ import {
   SECTION_COLORS,
 } from "../src/lib/bulletin";
 import { BULLETIN_FRESH_MS, pickBulletin } from "../src/lib/bulletin-pick";
-import { articleText, figures, parseDraft, scaled, unsupportedFigures, visualOf, writeScript } from "../src/lib/bulletin-script";
+import { articleText, figures, parseDraft, scaled, SCRIPT_WORDS, spelled, unsupportedFigures, visualOf, writeScript } from "../src/lib/bulletin-script";
 import {
   approveBulletin,
   bulletinEditable,
@@ -275,6 +275,16 @@ async function scripts() {
     assert.deepEqual(figures(scaled("২০৩৪ সালে ৫০ হাজার").rest), ["2034"]);
   });
 
+  await test("numbers written as words count as the article's", () => {
+    assert.deepEqual(spelled("স্বাস্থ্যমন্ত্রীর হার্টে দুটি রিং পরানো হয়েছে, তিনজন চিকিৎসক ছিলেন").sort(), ["2", "3"]);
+    // নয় alone is "not"; চারদিক is no four.
+    assert.deepEqual(spelled("এটা ঠিক নয়, চারদিকে ভিড়"), []);
+    assert.deepEqual(spelled("নয়টি দল"), ["9"]);
+    const rings = "স্বাস্থ্যমন্ত্রীর হার্টে দুটি রিং পরানো সম্পন্ন হয়েছে বলে হাসপাতাল সূত্র জানিয়েছে।";
+    assert.deepEqual(unsupportedFigures({ script: "স্বাস্থ্যমন্ত্রীর হার্টে ২টি রিং পরানো হয়েছে।", visual: { type: "number", label: "রিং", value: 2, unit: "টি" } }, rings, ""), []);
+    assert.deepEqual(unsupportedFigures({ script: "হার্টে ৩টি রিং পরানো হয়েছে।", visual: { type: "points", items: ["রিং", "হার্ট"] } }, rings, ""), ["3"]);
+  });
+
   await test("a reply becomes a draft only when it is the JSON asked for", () => {
     assert.deepEqual(parseDraft(`Here you go:\n${JSON.stringify(GOOD)}`), GOOD);
     assert.equal(parseDraft("দুঃখিত, পারছি না"), null);
@@ -368,6 +378,31 @@ async function scripts() {
     const page = `<html><head><script type="application/ld+json">${JSON.stringify({ "@graph": [{ "@type": "NewsArticle", articleBody: `<p>${body}</p>` }] })}</script></head><body><div id="root"></div></body></html>`;
     assert.equal(articleText(page), body.trim());
     assert.equal(articleText("<html><head><script type='application/ld+json'>{broken</script></head><body></body></html>"), "");
+  });
+
+  await test("a script that runs long is sent back once to be cut", async () => {
+    const long = { ...GOOD, script: `${"চার মাসে দেশে এসেছে ১ হাজার ১৪৬ কোটি ডলারের প্রবাসী আয় ".repeat(4)}।` };
+    assert.ok(long.script.trim().split(/\s+/).length > SCRIPT_WORDS);
+    const bodies: Record<string, unknown>[] = [];
+    const twice = (second: unknown) =>
+      (async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (!String(input).startsWith("https://api.anthropic.com/")) return new Response(ARTICLE);
+        bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return new Response(JSON.stringify({ content: [{ type: "text", text: JSON.stringify(bodies.length % 2 ? long : second) }] }));
+      }) as typeof fetch;
+    const cut = await writeScript(story, { apiKey: "k", fetchImpl: twice(GOOD) });
+    assert.equal(cut.written, true);
+    assert.equal(cut.story.script, GOOD.script);
+    assert.deepEqual(cut.warnings, []);
+    assert.equal(bodies.length, 2);
+    const turns = bodies[1].messages as { role: string; content: string }[];
+    assert.deepEqual(turns.map((m) => m.role), ["user", "assistant", "user"]);
+    assert.match(turns[2].content, /at most 28 words/);
+    // The cut invents a figure, or is no shorter: the long one stays, and the report says it is long.
+    const kept = await writeScript(story, { apiKey: "k", fetchImpl: twice({ ...GOOD, script: "এসেছে ৯৯৯ কোটি ডলার।" }) });
+    assert.equal(kept.written, true);
+    assert.equal(kept.story.script, long.script.replace(/\s+/g, " ").trim());
+    assert.match(kept.warnings[0], /script is long/);
   });
 
   await test("each word's time from the voice's character times", () => {
