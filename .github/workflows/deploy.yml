@@ -111,8 +111,34 @@ jobs:
           FB_APP_ID: ${{ vars.FB_APP_ID }}
           FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
           FB_SLOTS: ${{ vars.FB_SLOTS }}
+          # The review queue (docs/admin.md): FB_QUEUE off (or unset), shadow (the queue runs dry beside the old path) or
+          # on; it reaches the admin's database with the D1-only SOCIAL_DB_TOKEN, and sends drafts to the admin's Telegram.
+          FB_QUEUE: ${{ vars.FB_QUEUE }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          SOCIAL_DB_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
       - if: contains(fromJSON('["dry","review","on"]'), vars.FB_POSTING)
         uses: actions/cache/save@v4
         with:
           path: .social
           key: facebook-posts-${{ github.run_id }}
+      # The admin's database (docs/admin.md), exported once a day (the run between 03:00 and 03:15 Dhaka) and kept 30
+      # days as this run's artifact "social-db": rows a bad change lost can be read back from it.
+      - name: Back up the admin's database
+        id: backup
+        if: vars.FB_QUEUE != ''
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ "$(TZ=Asia/Dhaka date +%H)" != "03" ] || [ "$(TZ=Asia/Dhaka date +%M)" -ge 15 ]; then echo "not the backup run"; exit 0; fi
+          npx --yes wrangler@4.20.0 d1 export bartaboard-social --remote --output "social-db-$(date -u +%Y%m%d).sql"
+          echo "made=true" >> "$GITHUB_OUTPUT"
+      - if: steps.backup.outputs.made == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: social-db
+          path: social-db-*.sql
+          retention-days: 30
