@@ -6,11 +6,13 @@
  * Buttons under a draft (src/lib/telegram-review.ts): approve, reject (its story left out for a day), skip, reopen;
  * the message is rewritten to show what was done. Commands: /status, /pause, /resume.
  */
+import { approveBulletin, BulletinError, getBulletin, rejectBulletin, reopenBulletin, skipBulletin, StaleBulletin } from "../../src/lib/bulletin-store";
 import { ActionError, approve, queueLive, reject, reopen, skip } from "../../src/lib/social-actions";
 import { fromBinding } from "../../src/lib/social-db";
 import { getPost, listPosts, readSettings, writeSetting } from "../../src/lib/social-store";
 import { queueSettings } from "../../src/lib/social-settings";
 import { sendMessage, type TelegramAccess } from "../../src/lib/telegram";
+import { syncBulletinTelegram } from "../../src/lib/telegram-bulletin";
 import { CONTENT_LABEL, dhakaClock } from "../../src/lib/telegram-review";
 import { syncTelegram } from "../../src/lib/telegram-sync";
 
@@ -19,6 +21,8 @@ interface Env {
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   TELEGRAM_ADMIN_CHAT_ID?: string;
+  /** dry or on (the repository variable, copied to the Pages project): whether bulletins are posted. */
+  BULLETINS?: string;
 }
 
 interface Update {
@@ -61,6 +65,39 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return ok();
     }
     const [action, id] = (cb.data ?? "").split(":");
+    // A video bulletin's buttons (src/lib/telegram-bulletin.ts): "b-<action>:<id>".
+    if (action.startsWith("b-")) {
+      const bulletin = id ? await getBulletin(db, id) : null;
+      if (!bulletin) {
+        await answerCallback(tg.token, cb.id, "That bulletin is gone.");
+        return ok();
+      }
+      const review = { lockMinutes: queueSettings(await readSettings(db)).bulletinLockMinutes, trial: env.BULLETINS !== "on" };
+      const withMessage = (b: typeof bulletin) => (cb.message ? { ...b, telegramMessageId: b.telegramMessageId ?? cb.message.message_id } : b);
+      try {
+        const done =
+          action === "b-approve"
+            ? await approveBulletin(db, bulletin.id, bulletin.version, "telegram")
+            : action === "b-reject"
+              ? await rejectBulletin(db, bulletin.id, bulletin.version, "telegram", "rejected on Telegram")
+              : action === "b-skip"
+                ? await skipBulletin(db, bulletin.id, bulletin.version, "telegram")
+                : action === "b-reopen"
+                  ? await reopenBulletin(db, bulletin.id, bulletin.version, "telegram")
+                  : null;
+        if (!done) {
+          await answerCallback(tg.token, cb.id, "Unknown button.");
+          return ok();
+        }
+        await answerCallback(tg.token, cb.id, { "b-approve": "Approved: the video is made at its lock.", "b-reject": "Rejected: another draft comes next run.", "b-skip": "Bulletin skipped.", "b-reopen": "Back to a draft." }[action] ?? "Done.");
+        await syncBulletinTelegram(db, withMessage(done), tg, review);
+      } catch (err) {
+        await answerCallback(tg.token, cb.id, err instanceof BulletinError ? err.message : err instanceof StaleBulletin ? "It changed meanwhile; here it is as it stands." : "Something went wrong; try the admin page.");
+        const now = await getBulletin(db, bulletin.id);
+        if (now) await syncBulletinTelegram(db, withMessage(now), tg, review);
+      }
+      return ok();
+    }
     const post = id ? await getPost(db, id) : null;
     if (!post) {
       await answerCallback(tg.token, cb.id, "That post is gone.");

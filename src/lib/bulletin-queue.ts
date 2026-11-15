@@ -1,0 +1,29 @@
+/**
+ * What a run does with a bulletin at a given moment (docs/bulletin.md): wait, skip a draft nobody approved in time,
+ * have an approved one made, or give up on one whose making never finished. Pure, so it can be tested without a run.
+ */
+import { bulletinLockAt } from "./bulletin";
+import type { Bulletin } from "./bulletin-store";
+
+export type BulletinStep = "wait" | "skip" | "make" | "stuck";
+
+/** A bulletin still "rendering" this long after it started has lost its run. */
+export const RENDER_LIMIT_MS = 25 * 60_000;
+/** A draft made by hand that nobody approved goes stale this long after its time. */
+export const MANUAL_STALE_MS = 6 * 3600_000;
+/** A rejected slot is drafted again, with other stories, at most this many times. */
+export const REDRAFTS = 2;
+
+export function bulletinStep(b: Pick<Bulletin, "status" | "kind" | "scheduledAt" | "updatedAt">, lockMinutes: number, now: number): BulletinStep {
+  const at = Date.parse(b.scheduledAt);
+  const lock = bulletinLockAt(at, lockMinutes);
+  if (b.status === "rendering") return now - Date.parse(b.updatedAt) > RENDER_LIMIT_MS ? "stuck" : "wait";
+  if (b.status === "draft") {
+    // The table's: no sign-off by the lock, no bulletin. One made by hand waits for its maker, but not for ever.
+    if (b.kind === "slot") return now >= lock ? "skip" : "wait";
+    return now > at + MANUAL_STALE_MS ? "skip" : "wait";
+  }
+  // Approved: made at the lock, so it is ready before its time; one made by hand for now is made at once.
+  if (b.status === "approved") return now >= lock ? "make" : "wait";
+  return "wait";
+}

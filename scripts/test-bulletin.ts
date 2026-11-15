@@ -22,6 +22,7 @@ import {
   SECTION_COLORS,
 } from "../src/lib/bulletin";
 import { BULLETIN_FRESH_MS, pickBulletin } from "../src/lib/bulletin-pick";
+import { bulletinStep, MANUAL_STALE_MS, RENDER_LIMIT_MS } from "../src/lib/bulletin-queue";
 import { articleText, figures, parseDraft, scaled, SCRIPT_WORDS, spelled, unsupportedFigures, visualOf, writeScript } from "../src/lib/bulletin-script";
 import {
   approveBulletin,
@@ -42,6 +43,7 @@ import {
 } from "../src/lib/bulletin-store";
 import { findVoice, speak, wordTimes } from "../src/lib/elevenlabs";
 import type { PostChoice } from "../src/lib/page-posts";
+import { bulletinButtons, bulletinReviewText } from "../src/lib/telegram-bulletin";
 import type { Story } from "../src/lib/stories";
 import type { Db, SqlValue } from "../src/lib/social-db";
 import { DEFAULT_SETTINGS, queueSettings } from "../src/lib/social-settings";
@@ -558,6 +560,49 @@ async function table() {
       rows.map((r) => r.action).slice(-6),
       ["bulletin.approve", "bulletin.edit", "bulletin.approve", "bulletin.edit", "bulletin.skip", "bulletin.reopen"],
     );
+  });
+
+  await test("what a run does with a bulletin: wait, skip, make, give up", async () => {
+    const at = "2026-11-15T10:00:00.000Z";
+    const t = (iso: string) => Date.parse(iso);
+    const b = (status: string, kind = "slot", updatedAt = at) => ({ status, kind, scheduledAt: at, updatedAt }) as Parameters<typeof bulletinStep>[0];
+    // The table's: a draft waits until the lock (09:30), then is skipped; approved, it is made at the lock.
+    assert.equal(bulletinStep(b("draft"), 30, t("2026-11-15T09:29:00Z")), "wait");
+    assert.equal(bulletinStep(b("draft"), 30, t("2026-11-15T09:30:00Z")), "skip");
+    assert.equal(bulletinStep(b("approved"), 30, t("2026-11-15T09:29:00Z")), "wait");
+    assert.equal(bulletinStep(b("approved"), 30, t("2026-11-15T09:32:00Z")), "make");
+    // Made by hand: a draft waits for its maker; approved for now, it is made at once; for later, half an hour before.
+    assert.equal(bulletinStep(b("draft", "manual"), 30, t("2026-11-15T11:00:00Z")), "wait");
+    assert.equal(bulletinStep(b("draft", "manual"), 30, t(at) + MANUAL_STALE_MS + 1), "skip");
+    assert.equal(bulletinStep(b("approved", "manual"), 30, t("2026-11-15T10:01:00Z")), "make");
+    assert.equal(bulletinStep(b("approved", "manual"), 30, t("2026-11-15T08:00:00Z")), "wait");
+    // A making that never finished.
+    assert.equal(bulletinStep(b("rendering", "slot", "2026-11-15T09:32:00.000Z"), 30, t("2026-11-15T09:40:00Z")), "wait");
+    assert.equal(bulletinStep(b("rendering", "slot", "2026-11-15T09:32:00.000Z"), 30, t("2026-11-15T09:32:00Z") + RENDER_LIMIT_MS + 1), "stuck");
+    assert.equal(bulletinStep(b("posted"), 30, t("2026-11-15T12:00:00Z")), "wait");
+  });
+
+  await test("the review message and its buttons", async () => {
+    const made = (await insertBulletin(db, { kind: "slot", status: "draft", slot: "2026-11-16T10:00:00.000Z", scheduledAt: "2026-11-16T10:00:00.000Z", stories, note: "Story 1 is its headline only." }))!;
+    const o = { lockMinutes: 30, trial: true, now: Date.parse("2026-11-16T09:10:00.000Z") };
+    const text = bulletinReviewText(made, o);
+    assert.match(text, /^🎬 Video bulletin · বিকেল ৪টা \(16:00\) · trial\n📝 Draft\. Approve by 15:30/);
+    assert.ok(text.includes(`1. ${stories[0].script}`));
+    assert.ok(text.includes("key points"));
+    assert.ok(text.endsWith("Notes: Story 1 is its headline only."));
+    const data = (rows: { callback_data?: string }[][]) => rows.flat().map((x) => x.callback_data).filter(Boolean);
+    assert.deepEqual(data(bulletinButtons(made, o)), [`b-approve:${made.id}`, `b-reject:${made.id}`, `b-skip:${made.id}`]);
+    assert.ok(`b-approve:${made.id}`.length <= 64);
+    const approved = await approveBulletin(db, made.id, made.version, "telegram");
+    assert.match(bulletinReviewText(approved, o), /✅ Approved \(telegram\)\. The video is made at 15:30\./);
+    assert.deepEqual(data(bulletinButtons(approved, o)), [`b-reopen:${made.id}`, `b-skip:${made.id}`]);
+    const skipped = await skipBulletin(db, made.id, approved.version, "telegram");
+    assert.deepEqual(data(bulletinButtons(skipped, o)), [`b-reopen:${made.id}`]);
+    // Past the lock there is nothing left to reopen for.
+    assert.deepEqual(data(bulletinButtons(skipped, { ...o, now: Date.parse("2026-11-16T09:40:00.000Z") })), []);
+    assert.match(bulletinReviewText({ ...skipped, decidedBy: "auto" }, o), /nobody approved it in time/);
+    assert.match(bulletinReviewText({ ...skipped, status: "dry" }, o), /nothing was posted/);
+    assert.match(bulletinReviewText({ ...made, kind: "manual", slot: null }, o), /by hand · trial\n📝 Draft, made by hand/);
   });
 
   await test("the run's steps: rendering, ready, posted", async () => {
