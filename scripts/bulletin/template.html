@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<title>Bartaboard bulletin</title>
+<!--
+  The bulletin's picture. scripts/render-bulletin.mjs fills in __FONTS__, __BRAND__ and the spec,
+  opens this page in headless Chrome and calls window.render(seconds) for every frame.
+  Nothing here runs on a clock: every element's state is a function of the time passed in,
+  so a frame always looks the same however long it took to draw.
+-->
+<style>
+@font-face{font-family:NSB;src:url(__FONTS__/NotoSansBengali-Medium.ttf);font-weight:500}
+@font-face{font-family:NSB;src:url(__FONTS__/NotoSansBengali-Bold.ttf);font-weight:700}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#0b0d0f}
+body{font-family:NSB,sans-serif;font-weight:500;color:#ebe8e2;position:relative}
+.abs{position:absolute}
+#bg{inset:0;position:absolute;overflow:hidden}
+#bg .glow{position:absolute;width:1400px;height:1400px;border-radius:50%;filter:blur(120px);opacity:.34}
+#grid{position:absolute;inset:-200px;background-image:linear-gradient(#ffffff0a 2px,transparent 2px),linear-gradient(90deg,#ffffff0a 2px,transparent 2px);background-size:120px 120px}
+.scene{position:absolute;inset:0;display:none}
+#wipe{position:absolute;left:0;top:215px;width:1080px;height:1545px;z-index:5;display:none}
+#frame{position:absolute;inset:0;z-index:10;display:none}
+#logo{position:absolute;left:60px;top:72px;height:62px}
+#slot{position:absolute;right:60px;top:70px;height:66px;padding:0 28px;border-radius:33px;background:#16181b;border:2px solid #272a2f;font-size:32px;line-height:62px;font-weight:700;color:#d4ae62;white-space:nowrap}
+#prog{position:absolute;left:60px;top:176px;width:960px;height:10px;display:flex;gap:12px}
+#prog i{flex:1;background:#272a2f;border-radius:5px;overflow:hidden;position:relative}
+#prog i b{position:absolute;inset:0;transform-origin:left;transform:scaleX(0);border-radius:5px}
+#ticker{position:absolute;left:0;top:1796px;width:1080px;height:76px;background:#101214;border-top:2px solid #272a2f;border-bottom:2px solid #272a2f;overflow:hidden}
+#ticker .lab{position:absolute;left:0;top:0;height:72px;padding:0 30px 0 60px;background:#0c6b4f;color:#fff;font-weight:700;font-size:30px;line-height:70px;z-index:2}
+#ticker .run{position:absolute;left:0;top:0;white-space:nowrap;font-size:30px;line-height:70px;color:#c9c5bd}
+#ticker .run span{color:#5ccaa0;margin:0 26px}
+.meta{position:absolute;left:60px;top:240px;display:flex;align-items:center;gap:22px}
+.num{font-size:40px;font-weight:700;letter-spacing:2px}
+.num small{font-size:40px;color:#63666c;font-weight:500}
+.pill{height:60px;padding:0 30px;border-radius:30px;font-size:32px;font-weight:700;line-height:57px;color:#0b0d0f}
+.card{position:absolute;left:60px;top:336px;width:960px;height:640px;border-radius:44px;background:linear-gradient(160deg,#1b1e22,#121416);border:2px solid #2b2f35;overflow:hidden}
+.card .tint{position:absolute;inset:0;opacity:.16}
+.hl{position:absolute;left:60px;top:1016px;width:960px;font-weight:700;color:#fff}
+.hl div{overflow:hidden}
+.hl div span{display:block;white-space:nowrap}
+.src{position:absolute;left:60px;font-size:32px;color:#999da4;display:flex;align-items:center;gap:16px;white-space:nowrap}
+.src b{color:#ebe8e2;font-weight:700}
+.src i{width:10px;height:10px;border-radius:50%;display:block}
+.capwrap{position:absolute;left:60px;top:1486px;width:960px;height:236px;border-radius:36px;background:#101214e6;border:2px solid #272a2f;padding:26px 36px}
+.ai{display:flex;align-items:center;gap:14px;font-size:26px;color:#999da4;font-weight:700;letter-spacing:1px}
+.eq{display:flex;gap:5px;align-items:flex-end;height:30px}
+.eq u{display:block;width:7px;border-radius:3px;height:30px;transform-origin:bottom}
+.cap{margin-top:18px;font-size:54px;line-height:86px;font-weight:700;color:#6f737a;white-space:nowrap}
+.cap span{padding:2px 12px;margin-left:-12px;border-radius:14px}
+.cap span.done{color:#fff}
+.cap span.now{color:#0b0d0f}
+.vlabel{position:absolute;left:56px;top:50px;font-size:40px;color:#c9c5bd}
+.big{position:absolute;left:56px;top:150px;line-height:260px;font-weight:700;letter-spacing:-4px;white-space:nowrap}
+.unit{position:absolute;left:60px;top:410px;font-size:70px;font-weight:700;color:#fff}
+.chips{position:absolute;left:56px;top:526px;display:flex;gap:18px}
+.chip{height:66px;padding:0 30px;border-radius:33px;border:2px solid;font-size:34px;line-height:60px;font-weight:700;white-space:nowrap}
+.ring{position:absolute;right:-230px;top:-230px}
+.q{position:absolute;left:50px;top:6px;font-size:230px;line-height:260px;font-weight:700;font-family:Georgia,'DejaVu Serif',serif}
+.qt{position:absolute;left:56px;top:176px;width:850px;font-size:58px;line-height:86px;font-weight:700;color:#fff}
+.qa{position:absolute;left:56px;font-size:38px;font-weight:700}
+.mh{position:absolute;left:0;top:44px;width:960px;text-align:center;font-size:36px;color:#c9c5bd;font-weight:700}
+.team{position:absolute;top:122px;width:330px;text-align:center}
+.team .bd{width:170px;height:170px;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:700;color:#fff;border:6px solid #ffffff22;font-family:sans-serif;letter-spacing:2px}
+.team p{font-size:44px;font-weight:700;margin-top:14px;color:#fff;white-space:nowrap}
+.vs{position:absolute;left:420px;top:168px;width:120px;height:80px;text-align:center;font-size:54px;font-weight:700;font-family:sans-serif}
+.facts{position:absolute;left:44px;top:418px;width:872px;display:flex;gap:16px}
+.fact{flex:1;border-radius:26px;background:#0b0d0f;border:2px solid #2b2f35;padding:20px 10px 22px;text-align:center}
+.fact s{display:block;text-decoration:none;font-size:28px;color:#999da4}
+.fact b{display:block;font-size:42px;color:#fff;margin-top:4px;white-space:nowrap}
+.ptitle{position:absolute;left:56px;top:50px;font-size:40px;color:#c9c5bd}
+.pt{position:absolute;left:56px;width:848px;display:flex;align-items:center;gap:28px;font-size:50px;line-height:68px;font-weight:700;color:#fff}
+.pt i{flex:none;width:74px;height:74px;border-radius:50%;font-style:normal;font-size:40px;line-height:70px;text-align:center;color:#0b0d0f}
+.center{position:absolute;left:0;width:1080px;text-align:center}
+.rtitle{position:absolute;left:60px;top:250px;font-size:84px;font-weight:700;color:#fff}
+.rsub{position:absolute;left:60px;top:372px;font-size:36px;color:#999da4}
+.row{position:absolute;left:60px;width:960px;border-radius:34px;background:#16181b;border:2px solid #272a2f;overflow:hidden}
+.row .bar{position:absolute;left:0;top:0;width:14px;height:100%}
+.row .n{position:absolute;left:50px;width:100px;height:100px;border-radius:50%;font-size:52px;line-height:96px;text-align:center;font-weight:700;color:#0b0d0f}
+.row .s{position:absolute;left:186px;font-size:30px;font-weight:700}
+.row .h{position:absolute;left:186px;width:740px;font-size:44px;line-height:62px;font-weight:700;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#measure{position:absolute;left:-9999px;top:0;white-space:nowrap;font-weight:700}
+</style>
+</head>
+<body>
+<div id="bg"><div id="grid"></div><div class="glow" id="g1"></div><div class="glow" id="g2"></div></div>
+<div id="scenes"></div>
+<div id="wipe"></div>
+<div id="frame">
+  <img id="logo" src="__BRAND__/bartaboard-header-dark.svg">
+  <div id="slot"></div>
+  <div id="prog"></div>
+  <div id="ticker"><div class="lab">শিরোনাম</div><div class="run" id="run"></div></div>
+</div>
+<span id="measure"></span>
+<script>
+const SPEC=/*SPEC*/null;
+const STORIES=SPEC.stories;
+const T_OPEN=3.2,T_RUN=5.2,T_CLOSE=3.6;
+const SCENES=[{k:'open',d:T_OPEN},{k:'run',d:T_RUN},...STORIES.map((s,i)=>({k:'story',i,d:s.dur})),{k:'close',d:T_CLOSE}];
+let acc=0;SCENES.forEach(s=>{s.s=acc;acc+=s.d;s.e=acc});
+window.SCENES=SCENES;window.TOTAL=acc;
+const bn=x=>String(x).replace(/\d/g,d=>'০১২৩৪৫৬৭৮৯'[d]);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cl=x=>Math.max(0,Math.min(1,x));
+const p=(t,s,d)=>cl((t-s)/d);
+const eo=x=>1-Math.pow(1-x,3);
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const back=x=>{const c=1.70158;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+const $=(q,r=document)=>r.querySelector(q);
+const st=(el,o,tr)=>{el.style.opacity=o;el.style.transform=tr||'none'};
+const rise=(el,k,dy=40)=>st(el,k,`translateY(${(1-k)*dy}px)`);
+const root=$('#scenes');
+function mk(html){const d=document.createElement('div');d.className='scene';d.innerHTML=html;root.appendChild(d);return d}
+function width(text,px){const m=$('#measure');m.style.fontSize=px+'px';m.textContent=text;return m.getBoundingClientRect().width}
+// Breaks a headline into at most three lines that fit the column, shrinking the type when it has to.
+function wrap(text){
+ for(const px of [66,60,54,48]){
+  const words=text.split(/\s+/),lines=[];let cur='';
+  for(const w of words){const t=cur?cur+' '+w:w;if(width(t,px)<=960||!cur)cur=t;else{lines.push(cur);cur=w}}
+  if(cur)lines.push(cur);
+  if(lines.length<=3||px===48)return {px,lines:lines.slice(0,3)};
+ }
+}
+function visual(v,col){
+ const tint=(at)=>`<div class="tint" style="background:radial-gradient(circle at ${at},${col},transparent 62%)"></div>`;
+ if(v.type==='number'){
+  const txt=typeof v.value==='number'?bn(Math.round(v.value).toLocaleString('en-IN')):String(v.value);
+  const size=txt.length<=5?190:txt.length<=7?160:txt.length<=9?128:100;
+  return tint('85% 10%')+`<svg class="ring" width="620" height="620"><circle cx="310" cy="310" r="250" fill="none" stroke="#ffffff10" stroke-width="26"/><circle class="arc" cx="310" cy="310" r="250" fill="none" stroke="${col}" stroke-width="26" stroke-linecap="round" stroke-dasharray="1571" stroke-dashoffset="1571" transform="rotate(100 310 310)"/><circle class="arc2" cx="310" cy="310" r="196" fill="none" stroke="${col}" stroke-opacity=".35" stroke-width="10" stroke-dasharray="14 22"/></svg>
+  <div class="vlabel">${esc(v.label)}</div><div class="big" style="color:${col};font-size:${size}px"></div><div class="unit">${esc(v.unit)}</div>
+  <div class="chips">${(v.chips||[]).slice(0,2).map(c=>`<div class="chip" style="border-color:${col};color:${col}">${esc(c)}</div>`).join('')}</div>`}
+ if(v.type==='quote')return tint('10% 0%')+`<div class="q" style="color:${col}">“</div><div class="qt">${esc(v.text)}</div><div class="qa" style="color:${col}">— ${esc(v.by)}</div>
+  <div class="chips">${(v.chips||[]).slice(0,2).map(c=>`<div class="chip" style="border-color:${col};color:${col}">${esc(c)}</div>`).join('')}</div>`;
+ if(v.type==='versus')return tint('50% 0%')+`<div class="mh">${esc(v.title)}</div>
+  <div class="team ta" style="left:60px"><div class="bd" style="background:${esc(v.a.color||'#0c6b4f')}">${esc(v.a.code)}</div><p>${esc(v.a.name)}</p></div>
+  <div class="vs" style="color:${col}">VS</div>
+  <div class="team tb" style="left:570px"><div class="bd" style="background:${esc(v.b.color||'#3a4250')}">${esc(v.b.code)}</div><p>${esc(v.b.name)}</p></div>
+  <div class="facts">${(v.facts||[]).slice(0,3).map(f=>`<div class="fact"><s>${esc(f.k)}</s><b>${esc(f.v)}</b></div>`).join('')}</div>`;
+ // points: two or three short facts (also what a story falls back to)
+ const items=(v.items||[]).slice(0,3);const top=items.length>=3?150:190,step=items.length>=3?150:180;
+ return tint('90% 100%')+`<div class="ptitle">${esc(v.title||'মূল তথ্য')}</div>`+items.map((it,i)=>`<div class="pt" style="top:${top+i*step}px"><i style="background:${col}">${bn(i+1)}</i><span>${esc(it)}</span></div>`).join('');
+}
+function drawVisual(o,t){
+ const c=$('.card',o.el),v=o.s.visual,col=o.s.color;
+ const chips=(at)=>c.querySelectorAll('.chip').forEach((ch,i)=>{const q=p(t,at+i*.3,.45);st(ch,cl(q*2),`scale(${.6+.4*back(q)})`)});
+ if(v.type==='number'){
+  const k=eo(p(t,1.0,2.0));
+  $('.big',c).textContent=typeof v.value==='number'?bn(Math.round(v.value*k).toLocaleString('en-IN')):String(v.value);
+  if(typeof v.value!=='number')rise($('.big',c),eo(p(t,.9,.6)),40);
+  rise($('.vlabel',c),eo(p(t,.8,.5)),30);rise($('.unit',c),eo(p(t,1.4,.5)),30);
+  $('.arc',c).setAttribute('stroke-dashoffset',1571*(1-.78*eio(p(t,.9,2.4))));
+  $('.arc2',c).setAttribute('transform',`rotate(${t*14} 310 310)`);chips(2.9);
+ }else if(v.type==='quote'){
+  const q=p(t,.8,.5),qm=$('.q',c);st(qm,q,`scale(${.5+.5*back(q)})`);qm.style.transformOrigin='left top';
+  const qt=$('.qt',c);qt.style.clipPath=`inset(0 ${100-100*eio(p(t,1.0,1.3))}% 0 0)`;
+  const qa=$('.qa',c);qa.style.top=(176+qt.offsetHeight+24)+'px';rise(qa,eo(p(t,2.2,.5)),20);chips(2.9);
+ }else if(v.type==='versus'){
+  rise($('.mh',c),eo(p(t,.7,.5)),-30);
+  const a=eo(p(t,.9,.6)),b=eo(p(t,1.05,.6));st($('.ta',c),a,`translateX(${(1-a)*-200}px)`);st($('.tb',c),b,`translateX(${(1-b)*200}px)`);
+  const vq=p(t,1.5,.45);st($('.vs',c),cl(vq*2),`scale(${vq?back(vq)*(1+.06*Math.sin(t*5)):0})`);
+  c.querySelectorAll('.fact').forEach((f,i)=>{const q=p(t,2.4+i*.9,.5);st(f,cl(q*2),`translateY(${(1-eo(q))*50}px) scale(${.85+.15*back(q)})`);f.style.borderColor=q>0&&p(t,2.4+i*.9,1.2)<1?col:'#2b2f35'});
+ }else{
+  rise($('.ptitle',c),eo(p(t,.8,.5)),30);
+  c.querySelectorAll('.pt').forEach((r,i)=>{const q=eo(p(t,1.1+i*.7,.6));st(r,q,`translateX(${(1-q)*120}px)`);const n=p(t,1.2+i*.7,.45);$('i',r).style.transform=`scale(${n?back(n):0})`});
+ }
+}
+let open,run,close,storyEls;
+function build(){
+ $('#slot').textContent=SPEC.slotChip;
+ open=mk(`
+  <svg class="abs" style="left:0;top:0" width="1080" height="1920"><circle id="o_r1" cx="540" cy="700" r="300" fill="none" stroke="#5ccaa0" stroke-width="4"/><circle id="o_r2" cx="540" cy="700" r="300" fill="none" stroke="#d4ae62" stroke-width="3"/></svg>
+  <img id="o_mark" class="abs" src="__BRAND__/bartaboard-mark.svg" style="left:390px;top:570px;width:300px">
+  <img id="o_logo" class="abs" src="__BRAND__/bartaboard-header-dark.svg" style="left:240px;top:930px;width:600px">
+  <div id="o_title" class="center" style="top:1070px;font-size:170px;line-height:230px;font-weight:700;color:#fff">বুলেটিন</div>
+  <div id="o_line" class="abs" style="left:340px;top:1318px;width:400px;height:6px;background:#5ccaa0;border-radius:3px"></div>
+  <div id="o_slot" class="center" style="top:1356px;font-size:60px;font-weight:700;color:#d4ae62">${esc(SPEC.slotLabel)}</div>
+  <div id="o_date" class="center" style="top:1452px;font-size:40px;color:#c9c5bd">${esc(SPEC.dateLine)}</div>
+  <div id="o_tag" class="center" style="top:1700px;font-size:34px;color:#999da4">${esc(SPEC.tagline||'')}</div>`);
+ const n=STORIES.length,step=Math.min(246,1290/n),rh=Math.min(216,step-26);
+ run=mk(`<div class="rtitle">এই বুলেটিনে</div><div class="rsub">${bn(n)}টি খবর · এক মিনিটে</div>`+
+  STORIES.map((s,i)=>`<div class="row" style="top:${470+i*step}px;height:${rh}px"><div class="bar" style="background:${s.color}"></div><div class="n" style="background:${s.color};top:${(rh-100)/2}px">${bn(i+1)}</div><div class="s" style="color:${s.color};top:${rh/2-78}px">${esc(s.section)}</div><div class="h" style="top:${rh/2-32}px">${esc(s.short||s.headline)}</div></div>`).join(''));
+ storyEls=STORIES.map((s,i)=>{
+  const words=s.script.split(/\s+/);const chunks=[];for(let k=0;k<words.length;k+=4)chunks.push(words.slice(k,k+4));
+  if(chunks.length>1&&chunks[chunks.length-1].length<2){const l=chunks.pop();chunks[chunks.length-1].push(...l)}
+  const w=wrap(s.headline),lh=Math.round(w.px*1.4);
+  const el=mk(`<div class="meta"><div class="num" style="color:${s.color}">${bn(String(i+1).padStart(2,'0'))}<small> / ${bn(String(n).padStart(2,'0'))}</small></div><div class="pill" style="background:${s.color}">${esc(s.section)}</div></div>
+   <div class="card">${visual(s.visual,s.color)}</div>
+   <div class="hl" style="font-size:${w.px}px;line-height:${lh}px">${w.lines.map(l=>`<div style="height:${lh}px"><span>${esc(l)}</span></div>`).join('')}</div>
+   <div class="src" style="top:${1016+w.lines.length*lh+26}px"><i style="background:${s.color}"></i>সূত্র: <b>${esc(s.source)}</b>${s.more>0?` · আরও ${bn(s.more)}টি সংবাদমাধ্যমে`:''}</div>
+   <div class="capwrap"><div class="ai"><div class="eq">${('<u style="background:'+s.color+'"></u>').repeat(5)}</div>AI কণ্ঠ</div><div class="cap"></div></div>`);
+  return {el,s,words,chunks};
+ });
+ close=mk(`
+  <img id="c_mark" class="abs" src="__BRAND__/bartaboard-mark.svg" style="left:420px;top:470px;width:240px">
+  <div id="c_a" class="center" style="top:790px;font-size:64px;font-weight:700;color:#fff">বিস্তারিত পড়ুন</div>
+  <div id="c_b" class="center" style="top:900px;font-size:104px;line-height:140px;font-weight:700;color:#5ccaa0;font-family:sans-serif;letter-spacing:-1px">bartaboard.com</div>
+  <div id="c_c" class="center" style="top:1090px"><span style="display:inline-block;height:96px;padding:0 54px;border-radius:48px;background:#d4ae62;color:#0b0d0f;font-size:44px;line-height:90px;font-weight:700">ফলো করুন</span></div>
+  <div id="c_d" class="center" style="top:1250px;font-size:40px;color:#c9c5bd">${esc(SPEC.nextLine||'')}</div>
+  <div id="c_e" class="center" style="top:1700px;font-size:30px;color:#63666c">কণ্ঠ ও গ্রাফিক্স AI দিয়ে তৈরি · তথ্য সংবাদমাধ্যম থেকে</div>`);
+ $('#prog').innerHTML=STORIES.map(s=>`<i><b style="background:${s.color}"></b></i>`).join('');
+ $('#run').innerHTML=(STORIES.map(s=>esc(s.short||s.headline)).join('<span>◆</span>')+'<span>◆</span>').repeat(4);
+}
+function setCap(o,t){
+ const cap=$('.cap',o.el),W=o.s.wt;let wi=W.findIndex(r=>t<r[1]);if(wi<0)wi=o.words.length;
+ let ci=0,base=0;const wj=Math.min(wi,o.words.length-1);
+ for(let c=0;c<o.chunks.length;c++){if(wj<base+o.chunks[c].length){ci=c;break}base+=o.chunks[c].length}
+ cap.innerHTML=o.chunks[ci].map((w,j)=>{const g=base+j;return `<span class="${g<wi?'done':g===wi?'now':''}" ${g===wi?`style="background:${o.s.color}"`:''}>${esc(w)}</span>`}).join(' ');
+ const over=cap.scrollWidth/888;cap.style.fontSize=over>1?Math.floor(54/over)+'px':'54px';
+}
+window.render=function(T){
+ $('#grid').style.transform=`translate(${-(T*14)%120}px,${-(T*9)%120}px)`;
+ const g1=$('#g1'),g2=$('#g2');
+ const sc=SCENES.find(s=>T<s.e)||SCENES[SCENES.length-1];const t=T-sc.s;
+ const col=sc.k==='story'?STORIES[sc.i].color:'#0c6b4f';
+ g1.style.background=col;g1.style.left=(-500+Math.sin(T*.4)*120)+'px';g1.style.top=(-600+Math.cos(T*.3)*100)+'px';
+ g2.style.background='#0c6b4f';g2.style.left=(300+Math.cos(T*.35)*140)+'px';g2.style.top=(1100+Math.sin(T*.45)*120)+'px';
+ root.querySelectorAll('.scene').forEach(e=>e.style.display='none');
+ const frame=$('#frame'),wipe=$('#wipe');const inStory=sc.k==='story';
+ frame.style.display=(inStory||sc.k==='run')?'block':'none';
+ frame.style.opacity=sc.k==='run'?eo(p(t,.1,.6)):1;
+ document.querySelectorAll('#prog i b').forEach((b,i)=>{const s=SCENES[2+i];b.style.transform=`scaleX(${cl((T-s.s)/s.d)})`});
+ $('#run').style.transform=`translateX(${240-((T*120)%($('#run').scrollWidth/4))}px)`;
+ wipe.style.display='none';
+ if(inStory||sc.k==='run'){
+  const wi=1-eio(p(t,0,.5)),wo=eio(p(t,sc.d-.4,.4));
+  if(sc.k!=='run'&&wi>0){wipe.style.display='block';wipe.style.background=col;wipe.style.transformOrigin='right center';wipe.style.transform=`scaleX(${wi})`}
+  if(wo>0){const nx=SCENES[SCENES.indexOf(sc)+1];const nc=nx&&nx.k==='story'?STORIES[nx.i].color:'#0b0d0f';wipe.style.display='block';wipe.style.background=nc;wipe.style.transformOrigin='left center';wipe.style.transform=`scaleX(${wo})`;
+   if(nx&&nx.k==='close')frame.style.opacity=1-wo}
+ }
+ if(sc.k==='open'){
+  open.style.display='block';
+  const m=p(t,.15,.6);st($('#o_mark'),cl(m*2),`scale(${m?back(m):0})`);
+  const r1=eo(p(t,.3,1.1)),r2=eo(p(t,.5,1.2));
+  $('#o_r1').setAttribute('r',170+r1*420);$('#o_r1').setAttribute('opacity',(1-r1)*.9);
+  $('#o_r2').setAttribute('r',170+r2*620);$('#o_r2').setAttribute('opacity',(1-r2)*.7);
+  rise($('#o_logo'),eo(p(t,.6,.5)),40);
+  const tt=eo(p(t,.9,.6));st($('#o_title'),tt,`translateY(${(1-tt)*80}px) scale(${.9+.1*tt})`);
+  st($('#o_line'),1,`scaleX(${eio(p(t,1.2,.6))})`);
+  rise($('#o_slot'),eo(p(t,1.4,.5)),30);rise($('#o_date'),eo(p(t,1.6,.5)),30);rise($('#o_tag'),eo(p(t,1.9,.5)),30);
+  const out=eio(p(t,sc.d-.4,.4));open.style.opacity=1-out;open.style.transform=`scale(${1+out*.08})`;
+ }
+ if(sc.k==='run'){
+  run.style.display='block';
+  rise($('.rtitle',run),eo(p(t,.1,.5)),50);rise($('.rsub',run),eo(p(t,.3,.5)),30);
+  run.querySelectorAll('.row').forEach((r,i)=>{const q=eo(p(t,.6+i*.38,.55));st(r,q,`translateX(${(1-q)*220}px)`);
+   const n=p(t,.8+i*.38,.45);$('.n',r).style.transform=`scale(${n?back(n):0})`;
+   const hl=p(t,2.9+i*.36,.36);r.style.borderColor=(hl>0&&hl<1)?STORIES[i].color:'#272a2f'});
+ }
+ if(inStory){
+  const o=storyEls[sc.i];o.el.style.display='block';
+  const mq=eo(p(t,.35,.5));st($('.meta',o.el),mq,`translateX(${(1-mq)*-60}px)`);
+  const cq=eo(p(t,.45,.6));st($('.card',o.el),cq,`translateY(${(1-cq)*70}px) scale(${.94+.06*cq})`);
+  o.el.querySelectorAll('.hl div span').forEach((s,i)=>{const q=eo(p(t,.9+i*.16,.55));s.style.transform=`translateY(${(1-q)*100}%)`});
+  rise($('.src',o.el),eo(p(t,1.6,.5)),24);
+  rise($('.capwrap',o.el),eo(p(t,.6,.5)),60);
+  setCap(o,t);const speaking=o.s.wt.some(r=>t>=r[0]&&t<r[1]);
+  o.el.querySelectorAll('.eq u').forEach((u,i)=>{u.style.transform=`scaleY(${speaking?.3+.7*Math.abs(Math.sin(t*(7+i*1.7)+i)):.2})`});
+  drawVisual(o,t);
+ }
+ if(sc.k==='close'){
+  close.style.display='block';
+  const m=p(t,.1,.6);st($('#c_mark'),cl(m*2),`scale(${m?back(m):0})`);
+  rise($('#c_a'),eo(p(t,.4,.5)),40);
+  const b=eo(p(t,.6,.6));st($('#c_b'),b,`scale(${.85+.15*b})`);
+  const c=p(t,1.0,.5);st($('#c_c'),cl(c*2),`scale(${c?back(c)*(1+.03*Math.sin(t*6)):0})`);
+  rise($('#c_d'),eo(p(t,1.3,.5)),30);rise($('#c_e'),eo(p(t,1.6,.5)),20);
+ }
+};
+window.ready=document.fonts.load('700 40px NSB','বাংলা').then(()=>document.fonts.load('500 40px NSB','বাংলা')).then(()=>{build();render(0);return true});
+</script>
+</body>
+</html>
