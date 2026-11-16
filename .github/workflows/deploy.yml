@@ -160,6 +160,8 @@ jobs:
           SOCIAL_DB_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_ADMIN_CHAT_ID: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
       # The admin's database (docs/admin.md), exported once a day (the run between 03:00 and 03:15 Dhaka) and kept 30
       # days as this run's artifact "social-db": rows a bad change lost can be read back from it.
