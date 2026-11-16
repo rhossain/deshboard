@@ -199,7 +199,9 @@ try {
         const ff = spawn(
           "ffmpeg",
           ["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "mjpeg", "-i", "-",
-            "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-r", String(FPS), tmp],
+            "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-r", String(FPS),
+            // A key frame every three seconds: Facebook asks Reels for a closed GOP of two to five.
+            "-g", String(FPS * 3), "-keyint_min", String(FPS), "-flags", "+cgop", tmp],
           { stdio: ["pipe", "inherit", "inherit"] },
         );
         const done = new Promise((resolve) => ff.on("exit", resolve));
@@ -247,7 +249,7 @@ try {
     fs.mkdirSync(path.dirname(out), { recursive: true });
     const tmpOut = path.join(work, "out.mp4");
     await run("ffmpeg", ["-y", "-loglevel", "error", ...inputs, "-filter_complex", filter, "-map", "0:v", "-map", "[a]",
-      "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2", "-shortest", "-movflags", "+faststart", tmpOut]);
+      "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", "-shortest", "-movflags", "+faststart", tmpOut]);
     fs.copyFileSync(tmpOut, out);
     const missing = voices.filter((v) => !v).length;
     console.log(`${out}: ${total.toFixed(1)} s, ${spec.stories.length} stories${missing ? `, ${missing} without a voice clip (captions estimated)` : ""}`);

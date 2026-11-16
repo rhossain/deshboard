@@ -52,13 +52,13 @@ function stateLine(b: Bulletin, lockMinutes: number, live: boolean): string {
     case "rendering":
       return "The voice and the video are being made (about ten minutes).";
     case "ready":
-      return `The video is ready and goes out at ${dhakaTime(b.scheduledAt)}.`;
+      return `The video is on Facebook, scheduled for ${dhakaTime(b.scheduledAt)}. Stop it before then if it shouldn't go out.`;
     case "posting":
       return "Being posted.";
     case "posted":
       return "Posted to the Page.";
     case "dry":
-      return live ? "Made and sent to Telegram." : "Made and sent to Telegram as a preview. Trial: nothing was posted.";
+      return live ? "Made and sent to Telegram as a preview; it was not posted." : "Made and sent to Telegram as a preview. Trial: nothing was posted.";
     case "rejected":
       return "Rejected.";
     case "skipped":
@@ -304,6 +304,11 @@ function BulletinCard({ bulletin, settings, live, now, onChange, onError }: { bu
             </button>
           </>
         )}
+        {bulletin.status === "ready" && (
+          <button type="button" className={btn} disabled={busy !== null} onClick={() => act("stop")} title="Takes the scheduled video off Facebook">
+            {busy === "stop" ? "Stopping…" : "Stop it"}
+          </button>
+        )}
         {!dirty && ["rejected", "skipped", "failed"].includes(bulletin.status) && upcoming && (
           <button type="button" className={btn} disabled={busy !== null} onClick={() => act("reopen")}>
             Reopen as a draft
@@ -519,7 +524,7 @@ export function BulletinsView({ onError, onNotice }: Props) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-muted">
         <span className="flex-1">
-          {data.live ? "Bulletins are live." : "Trial: bulletins are made and sent to Telegram as previews; nothing is posted to the Page yet."} A draft is made {data.settings.bulletinLeadMinutes} minutes
+          {data.live ? "Bulletins are live: an approved one is posted to the Page at its time." : "Trial: bulletins are made and sent to Telegram as previews; nothing is posted to the Page."} A draft is made {data.settings.bulletinLeadMinutes} minutes
           before each time and must be approved {data.settings.bulletinLockMinutes} minutes before.
         </span>
         <button type="button" className={btn} onClick={load}>

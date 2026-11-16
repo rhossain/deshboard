@@ -31,13 +31,13 @@ function stateLine(b: Bulletin, o: BulletinReviewOptions): string {
     case "rendering":
       return "🎞 The video is being made…";
     case "ready":
-      return `🎬 The video is ready; it goes out at ${dhakaClock(at)}.`;
+      return `🎬 The video is on Facebook, scheduled for ${dhakaClock(at)}. Stop it before then if it shouldn't go out.`;
     case "posting":
       return "⏳ Being posted…";
     case "posted":
       return `🟢 Posted${b.permalink ? `: ${b.permalink}` : ""}`;
     case "dry":
-      return "🧪 Made and sent here as a preview. Trial: nothing was posted.";
+      return `🧪 Made and sent here as a preview. ${b.note?.includes("paused") ? "Posting is paused" : "Trial"}: nothing was posted.`;
     case "rejected":
       return "❌ Rejected.";
     case "skipped":
@@ -54,7 +54,7 @@ export function bulletinReviewText(b: Bulletin, o: BulletinReviewOptions): strin
   return [head, stateLine(b, o), "", ...stories, ...(b.note ? ["", `Notes: ${b.note}`] : [])].join("\n");
 }
 
-/** Approve, reject and skip under a draft; reopen under one decided while its time is still ahead. */
+/** Approve, reject and skip under a draft; stop under one scheduled on Facebook; reopen under one decided while its time is still ahead. */
 export function bulletinButtons(b: Bulletin, o: BulletinReviewOptions): InlineButton[][] {
   const admin: InlineButton = { text: "Open in admin", url: `${SITE}/admin/` };
   const btn = (text: string, action: string): InlineButton => ({ text, callback_data: `b-${action}:${b.id}` });
@@ -62,6 +62,7 @@ export function bulletinButtons(b: Bulletin, o: BulletinReviewOptions): InlineBu
   const open = bulletinEditable({ ...b, status: "draft" }, o.lockMinutes, now);
   if (b.status === "draft") return [[btn("✅ Approve", "approve"), btn("❌ Reject", "reject"), btn("⏭ Skip", "skip")], [admin]];
   if (b.status === "approved") return [[btn("↩️ Back to draft", "reopen"), btn("⏭ Skip", "skip")], [admin]];
+  if (b.status === "ready") return [[btn("🛑 Stop it", "stop")], [admin]];
   if ((b.status === "rejected" || b.status === "skipped") && open) return [[btn("↩️ Reopen", "reopen")], [admin]];
   return [[admin]];
 }

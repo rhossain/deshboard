@@ -2,7 +2,7 @@
 
 A bulletin is a 60–90 second vertical video (1080×1920) of four to six stories from the board: an opener, the list of headlines, one segment per story with its own graphic, an AI Bangla voice with word-by-word captions, and a closer. It has no presenter; the voice is labelled "AI কণ্ঠ" on screen. The plan and the decisions behind it are in the project doc `video-bulletin-plan.md`.
 
-Status: the **renderer**, the bulletins **table** and **store**, the **settings**, the **picker**, the **script writer**, the **voice** call and a **try run** that chains them and sends the video to Telegram and the **queue** (drafts an hour ahead, review on Telegram, the video made at the lock and sent as a preview) are built (this page). The admin's **Bulletins tab** is built too. Posting to the Page is not built yet.
+Status: the **renderer**, the bulletins **table** and **store**, the **settings**, the **picker**, the **script writer**, the **voice** call and a **try run** that chains them and sends the video to Telegram and the **queue** (drafts an hour ahead, review on Telegram, the video made at the lock and sent as a preview) are built (this page). The admin's **Bulletins tab** and **posting to the Page** (as a scheduled Reel, with `BULLETINS` on) are built too. Posting has only been checked against a stand-in Graph API: the first real post is the first bulletin approved with `BULLETINS` on.
 
 ## When bulletins go out
 
@@ -18,7 +18,7 @@ These settings sit beside the Page's own lead (40 minutes) and lock (5 minutes),
 - `migrations/0005_bulletin.sql`: the `bulletins` table, one row a bulletin: draft → approved → rendering → ready → posting → posted, or rejected, skipped, failed, dry. One live bulletin per time of the table; none of that for ones made by hand. Apply with the ops workflow's `d1-migrate`.
 - `src/lib/bulletin.ts`: the times (`bulletinSlots`, `bulletinsToDraft`, `bulletinLockAt`), Bangla labels (`clockBn`, `dateLineBn`, `nextLineBn`), each section's colour, a story as the picker drafts it (`draftStory`: the headline as the script and the outlets carrying it as the graphic, both true without reading the article), what stops a bulletin (`bulletinProblems`) and the renderer's spec (`bulletinSpec`).
 - `src/lib/bulletin-store.ts`: the rows and what a person does to one: `createBulletin` (by hand, for now or any time ahead), `editBulletin` (stories, scripts, caption, time; closed at the lock for the table's, open for one made by hand; an approved one whose script changes goes back to draft), `approveBulletin`, `rejectBulletin`, `skipBulletin`, `reopenBulletin`. Every change is made against the version read and written to the audit log.
-- `npm run test:bulletin`: 35 checks of all of this, on the real schema.
+- `npm run test:bulletin`: 40 checks of all of this, on the real schema.
 
 ## Scripts and voice
 
@@ -29,14 +29,17 @@ Neither can be run from the laptop: the keys live in GitHub's secrets, so real r
 
 ## The queue
 
-`BULLETINS` (a repository variable): `dry` (everything but posting) or `on`; unset or `off`, nothing happens. Posting to the Page isn't built yet, so `on` behaves as `dry` and says so.
+`BULLETINS` (a repository variable): `dry` (everything but posting) or `on` (posted to the Page); unset or `off`, nothing happens. While posting is paused in the admin, `on` behaves as `dry`.
 
 1. **Plan** (`scripts/run-bulletins.ts plan`, the deploy's "Video bulletins" step, every 15 minutes):
    - drafts each of the table's bulletins an hour ahead: stories no other bulletin of the day has had, a script for each from its article, saved as a draft and sent to Telegram for review;
    - skips a draft nobody approved by its lock, and marks a making that never finished as failed;
    - for each approved bulletin that is due (at its lock; one made by hand for now, at once), marks it `rendering` and starts the **Bulletins** workflow with its id.
 2. **Review** (Telegram, `src/lib/telegram-bulletin.ts`): the message lists the scripts with ✅ Approve, ❌ Reject (the next run drafts another, with other stories; twice at most) and ⏭ Skip, and is rewritten as the bulletin moves on. The webhook (`functions/api/telegram.ts`) tells a bulletin's buttons by their `b-` prefix.
-3. **Make** (`scripts/run-bulletins.ts make <id>`, `.github/workflows/bulletins.yml`): the voice, the render, the video to Telegram as a preview; the bulletin ends `dry`. Anything that fails marks it `failed` with the reason, on Telegram too. The files are the run's artifact for three days.
+3. **Make** (`scripts/run-bulletins.ts make <id>`, `.github/workflows/bulletins.yml`): the voice, the render, the video to Telegram as a preview. In a trial the bulletin ends `dry`. Anything that fails marks it `failed` with the reason, on Telegram too. The files are the run's artifact for three days.
+4. **Post** (`on`; `src/lib/facebook-reels.ts`): the same run puts the video on the Page as a **Reel**, labelled as made with AI, with the bulletin's headlines as its text (`bulletinCaption`). Made at the lock, it is **scheduled** for the bulletin's time, about twenty minutes off (`ready`); less than eleven minutes off (one made by hand for now), it goes out at once. Until its time it can be stopped — 🛑 on Telegram, "Stop it" in the admin — which takes the scheduled video off Facebook and skips the bulletin. The plan run after its time asks Facebook whether it is out and marks it `posted`, with its address, or `failed`.
+
+A Reel is 3 to 90 seconds; a bulletin longer than 89 goes up as an ordinary Page video instead (not tried against Facebook yet). The renderer's output is what Reels ask for: H.264, 30 fps, a key frame every three seconds, AAC at 48 kHz stereo. The token needs `pages_manage_posts`, `pages_read_engagement` and `pages_show_list`, as the Page's other posts do.
 
 `src/lib/bulletin-queue.ts` holds the rule for what a run does with a bulletin at a given moment (`bulletinStep`).
 

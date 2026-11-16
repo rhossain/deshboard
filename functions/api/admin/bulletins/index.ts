@@ -6,7 +6,7 @@
  *                               articles first (within a quarter of an hour); otherwise the scripts sent are the ones.
  */
 import { actionContext, answer, readJson } from "../../../../src/lib/admin-api";
-import { guard, storiesOf, syncBulletin } from "../../../../src/lib/bulletin-admin";
+import { bulletinsLive, guard, storiesOf, syncBulletin } from "../../../../src/lib/bulletin-admin";
 import { createBulletin, listBulletins } from "../../../../src/lib/bulletin-store";
 import { queueSettings } from "../../../../src/lib/social-settings";
 import { readSettings } from "../../../../src/lib/social-store";
@@ -17,7 +17,7 @@ export const onRequestGet: Handler = ({ env, data }) =>
     const { db } = actionContext(env, `panel:${data.admin.email}`);
     const now = Date.now();
     const bulletins = await listBulletins(db, { from: new Date(now - 30 * 3600_000).toISOString(), to: new Date(now + 48 * 3600_000).toISOString(), limit: 80 });
-    return { now: new Date(now).toISOString(), live: (env as unknown as Record<string, unknown>).BULLETINS === "on", settings: queueSettings(await readSettings(db)), bulletins };
+    return { now: new Date(now).toISOString(), live: await bulletinsLive(db), settings: queueSettings(await readSettings(db)), bulletins };
   });
 
 export const onRequestPost: Handler = ({ request, env, data, waitUntil }) =>

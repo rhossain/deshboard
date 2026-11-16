@@ -6,11 +6,13 @@
  *               approved bulletin that is due made, by starting the Bulletins workflow for it.
  *   make <id>   the Bulletins workflow: the voice, the render, then the video to the admin's Telegram chat.
  *
- * BULLETINS: off (or unset: nothing happens), dry (everything but posting) or on. Posting to the Page isn't built yet,
- * so on behaves as dry and says so.
+ * BULLETINS: off (or unset: nothing happens), dry (everything but posting) or on: the video is put on the Page as a
+ * Reel when it is made, scheduled for the bulletin's time (out at once when that is less than eleven minutes off), and
+ * plan marks it posted once it is out. While posting is paused in the admin, on behaves as dry.
  *
  * Environment: CLOUDFLARE_ACCOUNT_ID and SOCIAL_DB_TOKEN (the admin's database), TELEGRAM_BOT_TOKEN and
- * TELEGRAM_ADMIN_CHAT_ID, ANTHROPIC_API_KEY (plan), ELEVENLABS_API_KEY (make), GITHUB_TOKEN and GITHUB_REPOSITORY
+ * TELEGRAM_ADMIN_CHAT_ID, ANTHROPIC_API_KEY (plan), ELEVENLABS_API_KEY (make), FB_PAGE_ID and FB_PAGE_TOKEN (on),
+ * GITHUB_TOKEN and GITHUB_REPOSITORY
  * (plan starts the workflow; BULLETINS_REF, the branch its file is read from, is main unless set). Optional, as
  * scripts/make-bulletin.ts: BULLETIN_MODEL, ANTHROPIC_WORKSPACE_ID, BULLETIN_VOICE, BULLETIN_VOICE_ID,
  * BULLETIN_VOICE_MODEL, BULLETIN_JOBS, BULLETIN_DIR, SITE.
@@ -18,12 +20,14 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { BULLETIN_TIMES, bulletinSpec, type BulletinStory, bulletinsToDraft, clockBn, draftStory } from "../src/lib/bulletin";
+import { BULLETIN_TIMES, bulletinCaption, bulletinSpec, type BulletinStory, bulletinsToDraft, clockBn, draftStory } from "../src/lib/bulletin";
 import { pickBulletin } from "../src/lib/bulletin-pick";
 import { bulletinStep, REDRAFTS } from "../src/lib/bulletin-queue";
 import { SCRIPT_MODEL, writeScript } from "../src/lib/bulletin-script";
 import { type Bulletin, bulletinForSlot, getBulletin, insertBulletin, listBulletins, updateBulletin } from "../src/lib/bulletin-store";
 import { findVoice, speak, VOICE_MODEL, VOICE_NAME } from "../src/lib/elevenlabs";
+import { graphFromEnv } from "../src/lib/facebook-graph";
+import { publishVideo, videoLink, videoState } from "../src/lib/facebook-reels";
 import { DATA_DIR, type PackedFeed, unpackFeed } from "../src/lib/packed";
 import { pageStories } from "../src/lib/page-posts";
 import { apiAccessFromEnv, type Db, fromApi } from "../src/lib/social-db";
@@ -169,6 +173,27 @@ async function plan(db: Db): Promise<void> {
       say(`- ${b.id}: ${(e as Error).message}`); // Changed by a person meanwhile: the next run looks again.
     }
   }
+  // 4. Bulletins scheduled on Facebook whose time has come: out, or not.
+  const fb = graphFromEnv(env);
+  if (fb) {
+    for (const b of await listBulletins(db, { statuses: ["ready"], from: new Date(now - 24 * 3600_000).toISOString(), limit: 20 })) {
+      if (!b.fbPostId || now < Date.parse(b.scheduledAt)) continue;
+      try {
+        const state = await videoState(fb, b.fbPostId);
+        if (state.state === "out") {
+          const posted = await updateBulletin(db, b.id, b.version, { status: "posted", postedAt: new Date(now).toISOString(), permalink: await videoLink(fb, b.fbPostId) }, "run", "bulletin.posted");
+          await syncBulletinTelegram(db, posted, tg, review);
+          say(`- ${clockBn(Date.parse(b.scheduledAt))}: out on the Page`);
+        } else if (state.state === "failed") {
+          const failed = await updateBulletin(db, b.id, b.version, { status: "failed", error: `Facebook couldn't publish it: ${state.detail}` }, "run", "bulletin.failed");
+          await syncBulletinTelegram(db, failed, tg, review);
+          say(`- ${clockBn(Date.parse(b.scheduledAt))}: Facebook couldn't publish it: ${state.detail}`);
+        } else if (now > Date.parse(b.scheduledAt) + 30 * 60_000) say(`- ${clockBn(Date.parse(b.scheduledAt))}: still not out on Facebook (${state.detail ?? "waiting"})`);
+      } catch (e) {
+        say(`- ${b.id}: ${(e as Error).message}`);
+      }
+    }
+  }
   if (!log.length) say("- nothing due");
 }
 
@@ -221,12 +246,38 @@ async function make(db: Db, id: string): Promise<number> {
     const duration = Math.round(Number(probe.stdout) * 10) / 10 || null;
     say(`- render: ${(bytes.length / 1e6).toFixed(1)} MB, ${duration ?? "?"} s`);
 
-    if (MODE === "on") say("- posting to the Page isn't built yet: this bulletin is a preview only");
-    b = (await getBulletin(db, id)) ?? b;
-    const done = await updateBulletin(db, id, b.version, { status: "dry", duration, error: null }, "run", "bulletin.made", { duration, bytes: bytes.length });
+    const posting = MODE === "on" && !settings.paused;
+    const fb = graphFromEnv(env);
+    if (posting && !fb) return await fail("FB_PAGE_TOKEN or FB_PAGE_ID isn't set, so it can't be posted.");
     if (tg) {
-      const sent = await sendVideo(tg, bytes, `বুলেটিন · ${clockBn(at)} · ${stories.length}টি খবর\nPreview: nothing was posted.`);
+      const what = posting ? "Being put on Facebook now." : `Preview: nothing was posted${MODE === "on" ? " (posting is paused)" : ""}.`;
+      const sent = await sendVideo(tg, bytes, `বুলেটিন · ${clockBn(at)} · ${stories.length}টি খবর\n${what}`);
       if (!sent) await sendMessage(tg, "The bulletin's video was made but couldn't be sent here; it is the Bulletins run's artifact.");
+    }
+    b = (await getBulletin(db, id)) ?? b;
+    if (!posting || !fb) {
+      const done = await updateBulletin(db, id, b.version, { status: "dry", duration, error: null, ...(MODE === "on" ? { note: "Posting is paused." } : {}) }, "run", "bulletin.made", { duration, bytes: bytes.length });
+      await syncBulletinTelegram(db, done, tg, review);
+      return 0;
+    }
+
+    // On the Page: scheduled for its time when that is far enough off, otherwise out at once.
+    const caption = b.caption.trim() || bulletinCaption(at, stories);
+    const out = await publishVideo(fb, bytes, { description: caption, title: `বার্তাবোর্ড বুলেটিন · ${clockBn(at)}`, at, seconds: duration ?? 0, aiMade: true });
+    say(`- Facebook: ${out.kind === "reel" ? "a Reel" : "a Page video (too long for a Reel)"}, ${out.scheduled ? `scheduled for ${new Date(at).toISOString()}` : "going out now"}`);
+    let done = await updateBulletin(db, id, b.version, { status: "ready", duration, error: null, caption, fbPostId: out.videoId }, "run", "bulletin.scheduled", { video: out.videoId, kind: out.kind, scheduled: out.scheduled });
+    if (!out.scheduled) {
+      // Out now: Facebook takes a minute or two to process it. Past four, the next timed run looks again.
+      for (let i = 0; i < 16; i++) {
+        await new Promise((r) => setTimeout(r, 15_000));
+        const state = await videoState(fb, out.videoId).catch(() => null);
+        if (state?.state === "failed") return await fail(`Facebook couldn't publish it: ${state.detail}`);
+        if (state?.state === "out") {
+          done = await updateBulletin(db, id, done.version, { status: "posted", postedAt: new Date().toISOString(), permalink: await videoLink(fb, out.videoId) }, "run", "bulletin.posted");
+          say("- Facebook: it is out");
+          break;
+        }
+      }
     }
     await syncBulletinTelegram(db, done, tg, review);
     return 0;

@@ -45,7 +45,8 @@ const MOVES: Record<BulletinStatus, BulletinStatus[]> = {
   draft: ["approved", "rejected", "skipped"],
   approved: ["draft", "rendering", "rejected", "skipped"],
   rendering: ["ready", "dry", "failed"],
-  ready: ["posting", "skipped"],
+  // ready: on Facebook, scheduled. posted once it is out; skipped when stopped before; failed if Facebook gives up.
+  ready: ["posting", "posted", "skipped", "failed"],
   posting: ["posted", "failed"],
   posted: [],
   rejected: ["draft"],

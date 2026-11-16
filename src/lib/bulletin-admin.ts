@@ -4,12 +4,14 @@
  * kept in step.
  */
 import { type BulletinStory, MAX_SCRIPT_CHARS, MAX_STORIES, OTHER_REPORTS, visualOf } from "./bulletin";
-import { type Bulletin, BulletinError, StaleBulletin } from "./bulletin-store";
+import { type Bulletin, BulletinError, getBulletin, StaleBulletin, updateBulletin } from "./bulletin-store";
+import { graphFromEnv } from "./facebook-graph";
+import { deleteVideo } from "./facebook-reels";
 import { CATEGORIES, type Category } from "./categories";
 import { ActionError } from "./social-actions";
 import type { Db } from "./social-db";
 import { queueSettings } from "./social-settings";
-import { readSettings } from "./social-store";
+import { lastRunOf, readSettings } from "./social-store";
 import { telegramFromEnv } from "./telegram";
 import { syncBulletinTelegram } from "./telegram-bulletin";
 
@@ -62,12 +64,40 @@ export function storiesOf(raw: unknown): BulletinStory[] {
   });
 }
 
-/** How a bulletin's Telegram message is written here: the lock from the settings, a trial unless BULLETINS is on. */
-export async function reviewOptions(db: Db, env: Record<string, unknown>) {
-  return { lockMinutes: queueSettings(await readSettings(db)).bulletinLockMinutes, trial: env.BULLETINS !== "on" };
+/**
+ * Stops a bulletin that is on Facebook but not out yet (ready: scheduled for its time): the scheduled video is taken
+ * off the Page, then the bulletin is marked skipped. Nothing is marked if Facebook won't take it off.
+ */
+export async function stopBulletin(db: Db, env: Record<string, unknown>, id: string, version: number, actor: string): Promise<Bulletin> {
+  const current = await getBulletin(db, id);
+  if (!current || current.version !== version) throw new StaleBulletin(id, current);
+  if (current.status !== "ready") throw new BulletinError(current.status === "posted" ? "It is already out. Take it down on Facebook." : `A ${current.status} bulletin has nothing scheduled to stop.`);
+  if (current.fbPostId) {
+    const fb = graphFromEnv(env as Record<string, string | undefined>);
+    if (!fb) throw new BulletinError("Facebook isn't set up here, so it can't be stopped from this page. Remove it in Meta Business Suite.");
+    try {
+      await deleteVideo(fb, current.fbPostId);
+    } catch (e) {
+      throw new BulletinError(`Facebook wouldn't remove it: ${(e as Error).message}`);
+    }
+  }
+  return updateBulletin(db, id, version, { status: "skipped", decidedBy: actor, decidedAt: new Date().toISOString(), note: "Stopped before it went out." }, actor, "bulletin.stop");
+}
+
+/**
+ * Whether bulletins are posted to the Page: as the timed run last ran (scripts/run-bulletins.ts records each plan as
+ * bulletins-plan, or bulletins-plan-dry in a trial), so the admin needs no setting of its own to know.
+ */
+export async function bulletinsLive(db: Db): Promise<boolean> {
+  return (await lastRunOf(db, ["bulletins-plan", "bulletins-plan-dry"]))?.step === "bulletins-plan";
+}
+
+/** How a bulletin's Telegram message is written here: the lock from the settings, a trial unless the runs are live. */
+export async function reviewOptions(db: Db) {
+  return { lockMinutes: queueSettings(await readSettings(db)).bulletinLockMinutes, trial: !(await bulletinsLive(db)) };
 }
 
 /** Rewrites (or sends) the bulletin's Telegram message after a change made in the admin. */
 export async function syncBulletin(env: Record<string, unknown>, db: Db, bulletin: Bulletin): Promise<void> {
-  await syncBulletinTelegram(db, bulletin, telegramFromEnv(env as Record<string, string | undefined>), await reviewOptions(db, env));
+  await syncBulletinTelegram(db, bulletin, telegramFromEnv(env as Record<string, string | undefined>), await reviewOptions(db));
 }

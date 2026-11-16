@@ -11,6 +11,7 @@ import {
   bulletinProblems,
   bulletinsToDraft,
   bulletinSlots,
+  bulletinCaption,
   bulletinSpec,
   bulletinTimesOf,
   type BulletinStory,
@@ -21,7 +22,7 @@ import {
   nextLineBn,
   SECTION_COLORS,
 } from "../src/lib/bulletin";
-import { guard, storiesOf } from "../src/lib/bulletin-admin";
+import { guard, stopBulletin, storiesOf } from "../src/lib/bulletin-admin";
 import { BULLETIN_FRESH_MS, pickBulletin } from "../src/lib/bulletin-pick";
 import { bulletinStep, MANUAL_STALE_MS, RENDER_LIMIT_MS } from "../src/lib/bulletin-queue";
 import { articleText, figures, parseDraft, scaled, SCRIPT_WORDS, spelled, unsupportedFigures, visualOf, writeScript } from "../src/lib/bulletin-script";
@@ -43,6 +44,7 @@ import {
   updateBulletin,
 } from "../src/lib/bulletin-store";
 import { findVoice, speak, wordTimes } from "../src/lib/elevenlabs";
+import { publishVideo, REEL_MAX_SECONDS, videoLink, videoState } from "../src/lib/facebook-reels";
 import type { PostChoice } from "../src/lib/page-posts";
 import { ActionError } from "../src/lib/social-actions";
 import { bulletinButtons, bulletinReviewText } from "../src/lib/telegram-bulletin";
@@ -450,6 +452,134 @@ async function scripts() {
   });
 }
 
+// ---------- Facebook, against a stand-in Graph API ----------
+
+interface GraphCall {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  params: Record<string, string>;
+  bytes: number;
+}
+
+/** Replaces fetch with a Graph API that takes Reels and Page videos; `calls` collects what it was asked. */
+function fakeGraph(calls: GraphCall[], state: Record<string, unknown> = { video_status: "ready", publishing_phase: { status: "completed", publish_status: "published" } }) {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    const body = init?.body;
+    const params: Record<string, string> = {};
+    let bytes = 0;
+    if (body instanceof URLSearchParams) body.forEach((v, k) => (params[k] = v));
+    else if (body instanceof FormData) body.forEach((v, k) => (typeof v === "string" ? (params[k] = v) : (bytes = v.size)));
+    else if (body instanceof ArrayBuffer) bytes = body.byteLength;
+    new URL(url).searchParams.forEach((v, k) => (params[k] = v));
+    calls.push({ url: url.split("?")[0], method, headers: (init?.headers ?? {}) as Record<string, string>, params, bytes });
+    const json = (o: unknown) => new Response(JSON.stringify(o));
+    if (url.includes("rupload.facebook.com")) return json({ success: true });
+    if (url.includes("graph-video.facebook.com")) return json({ id: "vid_long" });
+    if (url.includes("/video_reels")) return json(params.upload_phase === "start" ? { video_id: "vid_1", upload_url: "https://rupload.facebook.com/video-upload/v23.0/vid_1" } : { success: true });
+    if (method === "DELETE") return json({ success: true });
+    if (params.fields === "access_token") return json({ access_token: "page-token" });
+    if (params.fields === "permalink_url") return json({ permalink_url: "/reel/999/" });
+    if (params.fields === "status,published") return json({ status: state });
+    return json({});
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = real;
+  };
+}
+
+async function facebook() {
+  const access = { token: "system-token", pageId: "PAGE" };
+  const video = new Uint8Array(2048);
+  const at = Date.parse("2026-11-16T10:00:00.000Z");
+
+  await test("a bulletin goes on the Page as a Reel, scheduled for its time", async () => {
+    const calls: GraphCall[] = [];
+    const undo = fakeGraph(calls);
+    try {
+      const out = await publishVideo(access, video, { description: "বুলেটিন", title: "শিরোনাম", at, seconds: 72, aiMade: true }, at - 20 * 60_000);
+      assert.deepEqual(out, { videoId: "vid_1", kind: "reel", scheduled: true });
+      const [start, upload, finish] = calls.filter((c) => c.method === "POST");
+      assert.ok(start.url.endsWith("/PAGE/video_reels"));
+      assert.equal(start.params.upload_phase, "start");
+      assert.equal(start.params.access_token, "page-token");
+      assert.equal(upload.url, "https://rupload.facebook.com/video-upload/v23.0/vid_1");
+      assert.equal(upload.headers.Authorization, "OAuth page-token");
+      assert.equal(upload.headers.file_size, "2048");
+      assert.equal(upload.headers.offset, "0");
+      assert.equal(upload.bytes, 2048);
+      assert.equal(finish.params.upload_phase, "finish");
+      assert.equal(finish.params.video_id, "vid_1");
+      assert.equal(finish.params.video_state, "SCHEDULED");
+      assert.equal(finish.params.scheduled_publish_time, String(at / 1000));
+      assert.equal(finish.params.description, "বুলেটিন");
+      assert.equal(finish.params.is_ai_generated, "true");
+    } finally {
+      undo();
+    }
+  });
+
+  await test("too near its time to schedule, it goes out at once; too long for a Reel, it is a Page video", async () => {
+    const calls: GraphCall[] = [];
+    const undo = fakeGraph(calls);
+    try {
+      const soon = await publishVideo(access, video, { description: "x", at, seconds: 60 }, at - 5 * 60_000);
+      assert.equal(soon.scheduled, false);
+      const finish = calls.filter((c) => c.params.upload_phase === "finish")[0];
+      assert.equal(finish.params.video_state, "PUBLISHED");
+      assert.equal("scheduled_publish_time" in finish.params, false);
+      assert.equal("is_ai_generated" in finish.params, false);
+      calls.length = 0;
+      const long = await publishVideo(access, video, { description: "লম্বা", at, seconds: REEL_MAX_SECONDS + 5 }, at - 20 * 60_000);
+      assert.deepEqual(long, { videoId: "vid_long", kind: "video", scheduled: true });
+      const upload = calls.find((c) => c.url.includes("graph-video.facebook.com"))!;
+      assert.ok(upload.url.endsWith("/PAGE/videos"));
+      assert.equal(upload.params.published, "false");
+      assert.equal(upload.params.scheduled_publish_time, String(at / 1000));
+      assert.equal(upload.bytes, 2048);
+      assert.equal(calls.some((c) => c.url.includes("video_reels")), false);
+    } finally {
+      undo();
+    }
+  });
+
+  await test("where a video stands on Facebook, and its address", async () => {
+    const calls: GraphCall[] = [];
+    let undo = fakeGraph(calls);
+    try {
+      assert.deepEqual(await videoState(access, "vid_1"), { state: "out" });
+      assert.equal(await videoLink(access, "vid_1"), "https://www.facebook.com/reel/999/");
+    } finally {
+      undo();
+    }
+    undo = fakeGraph(calls, { video_status: "ready", publishing_phase: { status: "not_started", publish_status: "scheduled" } });
+    try {
+      assert.deepEqual(await videoState(access, "vid_1"), { state: "waiting", detail: "scheduled" });
+    } finally {
+      undo();
+    }
+    undo = fakeGraph(calls, { video_status: "error", processing_phase: { status: "error", error: { message: "bad file" } } });
+    try {
+      assert.deepEqual(await videoState(access, "vid_1"), { state: "failed", detail: "bad file" });
+    } finally {
+      undo();
+    }
+  });
+
+  await test("the post's text", () => {
+    const text = bulletinCaption(Date.parse("2026-11-15T10:00:00.000Z"), [
+      { short: "চার মাসে ১,১৪৬ কোটি ডলার রেমিট্যান্স", headline: "x" },
+      { short: "", headline: "টস জিতে ব্যাটিংয়ে বাংলাদেশ" },
+    ]);
+    assert.equal(text.split("\n")[0], "বার্তাবোর্ড বুলেটিন · বিকেল ৪টা · ১৫ নভেম্বর");
+    assert.ok(text.includes("১. চার মাসে ১,১৪৬ কোটি ডলার রেমিট্যান্স\n২. টস জিতে ব্যাটিংয়ে বাংলাদেশ"));
+    assert.ok(text.includes("bartaboard.com"));
+  });
+}
+
 // ---------- the table and the store, on SQLite ----------
 
 async function table() {
@@ -644,6 +774,37 @@ async function table() {
     assert.equal(bulletinStep(approved, 30, now + 60_000), "make");
   });
 
+  await test("a bulletin scheduled on Facebook can be stopped: taken off the Page, then skipped", async () => {
+    const env = { FB_PAGE_TOKEN: "t", FB_PAGE_ID: "PAGE" };
+    const b = await createBulletin(db, { stories }, "panel:test", now);
+    const approved = await approveBulletin(db, b.id, b.version, "panel:test");
+    await assert.rejects(stopBulletin(db, env, b.id, approved.version, "telegram"), /nothing scheduled to stop/);
+    const rendering = await updateBulletin(db, b.id, approved.version, { status: "rendering" }, "run");
+    const ready = await updateBulletin(db, b.id, rendering.version, { status: "ready", fbPostId: "vid_1" }, "run");
+    assert.deepEqual(bulletinButtons(ready, { lockMinutes: 30, trial: false, now }).flat().map((x) => x.callback_data).filter(Boolean), [`b-stop:${b.id}`]);
+    assert.match(bulletinReviewText(ready, { lockMinutes: 30, trial: false, now }), /on Facebook, scheduled for/);
+    await assert.rejects(stopBulletin(db, {}, b.id, ready.version, "telegram"), /isn't set up here/);
+    const calls: GraphCall[] = [];
+    const undo = fakeGraph(calls);
+    try {
+      const stopped = await stopBulletin(db, env, b.id, ready.version, "telegram");
+      assert.equal(stopped.status, "skipped");
+      assert.equal(stopped.note, "Stopped before it went out.");
+      const removed = calls.find((c) => c.method === "DELETE")!;
+      assert.ok(removed.url.endsWith("/vid_1"));
+    } finally {
+      undo();
+    }
+    // Once it is out there is nothing to stop.
+    const c = await createBulletin(db, { stories }, "panel:test", now);
+    const a2 = await approveBulletin(db, c.id, c.version, "panel:test");
+    const r2 = await updateBulletin(db, c.id, a2.version, { status: "rendering" }, "run");
+    const ready2 = await updateBulletin(db, c.id, r2.version, { status: "ready", fbPostId: "vid_2" }, "run");
+    const posted = await updateBulletin(db, c.id, ready2.version, { status: "posted", permalink: "https://www.facebook.com/reel/1/" }, "run");
+    await assert.rejects(stopBulletin(db, env, c.id, posted.version, "telegram"), /already out/);
+    assert.match(bulletinReviewText(posted, { lockMinutes: 30, trial: false, now }), /🟢 Posted: https:\/\/www\.facebook\.com\/reel\/1\//);
+  });
+
   await test("the run's steps: rendering, ready, posted", async () => {
     const b = await createBulletin(db, { stories }, "panel:test", now);
     const approved = await approveBulletin(db, b.id, b.version, "panel:test");
@@ -656,10 +817,12 @@ async function table() {
     assert.equal((await getBulletin(db, b.id))?.fbPostId, "123_456");
     assert.equal(posted.status, "posted");
     const listed = await listBulletins(db, { statuses: ["posted"] });
-    assert.deepEqual(listed.map((x) => x.id), [b.id]);
+    assert.ok(listed.some((x) => x.id === b.id));
+    assert.ok(listed.every((x) => x.status === "posted"));
   });
 }
 
 scripts()
+  .then(facebook)
   .then(table)
   .then(() => console.log(`\n${passed} passed`));

@@ -255,6 +255,12 @@ export function bulletinProblems(stories: BulletinStory[]): string[] {
   return problems;
 }
 
+/** The post's text on the Page: the bulletin's name and time, its headlines, where to read more. */
+export function bulletinCaption(at: number, stories: Pick<BulletinStory, "short" | "headline">[]): string {
+  const lines = stories.map((s, i) => `${bn(i + 1)}. ${s.short || s.headline}`);
+  return [`বার্তাবোর্ড বুলেটিন · ${clockBn(at)} · ${dayMonthBn(at)}`, "", ...lines, "", "বিস্তারিত: bartaboard.com", "", "#Bartaboard #বাংলাদেশ #খবর"].join("\n");
+}
+
 /** The renderer's spec for a bulletin going out at `at`. `outlets`: how many the board reads, for the opener. */
 export function bulletinSpec(at: number, stories: BulletinStory[], options: { times?: string[]; outlets?: number } = {}): BulletinSpec {
   const label = (c: Category) => CATEGORIES.find((x) => x.id === c)?.bn ?? "";

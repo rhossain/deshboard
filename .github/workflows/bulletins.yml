@@ -1,6 +1,7 @@
 name: Bulletins
 
-# Makes one video bulletin (docs/bulletin.md): the voice, the render and the preview to the admin's Telegram chat.
+# Makes one video bulletin (docs/bulletin.md): the voice, the render, the preview to the admin's Telegram chat and,
+# with BULLETINS on, the video on the Facebook Page (scheduled for the bulletin's time).
 # Started by the deploy's "Video bulletins" step (scripts/run-bulletins.ts plan) for each approved bulletin that is
 # due, with its id; it can also be started by hand for a bulletin that is waiting to be made. Apart from the deploy
 # because a render takes about five minutes, which the timed run has no room for.
@@ -8,7 +9,7 @@ name: Bulletins
 # This same file also lives on main (the deploy starts it there): from either branch it runs static-export's code.
 #
 # Variable: BULLETINS (dry or on; off or unset, nothing happens). Secrets: ELEVENLABS_API_KEY, SOCIAL_DB_TOKEN,
-# TELEGRAM_BOT_TOKEN. Optional variables: BULLETIN_VOICE_ID, BULLETIN_VOICE_MODEL.
+# TELEGRAM_BOT_TOKEN, FB_PAGE_TOKEN (on). Optional variables: BULLETIN_VOICE_ID, BULLETIN_VOICE_MODEL.
 on:
   workflow_dispatch:
     inputs:
@@ -52,6 +53,8 @@ jobs:
           SOCIAL_DB_TOKEN: ${{ secrets.SOCIAL_DB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_ADMIN_CHAT_ID: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
       - if: always()
         uses: actions/upload-artifact@v4
         with:
