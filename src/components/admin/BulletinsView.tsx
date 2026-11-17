@@ -41,12 +41,14 @@ function editable(b: Bulletin, lockMinutes: number, now: number): boolean {
   return b.kind === "manual" || now < bulletinLockAt(Date.parse(b.scheduledAt), lockMinutes);
 }
 
-function stateLine(b: Bulletin, lockMinutes: number, live: boolean): string {
+function stateLine(b: Bulletin, lockMinutes: number, live: boolean, auto: boolean): string {
   const lock = dhakaTime(bulletinLockAt(Date.parse(b.scheduledAt), lockMinutes));
   switch (b.status) {
     case "draft":
       if (b.kind === "manual") return b.locked ? "Made by hand. Its video is made once you approve it." : "Made by hand. Its scripts are being written and arrive with the next run, within 15 minutes.";
-      return `Approve by ${lock} or it is skipped. Editable until then.`;
+      return auto
+        ? `Goes out at ${dhakaTime(b.scheduledAt)} by itself unless you reject or skip it by ${lock}. Editable until then.`
+        : `Approve by ${lock} or it is skipped. Editable until then.`;
     case "approved":
       return b.kind === "manual" ? "Approved. Its video is made on the next run, within 15 minutes." : `Approved. Its video is made at ${lock}.`;
     case "rendering":
@@ -56,13 +58,13 @@ function stateLine(b: Bulletin, lockMinutes: number, live: boolean): string {
     case "posting":
       return "Being posted.";
     case "posted":
-      return "Posted to the Page.";
+      return "Posted to the Page. It can be taken down at any time.";
     case "dry":
       return live ? "Made and sent to Telegram as a preview; it was not posted." : "Made and sent to Telegram as a preview. Trial: nothing was posted.";
     case "rejected":
       return "Rejected.";
     case "skipped":
-      return b.note?.startsWith("Not made") ? "Skipped." : b.decidedBy === "auto" ? "Skipped: nobody approved it in time." : "Skipped.";
+      return b.note ? "Skipped." : b.decidedBy === "auto" ? "Skipped: nobody approved it in time." : "Skipped.";
     case "failed":
       return b.error ?? "It failed; see the run.";
   }
@@ -231,7 +233,7 @@ function BulletinCard({ bulletin, settings, live, now, onChange, onError }: { bu
         </span>
         <span className={`ml-auto rounded-full border px-2.5 py-0.5 text-[12px] font-semibold ${status.tone}`}>{status.text}</span>
       </header>
-      <p className={`mt-2 text-sm ${bulletin.status === "failed" ? "text-danger" : "text-muted"}`}>{stateLine(bulletin, settings.bulletinLockMinutes, live)}</p>
+      <p className={`mt-2 text-sm ${bulletin.status === "failed" ? "text-danger" : "text-muted"}`}>{stateLine(bulletin, settings.bulletinLockMinutes, live, settings.bulletinPolicy !== "manual")}</p>
       {bulletin.note && <p className="mt-2 rounded-xl bg-surface-2 px-3 py-2 text-[13px] text-muted">{bulletin.note}</p>}
       {bulletin.permalink && (
         <a className="mt-2 inline-block text-sm font-semibold text-accent hover:underline" href={bulletin.permalink} target="_blank" rel="noreferrer">
@@ -304,9 +306,9 @@ function BulletinCard({ bulletin, settings, live, now, onChange, onError }: { bu
             </button>
           </>
         )}
-        {bulletin.status === "ready" && (
-          <button type="button" className={btn} disabled={busy !== null} onClick={() => act("stop")} title="Takes the scheduled video off Facebook">
-            {busy === "stop" ? "Stopping…" : "Stop it"}
+        {(bulletin.status === "ready" || (bulletin.status === "posted" && bulletin.fbPostId)) && (
+          <button type="button" className={btn} disabled={busy !== null} onClick={() => act("stop")} title="Takes the video off Facebook">
+            {busy === "stop" ? "Removing…" : bulletin.status === "ready" ? "Stop it" : "Take it down"}
           </button>
         )}
         {!dirty && ["rejected", "skipped", "failed"].includes(bulletin.status) && upcoming && (
@@ -444,12 +446,13 @@ function BulletinSettings({ settings, onSaved, onError }: { settings: QueueSetti
   const [lead, setLead] = useState(String(settings.bulletinLeadMinutes));
   const [lock, setLock] = useState(String(settings.bulletinLockMinutes));
   const [count, setCount] = useState(String(settings.bulletinStories));
+  const [policy, setPolicy] = useState(settings.bulletinPolicy);
   const [busy, setBusy] = useState(false);
   async function save() {
     setBusy(true);
     try {
       const list = times.split(/[,\s]+/).map((t) => (/^\d:\d\d$/.test(t) ? `0${t}` : t)).filter(Boolean);
-      onSaved(await api.settings({ bulletinTimes: list, bulletinLeadMinutes: Number(lead), bulletinLockMinutes: Number(lock), bulletinStories: Number(count) }));
+      onSaved(await api.settings({ bulletinTimes: list, bulletinLeadMinutes: Number(lead), bulletinLockMinutes: Number(lock), bulletinStories: Number(count), bulletinPolicy: policy }));
     } catch (e) {
       onError((e as Error).message);
     } finally {
@@ -478,6 +481,13 @@ function BulletinSettings({ settings, onSaved, onError }: { settings: QueueSetti
         <label>
           <span className={`${label} mb-1 block`}>Stories a bulletin</span>
           {number(count, setCount, 3, 6)}
+        </label>
+        <label>
+          <span className={`${label} mb-1 block`}>A draft nobody touched</span>
+          <select className={field} value={policy} onChange={(e) => setPolicy(e.target.value === "manual" ? "manual" : "auto_unless_rejected")}>
+            <option value="auto_unless_rejected">Goes out by itself</option>
+            <option value="manual">Is skipped (needs approval)</option>
+          </select>
         </label>
       </div>
       <p className="mt-3 text-xs text-muted">Edits always close at least ten minutes after the draft is made: the voice and the video need the rest. A value outside its range goes back to the usual one.</p>
@@ -525,7 +535,10 @@ export function BulletinsView({ onError, onNotice }: Props) {
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-muted">
         <span className="flex-1">
           {data.live ? "Bulletins are live: an approved one is posted to the Page at its time." : "Trial: bulletins are made and sent to Telegram as previews; nothing is posted to the Page."} A draft is made {data.settings.bulletinLeadMinutes} minutes
-          before each time and must be approved {data.settings.bulletinLockMinutes} minutes before.
+          before each time{" "}
+          {data.settings.bulletinPolicy === "manual"
+            ? `and must be approved ${data.settings.bulletinLockMinutes} minutes before.`
+            : `and goes out by itself unless you reject or skip it ${data.settings.bulletinLockMinutes} minutes before.`}
         </span>
         <button type="button" className={btn} onClick={load}>
           Refresh

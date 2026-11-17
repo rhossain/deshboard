@@ -78,7 +78,7 @@ async function plan(db: Db): Promise<void> {
   const now = Date.now();
   const settings = queueSettings(await readSettings(db));
   const times = settings.bulletinTimes ?? BULLETIN_TIMES;
-  const review = { lockMinutes: settings.bulletinLockMinutes, trial: MODE !== "on", now };
+  const review = { lockMinutes: settings.bulletinLockMinutes, policy: settings.bulletinPolicy, trial: MODE !== "on", now };
   const recent = await listBulletins(db, { from: new Date(now - 20 * 3600_000).toISOString(), to: new Date(now + 26 * 3600_000).toISOString(), limit: 200 });
 
   // 1. Drafts for the table's bulletins that are an hour off.
@@ -145,7 +145,7 @@ async function plan(db: Db): Promise<void> {
   // 3. What is due among those waiting.
   const waiting = await listBulletins(db, span);
   for (const b of waiting) {
-    const step = bulletinStep(b, settings.bulletinLockMinutes, now);
+    const step = bulletinStep(b, settings.bulletinLockMinutes, now, settings.bulletinPolicy);
     if (step === "wait") continue;
     try {
       if (step === "skip") {
@@ -157,8 +157,11 @@ async function plan(db: Db): Promise<void> {
         await syncBulletinTelegram(db, done, tg, review);
         say(`- ${clockBn(Date.parse(b.scheduledAt))}: its making never finished; marked failed`);
       } else {
+        // A draft nobody touched by its lock goes out as it stands (bulletinPolicy): approved here, in the run's name.
+        const approved = b.status === "draft" ? await updateBulletin(db, b.id, b.version, { status: "approved", locked: true, decidedBy: "auto", decidedAt: new Date(now).toISOString() }, "run", "bulletin.auto-approve") : b;
+        if (b.status === "draft") say(`- ${clockBn(Date.parse(b.scheduledAt))}: nobody touched the draft by its lock, so it goes out as it stands`);
         // Marked first, so the next run doesn't start it again while this one's workflow is still queued.
-        const rendering = await updateBulletin(db, b.id, b.version, { status: "rendering" }, "run", "bulletin.make");
+        const rendering = await updateBulletin(db, approved.id, approved.version, { status: "rendering" }, "run", "bulletin.make");
         const why = await startMaking(b.id);
         if (why) {
           const failed = await updateBulletin(db, b.id, rendering.version, { status: "failed", error: why }, "run", "bulletin.make-failed");
@@ -199,7 +202,7 @@ async function plan(db: Db): Promise<void> {
 
 async function make(db: Db, id: string): Promise<number> {
   const settings = queueSettings(await readSettings(db));
-  const review = { lockMinutes: settings.bulletinLockMinutes, trial: MODE !== "on" };
+  const review = { lockMinutes: settings.bulletinLockMinutes, policy: settings.bulletinPolicy, trial: MODE !== "on" };
   let b: Bulletin | null = await getBulletin(db, id);
   if (!b) {
     say(`No bulletin ${id}.`);

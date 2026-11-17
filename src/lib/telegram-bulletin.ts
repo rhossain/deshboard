@@ -15,6 +15,8 @@ const dhakaClock = (at: number) => new Date(at + 6 * 3600_000).toISOString().sli
 
 export interface BulletinReviewOptions {
   lockMinutes: number;
+  /** Whether an untouched draft goes out by itself (the bulletinPolicy setting); it does unless this says manual. */
+  policy?: "auto_unless_rejected" | "manual";
   /** Nothing is posted (BULLETINS=dry). */
   trial: boolean;
   now?: number;
@@ -25,7 +27,10 @@ function stateLine(b: Bulletin, o: BulletinReviewOptions): string {
   const lock = dhakaClock(bulletinLockAt(at, o.lockMinutes));
   switch (b.status) {
     case "draft":
-      return b.kind === "slot" ? `📝 Draft. Approve by ${lock} or it is skipped; editable until then.` : "📝 Draft, made by hand. It is made once you approve it.";
+      if (b.kind !== "slot") return "📝 Draft, made by hand. It is made once you approve it.";
+      return o.policy === "manual"
+        ? `📝 Draft. Approve by ${lock} or it is skipped; editable until then.`
+        : `📝 Draft. It goes out at ${dhakaClock(at)} by itself unless you reject or skip it by ${lock}; editable until then.`;
     case "approved":
       return b.kind === "slot" ? `✅ Approved${b.decidedBy ? ` (${b.decidedBy})` : ""}. The video is made at ${lock}.` : "✅ Approved. The video is made on the next run.";
     case "rendering":
@@ -35,13 +40,14 @@ function stateLine(b: Bulletin, o: BulletinReviewOptions): string {
     case "posting":
       return "⏳ Being posted…";
     case "posted":
-      return `🟢 Posted${b.permalink ? `: ${b.permalink}` : ""}`;
+      return `🟢 Posted${b.permalink ? `: ${b.permalink}` : ""}\nIt can be taken down at any time.`;
     case "dry":
       return `🧪 Made and sent here as a preview. ${b.note?.includes("paused") ? "Posting is paused" : "Trial"}: nothing was posted.`;
     case "rejected":
       return "❌ Rejected.";
     case "skipped":
-      return b.note?.startsWith("Not made") ? `⏭ ${b.note}` : b.decidedBy === "auto" ? "⏭ Skipped: nobody approved it in time." : "⏭ Skipped.";
+      if (b.note?.startsWith("Not made") || b.note?.startsWith("Taken down") || b.note?.startsWith("Stopped")) return `⏭ ${b.note}`;
+      return b.decidedBy === "auto" ? "⏭ Skipped: nobody approved it in time." : "⏭ Skipped.";
     case "failed":
       return `⚠️ Failed: ${b.error ?? "see the run"}`;
   }
@@ -54,7 +60,10 @@ export function bulletinReviewText(b: Bulletin, o: BulletinReviewOptions): strin
   return [head, stateLine(b, o), "", ...stories, ...(b.note ? ["", `Notes: ${b.note}`] : [])].join("\n");
 }
 
-/** Approve, reject and skip under a draft; stop under one scheduled on Facebook; reopen under one decided while its time is still ahead. */
+/**
+ * Approve, reject and skip under a draft; stop under one scheduled on Facebook and take down under one that is out;
+ * reopen under one decided while its time is still ahead.
+ */
 export function bulletinButtons(b: Bulletin, o: BulletinReviewOptions): InlineButton[][] {
   const admin: InlineButton = { text: "Open in admin", url: `${SITE}/admin/` };
   const btn = (text: string, action: string): InlineButton => ({ text, callback_data: `b-${action}:${b.id}` });
@@ -63,6 +72,7 @@ export function bulletinButtons(b: Bulletin, o: BulletinReviewOptions): InlineBu
   if (b.status === "draft") return [[btn("✅ Approve", "approve"), btn("❌ Reject", "reject"), btn("⏭ Skip", "skip")], [admin]];
   if (b.status === "approved") return [[btn("↩️ Back to draft", "reopen"), btn("⏭ Skip", "skip")], [admin]];
   if (b.status === "ready") return [[btn("🛑 Stop it", "stop")], [admin]];
+  if (b.status === "posted" && b.fbPostId) return [[btn("🗑 Take it down", "stop")], [admin]];
   if ((b.status === "rejected" || b.status === "skipped") && open) return [[btn("↩️ Reopen", "reopen")], [admin]];
   return [[admin]];
 }

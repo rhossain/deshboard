@@ -35,6 +35,12 @@ export interface QueueSettings {
   bulletinLockMinutes: number;
   /** Stories in a bulletin the picker makes (3 to 6). */
   bulletinStories: number;
+  /**
+   * What happens to one of the table's bulletins nobody touched by its lock: auto_unless_rejected (it is made and goes
+   * out at its time, and can be stopped or taken down) or manual (it is skipped). Ones made by hand always wait for
+   * their maker.
+   */
+  bulletinPolicy: "auto_unless_rejected" | "manual";
 }
 
 export const DEFAULT_SETTINGS: QueueSettings = {
@@ -49,6 +55,7 @@ export const DEFAULT_SETTINGS: QueueSettings = {
   bulletinLeadMinutes: BULLETIN_LEAD_MINUTES,
   bulletinLockMinutes: BULLETIN_LOCK_MINUTES,
   bulletinStories: BULLETIN_STORIES,
+  bulletinPolicy: "auto_unless_rejected",
 };
 
 const POLICIES: Policy[] = ["manual", "auto_unless_rejected", "auto"];
@@ -88,6 +95,7 @@ export function queueSettings(raw: Record<string, unknown>): QueueSettings {
     bulletinLeadMinutes: bulletinLead,
     bulletinLockMinutes: bulletinLock,
     bulletinStories: Number.isInteger(bStories) && bStories >= 3 && bStories <= 6 ? bStories : DEFAULT_SETTINGS.bulletinStories,
+    bulletinPolicy: raw.bulletinPolicy === "manual" ? "manual" : DEFAULT_SETTINGS.bulletinPolicy,
   };
 }
 

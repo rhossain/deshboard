@@ -93,7 +93,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           await answerCallback(tg.token, cb.id, "Unknown button.");
           return ok();
         }
-        await answerCallback(tg.token, cb.id, { "b-approve": "Approved: the video is made at its lock.", "b-reject": "Rejected: another draft comes next run.", "b-skip": "Bulletin skipped.", "b-reopen": "Back to a draft.", "b-stop": "Stopped: it was taken off Facebook." }[action] ?? "Done.");
+        await answerCallback(tg.token, cb.id, { "b-approve": "Approved: the video is made at its lock.", "b-reject": "Rejected: another draft comes next run.", "b-skip": "Bulletin skipped.", "b-reopen": "Back to a draft.", "b-stop": "Done: it was taken off Facebook." }[action] ?? "Done.");
         await syncBulletinTelegram(db, withMessage(done), tg, review);
       } catch (err) {
         await answerCallback(tg.token, cb.id, err instanceof BulletinError ? err.message : err instanceof StaleBulletin ? "It changed meanwhile; here it is as it stands." : "Something went wrong; try the admin page.");

@@ -65,13 +65,15 @@ export function storiesOf(raw: unknown): BulletinStory[] {
 }
 
 /**
- * Stops a bulletin that is on Facebook but not out yet (ready: scheduled for its time): the scheduled video is taken
- * off the Page, then the bulletin is marked skipped. Nothing is marked if Facebook won't take it off.
+ * Stops a bulletin that is on Facebook: one scheduled for its time (ready), or, at any time after, one already out
+ * (posted). The video is taken off the Page, then the bulletin is marked skipped, with a note of which it was. Nothing
+ * is marked if Facebook won't take it off.
  */
 export async function stopBulletin(db: Db, env: Record<string, unknown>, id: string, version: number, actor: string): Promise<Bulletin> {
   const current = await getBulletin(db, id);
   if (!current || current.version !== version) throw new StaleBulletin(id, current);
-  if (current.status !== "ready") throw new BulletinError(current.status === "posted" ? "It is already out. Take it down on Facebook." : `A ${current.status} bulletin has nothing scheduled to stop.`);
+  if (current.status !== "ready" && current.status !== "posted") throw new BulletinError(`A ${current.status} bulletin has nothing on Facebook to take off.`);
+  const wasOut = current.status === "posted";
   if (current.fbPostId) {
     const fb = graphFromEnv(env as Record<string, string | undefined>);
     if (!fb) throw new BulletinError("Facebook isn't set up here, so it can't be stopped from this page. Remove it in Meta Business Suite.");
@@ -81,7 +83,14 @@ export async function stopBulletin(db: Db, env: Record<string, unknown>, id: str
       throw new BulletinError(`Facebook wouldn't remove it: ${(e as Error).message}`);
     }
   }
-  return updateBulletin(db, id, version, { status: "skipped", decidedBy: actor, decidedAt: new Date().toISOString(), note: "Stopped before it went out." }, actor, "bulletin.stop");
+  return updateBulletin(
+    db,
+    id,
+    version,
+    { status: "skipped", decidedBy: actor, decidedAt: new Date().toISOString(), note: wasOut ? "Taken down from the Page after it went out." : "Stopped before it went out.", permalink: null },
+    actor,
+    wasOut ? "bulletin.take-down" : "bulletin.stop",
+  );
 }
 
 /**
@@ -94,7 +103,8 @@ export async function bulletinsLive(db: Db): Promise<boolean> {
 
 /** How a bulletin's Telegram message is written here: the lock from the settings, a trial unless the runs are live. */
 export async function reviewOptions(db: Db) {
-  return { lockMinutes: queueSettings(await readSettings(db)).bulletinLockMinutes, trial: !(await bulletinsLive(db)) };
+  const settings = queueSettings(await readSettings(db));
+  return { lockMinutes: settings.bulletinLockMinutes, policy: settings.bulletinPolicy, trial: !(await bulletinsLive(db)) };
 }
 
 /** Rewrites (or sends) the bulletin's Telegram message after a change made in the admin. */

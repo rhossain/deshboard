@@ -125,6 +125,9 @@ test("bulletin settings and their defaults", () => {
   assert.equal(DEFAULT_SETTINGS.bulletinLeadMinutes, 60);
   assert.equal(DEFAULT_SETTINGS.bulletinLockMinutes, 30);
   assert.equal(DEFAULT_SETTINGS.bulletinStories, 5);
+  assert.equal(DEFAULT_SETTINGS.bulletinPolicy, "auto_unless_rejected");
+  assert.equal(queueSettings({ bulletinPolicy: "manual" }).bulletinPolicy, "manual");
+  assert.equal(queueSettings({ bulletinPolicy: "whatever" }).bulletinPolicy, "auto_unless_rejected");
   const s = queueSettings({ bulletinTimes: ["11:00", "20:00"], bulletinLeadMinutes: 90, bulletinLockMinutes: 20, bulletinStories: 4 });
   assert.deepEqual(s.bulletinTimes, ["11:00", "20:00"]);
   assert.equal(s.bulletinLeadMinutes, 90);
@@ -698,9 +701,14 @@ async function table() {
     const at = "2026-11-15T10:00:00.000Z";
     const t = (iso: string) => Date.parse(iso);
     const b = (status: string, kind = "slot", updatedAt = at) => ({ status, kind, scheduledAt: at, updatedAt }) as Parameters<typeof bulletinStep>[0];
-    // The table's: a draft waits until the lock (09:30), then is skipped; approved, it is made at the lock.
+    // The table's: a draft waits until the lock (09:30); approved, it is made at the lock.
     assert.equal(bulletinStep(b("draft"), 30, t("2026-11-15T09:29:00Z")), "wait");
-    assert.equal(bulletinStep(b("draft"), 30, t("2026-11-15T09:30:00Z")), "skip");
+    // Untouched at the lock: it goes out as it stands, unless the setting asks for sign-off.
+    assert.equal(bulletinStep(b("draft"), 30, t("2026-11-15T09:30:00Z")), "make");
+    assert.equal(bulletinStep(b("draft"), 30, t("2026-11-15T09:30:00Z"), "manual"), "skip");
+    assert.equal(bulletinStep(b("draft"), 30, t("2026-11-15T09:29:00Z"), "manual"), "wait");
+    assert.equal(bulletinStep(b("rejected"), 30, t("2026-11-15T09:40:00Z")), "wait");
+    assert.equal(bulletinStep(b("skipped"), 30, t("2026-11-15T09:40:00Z")), "wait");
     assert.equal(bulletinStep(b("approved"), 30, t("2026-11-15T09:29:00Z")), "wait");
     assert.equal(bulletinStep(b("approved"), 30, t("2026-11-15T09:32:00Z")), "make");
     // Made by hand: a draft waits for its maker; approved for now, it is made at once; for later, half an hour before.
@@ -730,7 +738,8 @@ async function table() {
     const made = (await insertBulletin(db, { kind: "slot", status: "draft", slot: "2026-11-16T10:00:00.000Z", scheduledAt: "2026-11-16T10:00:00.000Z", stories, note: "Story 1 is its headline only." }))!;
     const o = { lockMinutes: 30, trial: true, now: Date.parse("2026-11-16T09:10:00.000Z") };
     const text = bulletinReviewText(made, o);
-    assert.match(text, /^🎬 Video bulletin · বিকেল ৪টা \(16:00\) · trial\n📝 Draft\. Approve by 15:30/);
+    assert.match(text, /^🎬 Video bulletin · বিকেল ৪টা \(16:00\) · trial\n📝 Draft\. It goes out at 16:00 by itself unless you reject or skip it by 15:30/);
+    assert.match(bulletinReviewText(made, { ...o, policy: "manual" }), /📝 Draft\. Approve by 15:30 or it is skipped/);
     assert.ok(text.includes(`1. ${stories[0].script}`));
     assert.ok(text.includes("key points"));
     assert.ok(text.endsWith("Notes: Story 1 is its headline only."));
@@ -790,7 +799,7 @@ async function table() {
     const env = { FB_PAGE_TOKEN: "t", FB_PAGE_ID: "PAGE" };
     const b = await createBulletin(db, { stories }, "panel:test", now);
     const approved = await approveBulletin(db, b.id, b.version, "panel:test");
-    await assert.rejects(stopBulletin(db, env, b.id, approved.version, "telegram"), /nothing scheduled to stop/);
+    await assert.rejects(stopBulletin(db, env, b.id, approved.version, "telegram"), /nothing on Facebook to take off/);
     const rendering = await updateBulletin(db, b.id, approved.version, { status: "rendering" }, "run");
     const ready = await updateBulletin(db, b.id, rendering.version, { status: "ready", fbPostId: "vid_1" }, "run");
     assert.deepEqual(bulletinButtons(ready, { lockMinutes: 30, trial: false, now }).flat().map((x) => x.callback_data).filter(Boolean), [`b-stop:${b.id}`]);
@@ -807,14 +816,27 @@ async function table() {
     } finally {
       undo();
     }
-    // Once it is out there is nothing to stop.
+    // Once it is out it can still be taken down, at any time.
     const c = await createBulletin(db, { stories }, "panel:test", now);
     const a2 = await approveBulletin(db, c.id, c.version, "panel:test");
     const r2 = await updateBulletin(db, c.id, a2.version, { status: "rendering" }, "run");
     const ready2 = await updateBulletin(db, c.id, r2.version, { status: "ready", fbPostId: "vid_2" }, "run");
     const posted = await updateBulletin(db, c.id, ready2.version, { status: "posted", permalink: "https://www.facebook.com/reel/1/" }, "run");
-    await assert.rejects(stopBulletin(db, env, c.id, posted.version, "telegram"), /already out/);
-    assert.match(bulletinReviewText(posted, { lockMinutes: 30, trial: false, now }), /🟢 Posted: https:\/\/www\.facebook\.com\/reel\/1\//);
+    assert.match(bulletinReviewText(posted, { lockMinutes: 30, trial: false, now }), /🟢 Posted: https:\/\/www\.facebook\.com\/reel\/1\/\nIt can be taken down at any time\./);
+    assert.deepEqual(bulletinButtons(posted, { lockMinutes: 30, trial: false, now: now + 9 * 3600_000 }).flat().map((x) => x.callback_data).filter(Boolean), [`b-stop:${c.id}`]);
+    const calls2: GraphCall[] = [];
+    const undo2 = fakeGraph(calls2);
+    try {
+      const down = await stopBulletin(db, env, c.id, posted.version, "telegram");
+      assert.equal(down.status, "skipped");
+      assert.equal(down.note, "Taken down from the Page after it went out.");
+      assert.equal(down.permalink, null);
+      assert.ok(calls2.find((x) => x.method === "DELETE")!.url.endsWith("/vid_2"));
+      assert.match(bulletinReviewText(down, { lockMinutes: 30, trial: false, now }), /⏭ Taken down from the Page/);
+      await assert.rejects(stopBulletin(db, env, c.id, down.version, "telegram"), /nothing on Facebook to take off/);
+    } finally {
+      undo2();
+    }
   });
 
   await test("the run's steps: rendering, ready, posted", async () => {
