@@ -41,7 +41,7 @@ function stateLine(b: Bulletin, o: BulletinReviewOptions): string {
     case "rejected":
       return "❌ Rejected.";
     case "skipped":
-      return b.decidedBy === "auto" ? "⏭ Skipped: nobody approved it in time." : "⏭ Skipped.";
+      return b.note?.startsWith("Not made") ? `⏭ ${b.note}` : b.decidedBy === "auto" ? "⏭ Skipped: nobody approved it in time." : "⏭ Skipped.";
     case "failed":
       return `⚠️ Failed: ${b.error ?? "see the run"}`;
   }

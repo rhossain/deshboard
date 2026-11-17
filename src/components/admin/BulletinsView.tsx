@@ -62,7 +62,7 @@ function stateLine(b: Bulletin, lockMinutes: number, live: boolean): string {
     case "rejected":
       return "Rejected.";
     case "skipped":
-      return b.decidedBy === "auto" ? "Skipped: nobody approved it in time." : "Skipped.";
+      return b.note?.startsWith("Not made") ? "Skipped." : b.decidedBy === "auto" ? "Skipped: nobody approved it in time." : "Skipped.";
     case "failed":
       return b.error ?? "It failed; see the run.";
   }

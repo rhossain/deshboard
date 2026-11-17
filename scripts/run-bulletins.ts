@@ -22,7 +22,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { BULLETIN_TIMES, bulletinCaption, bulletinSpec, type BulletinStory, bulletinsToDraft, clockBn, draftStory } from "../src/lib/bulletin";
 import { pickBulletin } from "../src/lib/bulletin-pick";
-import { bulletinStep, REDRAFTS } from "../src/lib/bulletin-queue";
+import { bulletinStep, NEVER_FINISHED, REDRAFTS, stillWorthMaking } from "../src/lib/bulletin-queue";
 import { SCRIPT_MODEL, writeScript } from "../src/lib/bulletin-script";
 import { type Bulletin, bulletinForSlot, getBulletin, insertBulletin, listBulletins, updateBulletin } from "../src/lib/bulletin-store";
 import { findVoice, speak, VOICE_MODEL, VOICE_NAME } from "../src/lib/elevenlabs";
@@ -153,7 +153,7 @@ async function plan(db: Db): Promise<void> {
         await syncBulletinTelegram(db, done, tg, review);
         say(`- ${clockBn(Date.parse(b.scheduledAt))}: skipped, nobody approved it in time`);
       } else if (step === "stuck") {
-        const done = await updateBulletin(db, b.id, b.version, { status: "failed", error: "The video was never finished (its run stopped)." }, "run", "bulletin.stuck");
+        const done = await updateBulletin(db, b.id, b.version, { status: "failed", error: NEVER_FINISHED }, "run", "bulletin.stuck");
         await syncBulletinTelegram(db, done, tg, review);
         say(`- ${clockBn(Date.parse(b.scheduledAt))}: its making never finished; marked failed`);
       } else {
@@ -205,11 +205,24 @@ async function make(db: Db, id: string): Promise<number> {
     say(`No bulletin ${id}.`);
     return 1;
   }
+  // Given up on while this run was still waiting for a runner: taken up again.
+  if (b.status === "failed" && b.error === NEVER_FINISHED) {
+    b = await updateBulletin(db, id, b.version, { status: "rendering", error: null }, "run", "bulletin.resumed");
+    say("- its run started late; taken up again");
+  }
   if (b.status !== "rendering") {
     say(`Bulletin ${id} is ${b.status}, not waiting to be made.`);
     return 0;
   }
   const at = Date.parse(b.scheduledAt);
+  if (!stillWorthMaking(b, Date.now())) {
+    const late = Math.round((Date.now() - at) / 60_000);
+    const skipped = await updateBulletin(db, id, b.version, { status: "skipped", decidedBy: "auto", decidedAt: new Date().toISOString(), note: `Not made: its run only started ${late} minutes after its time (GitHub kept it waiting).` }, "run", "bulletin.late");
+    await syncBulletinTelegram(db, skipped, tg, review);
+    if (tg) await sendMessage(tg, `⚠️ The ${clockBn(at)} bulletin was not made: GitHub only started its run ${late} minutes after its time. Nothing was posted. You can make one by hand in the admin.`);
+    say(`- not made: the run started ${late} minutes after its time`);
+    return 0;
+  }
   const dir = path.resolve(env.BULLETIN_DIR?.trim() || ".bulletin");
   mkdirSync(dir, { recursive: true });
   const fail = async (why: string) => {

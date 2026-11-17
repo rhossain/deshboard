@@ -18,7 +18,7 @@ These settings sit beside the Page's own lead (40 minutes) and lock (5 minutes),
 - `migrations/0005_bulletin.sql`: the `bulletins` table, one row a bulletin: draft → approved → rendering → ready → posting → posted, or rejected, skipped, failed, dry. One live bulletin per time of the table; none of that for ones made by hand. Apply with the ops workflow's `d1-migrate`.
 - `src/lib/bulletin.ts`: the times (`bulletinSlots`, `bulletinsToDraft`, `bulletinLockAt`), Bangla labels (`clockBn`, `dateLineBn`, `nextLineBn`), each section's colour, a story as the picker drafts it (`draftStory`: the headline as the script and the outlets carrying it as the graphic, both true without reading the article), what stops a bulletin (`bulletinProblems`) and the renderer's spec (`bulletinSpec`).
 - `src/lib/bulletin-store.ts`: the rows and what a person does to one: `createBulletin` (by hand, for now or any time ahead), `editBulletin` (stories, scripts, caption, time; closed at the lock for the table's, open for one made by hand; an approved one whose script changes goes back to draft), `approveBulletin`, `rejectBulletin`, `skipBulletin`, `reopenBulletin`. Every change is made against the version read and written to the audit log.
-- `npm run test:bulletin`: 40 checks of all of this, on the real schema.
+- `npm run test:bulletin`: 41 checks of all of this, on the real schema.
 
 ## Scripts and voice
 
@@ -42,6 +42,8 @@ Neither can be run from the laptop: the keys live in GitHub's secrets, so real r
 A Reel is 3 to 90 seconds; a bulletin longer than 89 goes up as an ordinary Page video instead (not tried against Facebook yet). The renderer's output is what Reels ask for: H.264, 30 fps, a key frame every three seconds, AAC at 48 kHz stereo. The token needs `pages_manage_posts`, `pages_read_engagement` and `pages_show_list`, as the Page's other posts do.
 
 `src/lib/bulletin-queue.ts` holds the rule for what a run does with a bulletin at a given moment (`bulletinStep`).
+
+**When GitHub is slow.** On 16 November 2026 GitHub kept the 21:00 bulletin's run (and the deploy after it) waiting about fifty minutes for a runner; the plan had given the bulletin up as lost after 25, so when the run started there was nothing for it to make, and nothing was posted. Since then a making is only given up after 90 minutes; a run that starts late takes its bulletin up again even if it was given up; one of the table's is still made and sent out (at once, late) up to 45 minutes after its time, and past that it is skipped with a message on Telegram saying why. One made by hand has no hour to miss and is always made.
 
 To switch it on: push `static-export`; copy `deploy.yml`, `ops.yml` and `bulletins.yml` to `main` (the timer starts the deploy there, and the deploy starts Bulletins there); run the ops task `d1-migrate` (migration 0005); set the variable `BULLETINS` to `dry`.
 

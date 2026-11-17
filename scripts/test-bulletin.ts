@@ -24,7 +24,7 @@ import {
 } from "../src/lib/bulletin";
 import { guard, stopBulletin, storiesOf } from "../src/lib/bulletin-admin";
 import { BULLETIN_FRESH_MS, pickBulletin } from "../src/lib/bulletin-pick";
-import { bulletinStep, MANUAL_STALE_MS, RENDER_LIMIT_MS } from "../src/lib/bulletin-queue";
+import { bulletinStep, LATE_MS, MANUAL_STALE_MS, RENDER_LIMIT_MS, stillWorthMaking } from "../src/lib/bulletin-queue";
 import { articleText, figures, parseDraft, scaled, SCRIPT_WORDS, spelled, unsupportedFigures, visualOf, writeScript } from "../src/lib/bulletin-script";
 import {
   approveBulletin,
@@ -712,6 +712,18 @@ async function table() {
     assert.equal(bulletinStep(b("rendering", "slot", "2026-11-15T09:32:00.000Z"), 30, t("2026-11-15T09:40:00Z")), "wait");
     assert.equal(bulletinStep(b("rendering", "slot", "2026-11-15T09:32:00.000Z"), 30, t("2026-11-15T09:32:00Z") + RENDER_LIMIT_MS + 1), "stuck");
     assert.equal(bulletinStep(b("posted"), 30, t("2026-11-15T12:00:00Z")), "wait");
+    // A run GitHub kept waiting for fifty minutes (16 Nov 2026) is still only waiting, not lost.
+    assert.equal(bulletinStep(b("rendering", "slot", "2026-11-15T09:32:00.000Z"), 30, t("2026-11-15T10:22:00Z")), "wait");
+    assert.ok(RENDER_LIMIT_MS >= 60 * 60_000);
+  });
+
+  await test("a run that starts late: the table's bulletin is still made for 45 minutes, one made by hand always", () => {
+    const at = "2026-11-15T15:00:00.000Z";
+    const slot = { kind: "slot" as const, scheduledAt: at };
+    assert.equal(stillWorthMaking(slot, Date.parse("2026-11-15T15:22:00Z")), true);
+    assert.equal(stillWorthMaking(slot, Date.parse(at) + LATE_MS), true);
+    assert.equal(stillWorthMaking(slot, Date.parse(at) + LATE_MS + 1), false);
+    assert.equal(stillWorthMaking({ kind: "manual", scheduledAt: at }, Date.parse("2026-11-15T19:00:00Z")), true);
   });
 
   await test("the review message and its buttons", async () => {
